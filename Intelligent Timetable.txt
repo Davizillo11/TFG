@@ -1,0 +1,360 @@
+Intelligent Timetable & Classroom Assignment System    
+
+ Context
+
+ Final year university project. The goal is to build a web-based tool that allows university administrators to input data (classrooms, professors, subjects, student groups) and automatically generate an optimal
+  timetable that assigns classrooms, time slots, and professors while respecting constraints (no double-booking of professors, classrooms, or student groups).
+
+ Tech stack: HTML/CSS/JS frontend | Node.js + Express backend | SQLite database
+ Scope: University-level (faculties, degree programs, years, groups)
+ Auth: Role-based (admin, viewer)
+ Timeline: 3-4 months
+
+ ---
+ Phase 1: Project Setup & Database (Week 1-2)
+
+ 1.1 Project Structure
+
+ timetable-system/
+ ├── client/                    # Frontend (static files served by Express)
+ │   ├── index.html
+ │   ├── css/
+ │   │   └── style.css
+ │   ├── js/
+ │   │   ├── app.js             # Router & main app logic
+ │   │   ├── api.js             # API client (fetch wrappers)
+ │   │   ├── auth.js            # Login/session handling
+ │   │   └── components/        # Reusable UI components
+ │   │       ├── table.js
+ │   │       ├── form.js
+ │   │       └── timetableView.js
+ │   └── pages/                 # Page-specific JS
+ │       ├── dashboard.js
+ │       ├── professors.js
+ │       ├── classrooms.js
+ │       ├── subjects.js
+ │       ├── groups.js
+ │       ├── timeslots.js
+ │       └── generate.js
+ ├── server/
+ │   ├── index.js               # Entry point, starts Express
+ │   ├── app.js                 # Express app config, middleware
+ │   ├── routes/
+ │   │   ├── auth.js
+ │   │   ├── professors.js
+ │   │   ├── classrooms.js
+ │   │   ├── subjects.js
+ │   │   ├── groups.js
+ │   │   ├── timeslots.js
+ │   │   └── schedule.js
+ │   ├── controllers/           # Business logic per route
+ │   ├── middleware/
+ │   │   └── auth.js            # JWT verification middleware
+ │   ├── db/
+ │   │   ├── connection.js      # SQLite connection (better-sqlite3)
+ │   │   ├── schema.sql         # Full DB schema
+ │   │   └── seed.js            # Sample data for testing
+ │   └── algorithm/
+ │       ├── scheduler.js       # Main scheduling algorithm
+ │       ├── constraints.js     # Constraint checking functions
+ │       └── fitness.js         # Solution quality scoring
+ ├── package.json
+ ├── .env
+ └── README.md
+
+ 1.2 Database Schema
+
+ -- Authentication
+ CREATE TABLE users (
+     id INTEGER PRIMARY KEY AUTOINCREMENT,
+     username TEXT UNIQUE NOT NULL,
+     password_hash TEXT NOT NULL,
+     role TEXT NOT NULL CHECK(role IN ('admin', 'viewer')),
+     created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+ );
+
+ -- Core entities
+ CREATE TABLE faculties (
+     id INTEGER PRIMARY KEY AUTOINCREMENT,
+     name TEXT NOT NULL UNIQUE
+ );
+
+ CREATE TABLE degree_programs (
+     id INTEGER PRIMARY KEY AUTOINCREMENT,
+     name TEXT NOT NULL,
+     faculty_id INTEGER NOT NULL REFERENCES faculties(id) ON DELETE CASCADE
+ );
+
+ CREATE TABLE student_groups (
+     id INTEGER PRIMARY KEY AUTOINCREMENT,
+     name TEXT NOT NULL,                    -- e.g. "CS Year 2 Group A"
+     year INTEGER NOT NULL,                 -- academic year (1, 2, 3...)
+     num_students INTEGER NOT NULL,
+     degree_program_id INTEGER NOT NULL REFERENCES degree_programs(id) ON DELETE CASCADE
+ );
+
+ CREATE TABLE professors (
+     id INTEGER PRIMARY KEY AUTOINCREMENT,
+     name TEXT NOT NULL,
+     email TEXT UNIQUE,
+     max_hours_per_week INTEGER DEFAULT 20
+ );
+
+ CREATE TABLE classrooms (
+     id INTEGER PRIMARY KEY AUTOINCREMENT,
+     name TEXT NOT NULL,                    -- e.g. "Room 101", "Lab A3"
+     building TEXT,
+     capacity INTEGER NOT NULL,
+     type TEXT NOT NULL CHECK(type IN ('lecture', 'lab', 'both'))
+ );
+
+ CREATE TABLE subjects (
+     id INTEGER PRIMARY KEY AUTOINCREMENT,
+     name TEXT NOT NULL,
+     type TEXT NOT NULL CHECK(type IN ('lecture', 'lab', 'seminar')),
+     hours_per_week INTEGER NOT NULL,       -- how many hours per week
+     degree_program_id INTEGER NOT NULL REFERENCES degree_programs(id) ON DELETE CASCADE,
+     year INTEGER NOT NULL                  -- which year takes this subject
+ );
+
+ CREATE TABLE time_slots (
+     id INTEGER PRIMARY KEY AUTOINCREMENT,
+     day TEXT NOT NULL CHECK(day IN ('Monday','Tuesday','Wednesday','Thursday','Friday')),
+     start_time TEXT NOT NULL,              -- "08:00"
+     end_time TEXT NOT NULL,                -- "09:00"
+     slot_order INTEGER NOT NULL            -- for sorting (1, 2, 3...)
+ );
+
+ -- Relationships
+ CREATE TABLE professor_subjects (
+     professor_id INTEGER NOT NULL REFERENCES professors(id) ON DELETE CASCADE,
+     subject_id INTEGER NOT NULL REFERENCES subjects(id) ON DELETE CASCADE,
+     PRIMARY KEY (professor_id, subject_id)
+ );
+
+ CREATE TABLE professor_availability (
+     professor_id INTEGER NOT NULL REFERENCES professors(id) ON DELETE CASCADE,
+     time_slot_id INTEGER NOT NULL REFERENCES time_slots(id) ON DELETE CASCADE,
+     available INTEGER NOT NULL DEFAULT 1,  -- 1 = available, 0 = unavailable
+     PRIMARY KEY (professor_id, time_slot_id)
+ );
+
+ -- Generated schedule
+ CREATE TABLE schedules (
+     id INTEGER PRIMARY KEY AUTOINCREMENT,
+     name TEXT NOT NULL,                    -- e.g. "Fall 2026 v1"
+     created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+     fitness_score REAL                     -- algorithm quality score
+ );
+
+ CREATE TABLE schedule_entries (
+     id INTEGER PRIMARY KEY AUTOINCREMENT,
+     schedule_id INTEGER NOT NULL REFERENCES schedules(id) ON DELETE CASCADE,
+     subject_id INTEGER NOT NULL REFERENCES subjects(id),
+     professor_id INTEGER NOT NULL REFERENCES professors(id),
+     classroom_id INTEGER NOT NULL REFERENCES classrooms(id),
+     time_slot_id INTEGER NOT NULL REFERENCES time_slots(id),
+     group_id INTEGER NOT NULL REFERENCES student_groups(id)
+ );
+
+ 1.3 Setup Tasks
+
+ - npm init and install dependencies: express, better-sqlite3, bcrypt, jsonwebtoken, dotenv, cors
+ - Create server/db/connection.js - singleton SQLite connection using better-sqlite3
+ - Create server/db/schema.sql and a script to initialize the DB
+ - Create server/db/seed.js with realistic sample data (5 classrooms, 10 professors, 15 subjects, 4 groups)
+ - Create server/index.js with basic Express setup serving static files from client/
+
+ ---
+ Phase 2: Authentication & CRUD API (Week 2-4)
+
+ 2.1 Authentication
+
+ - JWT-based auth with bcrypt for password hashing
+ - Two roles: admin (full CRUD + generate), viewer (read-only + view schedules)
+ - Middleware in server/middleware/auth.js that verifies JWT on protected routes
+ - Routes: POST /api/auth/login, POST /api/auth/register (admin only creates accounts)
+
+ 2.2 REST API (all under /api/)
+
+ Each entity follows the same CRUD pattern:
+
+ ┌─────────────────────────┬────────────────────────┬─────────────┬────────┬────────┬──────────┐
+ │         Entity          │       GET (list)       │ GET (by id) │  POST  │  PUT   │  DELETE  │
+ ├─────────────────────────┼────────────────────────┼─────────────┼────────┼────────┼──────────┤
+ │ /professors             │ List all               │ Get one     │ Create │ Update │ Delete   │
+ ├─────────────────────────┼────────────────────────┼─────────────┼────────┼────────┼──────────┤
+ │ /classrooms             │ List all               │ Get one     │ Create │ Update │ Delete   │
+ ├─────────────────────────┼────────────────────────┼─────────────┼────────┼────────┼──────────┤
+ │ /subjects               │ List all               │ Get one     │ Create │ Update │ Delete   │
+ ├─────────────────────────┼────────────────────────┼─────────────┼────────┼────────┼──────────┤
+ │ /groups                 │ List all               │ Get one     │ Create │ Update │ Delete   │
+ ├─────────────────────────┼────────────────────────┼─────────────┼────────┼────────┼──────────┤
+ │ /faculties              │ List all               │ Get one     │ Create │ Update │ Delete   │
+ ├─────────────────────────┼────────────────────────┼─────────────┼────────┼────────┼──────────┤
+ │ /degree-programs        │ List all               │ Get one     │ Create │ Update │ Delete   │
+ ├─────────────────────────┼────────────────────────┼─────────────┼────────┼────────┼──────────┤
+ │ /time-slots             │ List all               │ Get one     │ Create │ Update │ Delete   │
+ ├─────────────────────────┼────────────────────────┼─────────────┼────────┼────────┼──────────┤
+ │ /professor-subjects     │ List all for professor │ -           │ Assign │ -      │ Unassign │
+ ├─────────────────────────┼────────────────────────┼─────────────┼────────┼────────┼──────────┤
+ │ /professor-availability │ List for professor     │ -           │ Set    │ -      │ -        │
+ └─────────────────────────┴────────────────────────┴─────────────┴────────┴────────┴──────────┘
+
+ Special routes:
+ - POST /api/schedule/generate - trigger algorithm
+ - GET /api/schedules - list generated schedules
+ - GET /api/schedules/:id - get full schedule with entries
+ - GET /api/schedules/:id/conflicts - check for violations
+
+ 2.3 Implementation Order
+
+ Build each entity as a complete vertical slice (route + controller + DB queries) before moving on:
+ 1. Auth (register/login)
+ 2. Faculties & Degree Programs
+ 3. Professors (+ availability, + subject assignments)
+ 4. Classrooms
+ 5. Subjects
+ 6. Student Groups
+ 7. Time Slots
+ 8. Schedule (read-only endpoints first, generation comes in Phase 4)
+
+ ---
+ Phase 3: Frontend (Week 4-6)
+
+ 3.1 Architecture
+
+ Use vanilla JS with a simple client-side router (hash-based: #/professors, #/classrooms, etc.). No framework needed.
+
+ - client/js/app.js - Hash router that loads page modules
+ - client/js/api.js - Centralized fetch wrapper (handles JWT headers, error responses)
+ - client/js/components/ - Reusable: data tables with sort/filter, form builders, modal dialogs
+
+ 3.2 Pages
+
+ 1. Login page - simple username/password form
+ 2. Dashboard - summary cards (number of professors, classrooms, groups, etc.)
+ 3. Data management pages (one per entity) - each with:
+   - Table listing all records (with search/filter)
+   - "Add new" button that opens a form
+   - Edit/Delete actions per row
+ 4. Professor detail page - includes availability grid (days x time slots) and subject assignments
+ 5. Schedule generation page - button to generate, parameter tweaks (if any), progress indicator
+ 6. Schedule view page - timetable grid views:
+   - By student group (rows = time slots, columns = days)
+   - By professor
+   - By classroom
+   - Export to CSV/PDF (optional, nice-to-have)
+
+ 3.3 UI Approach
+
+ - Clean, minimal CSS (consider using a lightweight CSS framework like Pico CSS or Simple.css to save time, or write your own)
+ - Responsive layout with sidebar navigation
+ - Color-coded timetable cells (by subject type or faculty)
+
+ ---
+ Phase 4: Scheduling Algorithm (Week 6-9) -- Core of the project
+
+ 4.1 Problem Definition
+
+ This is a Constraint Satisfaction Problem (CSP). Each schedule entry is an assignment of:
+ (subject, professor, classroom, time_slot, group)
+
+ 4.2 Hard Constraints (must never be violated)
+
+ 1. No professor double-booking - a professor can only be in one place at a time
+ 2. No classroom double-booking - one class per classroom per time slot
+ 3. No group double-booking - a student group can only attend one class at a time
+ 4. Capacity - classroom capacity >= group's number of students
+ 5. Room type match - labs in lab rooms, lectures in lecture halls
+ 6. Professor qualification - professor must be assigned to teach the subject
+ 7. Professor availability - professor must be available at the assigned time slot
+ 8. Hours fulfilled - each subject must have exactly hours_per_week slots assigned
+
+ 4.3 Soft Constraints (optimize for, scored with fitness function)
+
+ 1. Minimize idle gaps in a group's day
+ 2. Minimize idle gaps in a professor's day
+ 3. Distribute classes evenly across the week (avoid overloaded days)
+ 4. Prefer keeping same-subject hours on different days (not all on Monday)
+
+ 4.4 Recommended Algorithm: Greedy Construction + Local Search
+
+ Step 1 - Greedy construction:
+ 1. List all required assignments: for each (subject, group) pair, create N entries where N = hours_per_week
+ 2. Sort by "most constrained first" (subjects with fewer valid professor/room/slot options go first)
+ 3. For each assignment, try all valid (professor, classroom, time_slot) combinations
+ 4. Pick the one with the best fitness score that violates no hard constraints
+ 5. If no valid assignment exists, backtrack to the last successful assignment and try alternatives
+
+ Step 2 - Local search improvement (optional but recommended):
+ 1. Take the constructed schedule
+ 2. Repeatedly try random swaps of two entries
+ 3. If a swap improves the fitness score without violating hard constraints, keep it
+ 4. Stop after N iterations without improvement
+
+ 4.5 Key Implementation Files
+
+ - server/algorithm/constraints.js:
+   - checkHardConstraints(schedule, newEntry) - returns true/false
+   - Individual check functions: isProfessorFree(), isClassroomFree(), isGroupFree(), etc.
+ - server/algorithm/fitness.js:
+   - calculateFitness(schedule) - returns a numerical score (higher = better)
+   - Individual scoring functions for each soft constraint
+ - server/algorithm/scheduler.js:
+   - generateSchedule(data) - main entry point
+   - Takes all entities from DB, returns a complete schedule
+   - Should log progress and return statistics (conflicts resolved, fitness score, etc.)
+
+ ---
+ Phase 5: Integration & Polish (Week 9-11)
+
+ - Connect generation page to POST /api/schedule/generate
+ - Build timetable view pages (grid by group, by professor, by classroom)
+ - Add input validation on both frontend and backend
+ - Add error handling and user-friendly error messages
+ - Test with realistic data volumes (50+ professors, 100+ subjects, 20+ classrooms)
+ - Add CSV export for schedules (nice-to-have)
+
+ ---
+ Phase 6: Testing & Documentation (Week 11-13)
+
+ - Test the algorithm with edge cases (very constrained scenarios, impossible scenarios)
+ - Ensure the algorithm reports when no valid solution exists
+ - Write README with setup instructions
+ - Prepare project documentation/report for the thesis
+
+ ---
+ Verification Plan
+
+ 1. Database: Run seed.js, verify data via SQLite CLI or a route that returns counts
+ 2. API: Test each CRUD endpoint with Postman or curl
+ 3. Auth: Verify that viewer role cannot create/edit/delete, admin can do everything
+ 4. Algorithm:
+   - Generate with sample data, verify zero hard constraint violations
+   - Check that every subject has the correct number of hours assigned
+   - Verify fitness score improves over multiple runs (if randomness is involved)
+ 5. Frontend: Manual testing of all data entry forms and timetable views
+ 6. Stress test: Try with a large dataset to ensure reasonable generation time (target: < 30 seconds)
+
+ ---
+ Key Libraries
+
+ ┌────────────────┬───────────────────────────────────────────┐
+ │    Package     │                  Purpose                  │
+ ├────────────────┼───────────────────────────────────────────┤
+ │ express        │ Web server & routing                      │
+ ├────────────────┼───────────────────────────────────────────┤
+ │ better-sqlite3 │ SQLite driver (synchronous, fast, simple) │
+ ├────────────────┼───────────────────────────────────────────┤
+ │ bcrypt         │ Password hashing                          │
+ ├────────────────┼───────────────────────────────────────────┤
+ │ jsonwebtoken   │ JWT auth tokens                           │
+ ├────────────────┼───────────────────────────────────────────┤
+ │ dotenv         │ Environment variables                     │
+ ├────────────────┼───────────────────────────────────────────┤
+ │ cors           │ Cross-origin requests (dev)               │
+ └────────────────┴───────────────────────────────────────────┘
+
+ No frontend framework needed. Optionally add Pico CSS or Simple.css for clean default styling with minimal effort.
+
