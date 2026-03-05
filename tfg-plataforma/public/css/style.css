@@ -15,44 +15,52 @@ nav{
   display:flex;
   justify-content:space-between;
   align-items:center;
-  padding:20px 60px;
+  padding:2rem 5%; /* adaptable al tamaño pantalla */
   background:#0d1b2a;
   color:white;
-  position: sticky;
+  position:sticky;
   top:0;
   z-index:100;
-}
-/* Logo en navbar */
-.logo{
-  display:flex;
-  align-items:center;
-  gap:10px; /* espacio entre logo y texto */
+  flex-wrap:wrap; /* evita que se comprima */
 }
 
-.logo-img{
-  width:40px;   /* tamaño del logo */
-  height:40px;
-  object-fit:contain;
-}
-
+/* lista */
 nav ul{
   display:flex;
   list-style:none;
-  gap:25px;
+  gap:2rem;
+  flex-wrap:wrap;
 }
+
+/* links */
 nav a{
   color:white;
   text-decoration:none;
-  font-size:16px;
+  font-size:1.2rem; /* mejor que px */
   transition:0.3s;
 }
+
 nav a:hover{
   color:#00b4d8;
 }
 
+/* Logo en navbar */
+.logo{
+  display:flex;
+  align-items:center;
+  gap:10px;
+  font-size:1.2rem;
+  font-weight:600;
+}
+
+.logo img{
+  height:45px;
+  width:auto;
+}
+
 /* HERO */
 .hero{
-  height:80vh;
+  min-height:calc(100vh - 90px); /* altura total menos navbar */
   background-image: url("/images/university.jpg");
   background-size:cover;
   background-position:center;
@@ -67,7 +75,7 @@ nav a:hover{
   position:absolute;
   width:100%;
   height:100%;
-  background:rgba(0,0,0,0.5); /* overlay para legibilidad */
+  background:rgba(0,0,0,0.7); /* overlay para legibilidad */
 }
 .hero-content{
   position:relative;
@@ -75,11 +83,11 @@ nav a:hover{
   max-width:700px;
 }
 .hero h1{
-  font-size:48px;
+  font-size:42px;
   margin-bottom:20px;
 }
 .hero p{
-  font-size:20px;
+  font-size:18px;
   margin-bottom:30px;
 }
 .btn{
@@ -96,10 +104,10 @@ nav a:hover{
 
 /* ABOUT / DESCRIPCIÓN */
 .about{
-  padding:80px 20px; /* espacio entre hero y sección */
+  padding:50px 20px; /* espacio entre hero y sección */
   text-align:center;
   max-width:900px;
-  margin:50px auto; /* espacio arriba y abajo respecto a otras secciones */
+  margin:30px auto; /* espacio arriba y abajo respecto a otras secciones */
 }
 
 .about-inner{
@@ -122,7 +130,7 @@ nav a:hover{
 /* FEATURES */
 .features{
   background:#f1f5f9;
-  padding:80px 20px;
+  padding:60px 20px;
   text-align:center;
 }
 .features h2{
@@ -158,4 +166,350 @@ footer{
   text-align:center;
   padding:25px;
   margin-top:40px;
+}
+
+footer p{
+  margin:15px 0;
+}
+
+@media (max-width:768px){
+
+  nav{
+    flex-direction:column;
+    align-items:flex-start;
+  }
+
+  nav ul{
+    margin-top:10px;
+  }
+
+}
+
+.divider{
+  border:0; /* elimina el borde por defecto */
+  height:2px; /* grosor de la línea */
+  background:#0d1b2a; /* color de la línea */
+  width:100%; /* ancho de la línea */
+  margin:40px auto; /* espacio arriba y abajo, centrada */
+  border-radius:5px; /* borde redondeado opcional */
+}
+
+.btn-login{
+  background:#00b4d8;
+  color:white;
+  padding:8px 20px;
+  border-radius:5px;
+  text-decoration:none;
+  transition:0.3s;
+  font-weight:500;
+}
+
+.btn-login:hover{
+  background:#0096c7;
+}
+
+.user-dropdown {
+  position: relative;
+  display: inline-block;
+}
+
+.user-dropdown span {
+  background: #00b4d8;
+  color: white;
+  padding: 8px 15px;
+  border-radius: 20px;
+  cursor: pointer;
+  font-weight: 500;
+  transition: 0.3s;
+}
+
+.user-dropdown span:hover {
+  background: #0096c7;
+}
+
+/* menú de cerrar sesión */
+.user-dropdown-content {
+  display: none;
+  position: absolute;
+  top: 110%; /* justo debajo del botón */
+  right: 0;
+  background: white;
+  min-width: 120px;
+  box-shadow: 0 5px 15px rgba(0,0,0,0.2);
+  border-radius: 10px;
+  z-index: 200;
+}
+
+.user-dropdown-content a {
+  color: #333;
+  padding: 10px 15px;
+  display: block;
+  text-decoration: none;
+}
+
+.user-dropdown-content a:hover {
+  background: #f1f1f1;
+}
+
+/* mostrar menú al hacer click */
+.user-dropdown.active .user-dropdown-content {
+  display: block;
+}
+
+/* RESET Y BASE */
+*{
+  margin:0;
+  padding:0;
+  box-sizing:border-box;
+  font-family: Arial, Helvetica, sans-serif;
+}
+body{
+  color:#333;
+  background:#f4f6f9;
+}
+
+/* NAVBAR */
+nav{
+  display:flex;
+  justify-content:space-between;
+  align-items:center;
+  padding:2rem 5%; /* adaptable al tamaño pantalla */
+  background:#0d1b2a;
+  color:white;
+  position:sticky;
+  top:0;
+  z-index:100;
+  flex-wrap:wrap; /* evita que se comprima */
+}
+
+/* lista */
+nav ul{
+  display:flex;
+  list-style:none;
+  gap:2rem;
+  flex-wrap:wrap;
+}
+
+/* links */
+nav a{
+  color:white;
+  text-decoration:none;
+  font-size:1.2rem; /* mejor que px */
+  transition:0.3s;
+}
+
+nav a:hover{
+  color:#00b4d8;
+}
+
+/* Logo en navbar */
+.logo{
+  display:flex;
+  align-items:center;
+  gap:10px;
+  font-size:1.2rem;
+  font-weight:600;
+}
+
+.logo img{
+  height:45px;
+  width:auto;
+}
+
+/* HERO */
+.hero{
+  min-height:calc(100vh - 90px); /* altura total menos navbar */
+  background-image: url("/images/university.jpg");
+  background-size:cover;
+  background-position:center;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  text-align:center;
+  position:relative;
+}
+.hero::before{
+  content:"";
+  position:absolute;
+  width:100%;
+  height:100%;
+  background:rgba(0,0,0,0.7); /* overlay para legibilidad */
+}
+.hero-content{
+  position:relative;
+  color:white;
+  max-width:700px;
+}
+.hero h1{
+  font-size:42px;
+  margin-bottom:20px;
+}
+.hero p{
+  font-size:18px;
+  margin-bottom:30px;
+}
+.btn{
+  background:#00b4d8;
+  padding:12px 25px;
+  color:white;
+  text-decoration:none;
+  border-radius:5px;
+  transition:0.3s;
+}
+.btn:hover{
+  background:#0096c7;
+}
+
+/* ABOUT / DESCRIPCIÓN */
+.about{
+  padding:50px 20px; /* espacio entre hero y sección */
+  text-align:center;
+  max-width:900px;
+  margin:30px auto; /* espacio arriba y abajo respecto a otras secciones */
+}
+
+.about-inner{
+  background:#ffffff; /* fondo del recuadro */
+  border-radius:20px;   /* redondeado alrededor del contenido */
+  padding:60px 40px;    /* espacio interno del borde al texto */
+  box-shadow:0 5px 15px rgba(0,0,0,0.05); /* sombra ligera */
+}
+
+/* quitar este margin-top negativo */
+.about h2{
+  font-size:32px;
+  margin-bottom:20px;
+}
+.about p{
+  font-size:18px;
+  line-height:1.6;
+}
+
+/* FEATURES */
+.features{
+  background:#f1f5f9;
+  padding:60px 20px;
+  text-align:center;
+}
+.features h2{
+  font-size:32px;
+  margin-bottom:40px;
+}
+.features-grid{
+  display:grid;
+  grid-template-columns:repeat(auto-fit,minmax(250px,1fr));
+  gap:30px;
+  max-width:1100px;
+  margin:auto;
+}
+.feature-card{
+  background:white;
+  padding:30px;
+  border-radius:10px;
+  transition:0.3s;
+  box-shadow:0 5px 15px rgba(0,0,0,0.1);
+}
+.feature-card:hover{
+  transform:translateY(-5px);
+  box-shadow:0 10px 25px rgba(0,0,0,0.2);
+}
+.feature-card h3{
+  margin-bottom:15px;
+}
+
+/* FOOTER */
+footer{
+  background:#0d1b2a;
+  color:white;
+  text-align:center;
+  padding:25px;
+  margin-top:40px;
+}
+
+footer p{
+  margin:15px 0;
+}
+
+@media (max-width:768px){
+
+  nav{
+    flex-direction:column;
+    align-items:flex-start;
+  }
+
+  nav ul{
+    margin-top:10px;
+  }
+
+}
+
+.divider{
+  border:0; /* elimina el borde por defecto */
+  height:2px; /* grosor de la línea */
+  background:#0d1b2a; /* color de la línea */
+  width:100%; /* ancho de la línea */
+  margin:40px auto; /* espacio arriba y abajo, centrada */
+  border-radius:5px; /* borde redondeado opcional */
+}
+
+.btn-login{
+  background:#00b4d8;
+  color:white;
+  padding:8px 20px;
+  border-radius:5px;
+  text-decoration:none;
+  transition:0.3s;
+  font-weight:500;
+}
+
+.btn-login:hover{
+  background:#0096c7;
+}
+
+.user-dropdown {
+  position: relative;
+  display: inline-block;
+}
+
+.user-dropdown span {
+  background: #00b4d8;
+  color: white;
+  padding: 8px 15px;
+  border-radius: 20px;
+  cursor: pointer;
+  font-weight: 500;
+  transition: 0.3s;
+}
+
+.user-dropdown span:hover {
+  background: #0096c7;
+}
+
+/* menú de cerrar sesión */
+.user-dropdown-content {
+  display: none;
+  position: absolute;
+  top: 110%; /* justo debajo del botón */
+  right: 0;
+  background: white;
+  min-width: 120px;
+  box-shadow: 0 5px 15px rgba(0,0,0,0.2);
+  border-radius: 10px;
+  z-index: 200;
+}
+
+.user-dropdown-content a {
+  color: #333;
+  padding: 10px 15px;
+  display: block;
+  text-decoration: none;
+}
+
+.user-dropdown-content a:hover {
+  background: #f1f1f1;
+}
+
+/* mostrar menú al hacer click */
+.user-dropdown.active .user-dropdown-content {
+  display: block;
 }

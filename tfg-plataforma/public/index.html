@@ -5,13 +5,14 @@
   <title>Plataforma Inteligente Universitaria</title>
   <link rel="stylesheet" href="css/style.css">
   <link rel="icon" type="image/png" href="images/icon.png">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
 </head>
 <body>
 
 <!-- NAVBAR -->
 <nav>
   <div class="logo">
-    <img src="images/icon.png" alt="Logo TFG" class="logo-img">
+    <img src="images/icon.png" alt="Logo">
     <span>TFG Plataforma</span>
   </div>
   <ul>
@@ -19,6 +20,7 @@
     <li><a href="horarios.html">Horarios</a></li>
     <li><a href="aulas.html">Aulas</a></li>
     <li><a href="generador.html">Generador</a></li>
+    <li id="login-li"><a class="btn-login" href="login.html">Iniciar sesión</a></li>
   </ul>
 </nav>
 
@@ -31,6 +33,8 @@
   </div>
 </section>
 
+<hr class="divider">
+
 <!-- ABOUT / DESCRIPCIÓN -->
 <section class="about">
   <div class="about-inner">
@@ -41,6 +45,8 @@
     </p>
   </div>
 </section>
+
+<hr class="divider">
 
 <!-- FUNCIONALIDADES -->
 <section class="features">
@@ -67,9 +73,43 @@
 
 <!-- FOOTER -->
 <footer>
-  <p>Trabajo de Fin de Grado — Plataforma Inteligente Universitaria</p>
+  <p>Trabajo de Fin de Grado — Plataforma Web Inteligente Para Automatizacion de Procesos Universitarios</p>
+  <p>Ingenieria Telematica — Universidad de Alcala</p>
   <p>Autor: David Paluso Corral</p>
 </footer>
+
+<script>
+const loginLi = document.getElementById("login-li");
+const usuario = localStorage.getItem("usuario");
+
+if(usuario){
+  loginLi.innerHTML = `
+    <div class="user-dropdown">
+      <span id="user-btn">Hola, ${usuario}</span>
+      <div class="user-dropdown-content">
+        <a href="#" id="logout-btn">Cerrar sesión</a>
+      </div>
+    </div>
+  `;
+
+  // Abrir/cerrar menú al hacer click
+  const userBtn = document.getElementById("user-btn");
+  const dropdown = loginLi.querySelector(".user-dropdown");
+
+  userBtn.addEventListener("click", ()=>{
+    dropdown.classList.toggle("active");
+  });
+
+  // Cerrar sesión
+  const logoutBtn = document.getElementById("logout-btn");
+  logoutBtn.addEventListener("click", (e)=>{
+    e.preventDefault();
+    localStorage.removeItem("usuario"); // borrar usuario
+    window.location.reload(); // refresca la página
+  });
+
+} 
+</script>
 
 </body>
 </html>
