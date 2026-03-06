@@ -28,42 +28,168 @@
 
 <h2>Horarios actuales</h2>
 
-<p>Aquí se mostrarán los horarios oficiales de las titulaciones.</p>
+<p>Selecciona titulación, curso, grupo y cuatrimestre.</p>
 
-<table>
+<div class="selectors">
 
-<tr>
-<th>Hora</th>
-<th>Lunes</th>
-<th>Martes</th>
-<th>Miércoles</th>
-<th>Jueves</th>
-<th>Viernes</th>
-</tr>
+<select id="titulacion">
+<option value="Teleco">Teleco (1º y 2º)</option>
+<option value="GITT">GITT</option>
+<option value="GIEC">GIEC</option>
+<option value="GIST">GIST</option>
+<option value="GIT">GIT</option>
+</select>
 
-<tr>
-<td>8-10</td>
-<td></td>
-<td></td>
-<td></td>
-<td></td>
-<td></td>
-</tr>
+<select id="curso">
+<option value="1">1º</option>
+<option value="2">2º</option>
+<option value="3">3º</option>
+<option value="4">4º</option>
+</select>
 
-<tr>
-<td>10-12</td>
-<td></td>
-<td></td>
-<td></td>
-<td></td>
-<td></td>
-</tr>
+<select id="grupo">
+<option value="A">A</option>
+<option value="B">B</option>
+<option value="C">C</option>
+<option value="D">D</option>
+<option value="E">E</option>
+<option value="F">F</option>
+</select>
 
-</table>
+<select id="cuatri">
+<option value="1">Cuatrimestre 1</option>
+<option value="2">Cuatrimestre 2</option>
+</select>
+
+</div>
+
+<br><br>
+
+<img id="horario" style="max-width:100%;">
 
 </div>
 
 </div>
+
+<footer>
+  <p>Trabajo de Fin de Grado — Plataforma Web Inteligente Para Automatizacion de Procesos Universitarios</p>
+  <p>Ingenieria Telematica — Universidad de Alcala</p>
+  <p>Autor: David Paluso Corral</p>
+</footer>
+
+<script>
+const horariosDisponibles = {
+  Teleco: {
+    1: {
+      1: ["A","B","C","D","E","F"], // 1º cuatrimestre
+      2: ["A","B","C","D","E","F"]  // 2º cuatrimestre
+    },
+    2: {
+      1: ["A","B","C","D","E"],     // 1º cuatrimestre
+      2: ["A","B","C","D","E"]      // 2º cuatrimestre
+    }
+  },
+  GITT: {
+    3: {
+      1: ["A","E"],
+      2: ["A"]
+    },
+    4: {
+      1: ["A","E"],
+      2: ["A"]
+    }
+  },
+  GIEC: {
+    3: {
+      1: ["C","E"],
+      2: ["C"]
+    },
+    4: {
+      1: ["C","E"],
+      2: ["C"]
+    }
+  },
+  GIST: {
+    3: {
+      1: ["B","E"],
+      2: ["B"]
+    },
+    4: {
+      1: ["B"],
+      2: ["B"]
+    }
+  },
+  GIT: {
+    3: {
+      1: ["D","E"],
+      2: ["D"]
+    },
+    4: {
+      1: ["D"],
+      2: ["D"]
+    }
+  }
+};
+
+// Actualiza las opciones de cursos según la titulación
+function actualizarCursos(){
+  const tit = document.getElementById("titulacion").value;
+  const cursoSelect = document.getElementById("curso");
+
+  cursoSelect.innerHTML = "";
+
+  Object.keys(horariosDisponibles[tit]).forEach(curso => {
+    const opt = document.createElement("option");
+    opt.value = curso;
+    opt.textContent = curso + "º";
+    cursoSelect.appendChild(opt);
+  });
+
+  actualizarGrupos();
+}
+
+// Actualiza las opciones de grupos según titulación, curso y cuatrimestre
+function actualizarGrupos() {
+  const tit = document.getElementById("titulacion").value;
+  const curso = document.getElementById("curso").value;
+  const cuatri = document.getElementById("cuatri").value;
+  const grupoSelect = document.getElementById("grupo");
+
+  grupoSelect.innerHTML = "";
+
+  horariosDisponibles[tit][curso][cuatri].forEach(grupo => {
+    const opt = document.createElement("option");
+    opt.value = grupo;
+    opt.textContent = grupo;
+    grupoSelect.appendChild(opt);
+  });
+
+  actualizarHorario();
+}
+
+// Actualiza la imagen según titulación, curso, grupo y cuatrimestre
+function actualizarHorario(){
+  const tit = document.getElementById("titulacion").value;
+  const curso = document.getElementById("curso").value;
+  const grupo = document.getElementById("grupo").value;
+  const cuatri = document.getElementById("cuatri").value;
+
+  const ruta = "horarios/" + tit + "_" + curso + "_" + grupo + "_" + cuatri + ".png";
+  document.getElementById("horario").src = ruta;
+}
+
+// Listeners para cambios
+document.getElementById("titulacion").addEventListener("change", actualizarCursos);
+document.getElementById("curso").addEventListener("change", actualizarGrupos);
+document.getElementById("grupo").addEventListener("change", actualizarHorario);
+document.getElementById("cuatri").addEventListener("change", () => {
+  actualizarGrupos(); // actualizar grupos según cuatrimestre
+  actualizarHorario(); // actualizar imagen
+});
+
+// Inicializa al cargar la página
+actualizarCursos();
+</script>
 
 </body>
 </html>
