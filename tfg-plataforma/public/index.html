@@ -13,7 +13,7 @@
 <nav>
   <div class="logo">
     <img src="images/icon.png" alt="Logo">
-    <span>TFG Plataforma</span>
+    <h1>TFG Plataforma</h1>
   </div>
   <ul>
     <li><a href="index.html">Inicio</a></li>
@@ -71,6 +71,8 @@
   </div>
 </section>
 
+<hr class="divider">
+
 <!-- FOOTER -->
 <footer>
   <p>Trabajo de Fin de Grado — Plataforma Web Inteligente Para Automatizacion de Procesos Universitarios</p>
@@ -107,8 +109,44 @@ if(usuario){
     localStorage.removeItem("usuario"); // borrar usuario
     window.location.reload(); // refresca la página
   });
+}
 
-} 
+document.addEventListener("DOMContentLoaded", () => {
+  // --- Animación About al scroll ---
+  const aboutSection = document.querySelector('.about-inner');
+
+  const checkAbout = () => {
+    const sectionTop = aboutSection.getBoundingClientRect().top;
+    const screenHeight = window.innerHeight;
+
+    if(sectionTop < screenHeight - 100){
+      aboutSection.classList.add('visible');
+    }
+  };
+
+  checkAbout();
+  window.addEventListener('scroll', checkAbout);
+
+  // --- Animación Features al scroll con retraso secuencial ---
+  const features = document.querySelectorAll('.feature-card');
+
+  const checkFeatures = () => {
+    features.forEach((feature, index) => {
+      const top = feature.getBoundingClientRect().top;
+      const screenHeight = window.innerHeight;
+
+      if(top < screenHeight - 100 && !feature.classList.contains('visible')){
+        setTimeout(() => {
+          feature.classList.add('visible');
+        }, index * 500); // cada tarjeta retrasada 200ms
+      }
+    });
+  };
+
+  checkFeatures();
+  window.addEventListener('scroll', checkFeatures);
+});
+
 </script>
 
 </body>
