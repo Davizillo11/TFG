@@ -1,36 +1,69 @@
 <!DOCTYPE html>
 <html lang="es">
 <head>
-<meta charset="UTF-8">
-<title>Login</title>
-<link rel="stylesheet" href="css/style.css">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta charset="UTF-8">
+  <title>Plataforma Inteligente Universitaria</title>
+  <link rel="stylesheet" href="css/style.css">
+  <link rel="icon" type="image/png" href="images/icon.png">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
 </head>
 <body class="login-body">
-    
+
+
+<!-- NAVBAR -->
+<nav>
+  <div class="logo">
+    <a href="index.html" class="no-hover">
+      <img src="images/icon.png" alt="Logo">
+      <h1>TFG Plataforma</h1>
+    </a>
+  </div>
+  <ul>
+    <li><a href="index.html">Volver a Inicio</a></li>
+  </ul>
+</nav>
+
 <div class="login-container">
+  <h2>Plataforma Inteligente Universitaria</h2>
 
-<h2>Plataforma Inteligente Universitaria</h2>
+<form id="loginForm" autocomplete="off" novalidate>
+  <!-- campo "falso" para engañar al autocompletado -->
+  <input type="text" name="fakeusernameremembered" style="display:none">
+  <input type="password" name="fakepasswordremembered" style="display:none">
 
-<form id="loginForm">
-  <input type="text" id="username" placeholder="Usuario" required>
-  <input type="password" id="password" placeholder="Contraseña" required>
+  <!-- inputs reales con nombres únicos -->
+  <input type="text" id="username" name="username_real" placeholder="Usuario" autocomplete="new-username" required>
+  <input type="password" id="password" name="password_real" placeholder="Contraseña" autocomplete="new-password" required>
   <button type="submit">Iniciar sesión</button>
 </form>
-
-</div>
 
 <script>
 const form = document.getElementById("loginForm");
 
-form.addEventListener("submit", (e)=>{
+// Lista de usuarios válidos
+const usuarios = [
+  { username: "admin", password: "admin" },
+  { username: "david", password: "david" }
+];
+
+form.addEventListener("submit", (e) => {
   e.preventDefault();
-  const user = document.getElementById("username").value;
-  if(user){
-    localStorage.setItem("usuario", user); // guarda nombre para index.html
-    window.location.href = "index.html"; // vuelve al index
-  }else{
-    alert("Introduce un nombre de usuario");
+  
+  const userInput = document.getElementById("username").value.trim();
+  const passInput = document.getElementById("password").value.trim();
+
+  if (!userInput || !passInput) {
+    alert("Introduce usuario y contraseña");
+    return;
+  }
+
+  const usuarioValido = usuarios.find(u => u.username === userInput && u.password === passInput);
+
+  if (usuarioValido) {
+    localStorage.setItem("usuario", usuarioValido.username);
+    window.location.href = "index.html";
+  } else {
+    alert("Usuario o contraseña incorrectos");
   }
 });
 </script>

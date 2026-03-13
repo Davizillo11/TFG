@@ -33,19 +33,32 @@ nav ul {
   flex-wrap: wrap;
 }
 
-/* links */
-nav a {
-  color: white;
+nav a.no-transition { /* para el logo, sin animación */
+  color: white;                /* color inicial que tenías */
   text-decoration: none;
   font-size: 1.2rem;
-  transition: 0.3s;
+  transition: none; /* solo animar color y fondo */
   padding: 6px 12px;
+  border-radius: 20px;         /* fijado desde el inicio para evitar glitch */
 }
 
-nav a:hover {
-  color: #0d1b2a;
-  border-radius: 20px;
-  background: white;
+
+/* links */
+/* NAV LINK */
+nav a {
+  color: white;                /* color inicial que tenías */
+  text-decoration: none;
+  font-size: 1.2rem;
+  transition: background 0.3s, color 0.3s; /* solo animar color y fondo */
+  padding: 6px 12px;
+  border-radius: 20px;         /* fijado desde el inicio para evitar glitch */
+}
+
+
+/* Aplica hover solo a enlaces que NO tengan la clase no-hover */
+nav a:not(.no-hover):hover {
+  color: #0d1b2a;    /* color de hover original */
+  background: white;  /* background de hover original */
 }
 
 /* Logo en navbar */
@@ -55,6 +68,15 @@ nav a:hover {
   gap: 10px;
   font-size: 1.2rem;
   font-weight: 600;
+}
+
+/* Logo clicable */
+.logo a {
+  display: flex;           /* Flex para alinear elementos en fila */
+  align-items: center;     /* Centra verticalmente la imagen y el texto */
+  gap: 10px;               /* Espacio entre imagen y texto */
+  text-decoration: none;
+  color: white;
 }
 
 .logo img {
@@ -359,4 +381,135 @@ select:focus {
   height: auto;
   border-radius: 10px;
   box-shadow: 0 10px 25px rgba(0,0,0,0.3);
+}
+
+
+/* ESTILOS PARA LOGIN */
+/* Reset básico */
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+/* Fondo de la página con imagen */
+.login-body {
+  height: 100vh;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  font-family: 'Arial', sans-serif;
+  background-image: url("/images/university.jpg");
+  background-size: cover;
+  background-position: center;
+  position: relative;
+}
+
+/* Overlay oscuro para que el login resalte */
+.login-body::before {
+  content: '';
+  position: absolute;
+  top: 0; left: 0;
+  width: 100%; height: 100%;
+  background: rgba(0,0,0,0.5); /* semi-transparente */
+  z-index: 0;
+}
+
+/* Contenedor del login */
+.login-container {
+  position: relative; /* para estar sobre el overlay */
+  z-index: 1;
+  background: rgba(255,255,255,0.95); /* ligeramente transparente */
+  padding: 40px 30px;
+  border-radius: 12px;
+  width: 350px;
+  max-width: 90%;
+  text-align: center;
+  box-shadow: 0 8px 25px rgba(0,0,0,0.3);
+  margin-top: 100px;
+}
+
+/* Título */
+.login-container h2 {
+  margin-bottom: 25px;
+  color: #333;
+  font-size: 22px;
+}
+
+/* Inputs */
+.login-container input {
+  width: 100%;
+  padding: 12px 15px;
+  margin: 10px 0;
+  border: 1px solid #ccc;
+  border-radius: 8px;
+  font-size: 16px;
+  transition: 0.3s;
+}
+
+.login-container input:focus {
+  border-color: #6b73ff;
+  box-shadow: 0 0 5px rgba(107, 115, 255, 0.5);
+  outline: none;
+}
+
+/* Botón */
+.login-container button {
+  width: 100%;
+  padding: 12px;
+  margin-top: 15px;
+  border: none;
+  border-radius: 8px;
+  background: #6b73ff;
+  color: #fff;
+  font-size: 16px;
+  font-weight: bold;
+  cursor: pointer;
+  transition: 0.3s;
+}
+
+.login-container button:hover {
+  background: #000dff;
+}
+
+/* Responsive */
+@media (max-width: 400px) {
+  .login-container {
+    padding: 30px 20px;
+  }
+  .login-container h2 {
+    font-size: 18px;
+  }
+}
+
+/* NAVBAR en login */
+.login-body nav {
+  background: rgba(13,27,42,0.9); /* semi-transparente */
+  padding: 1rem 5%;
+  position: fixed;
+  top: 0;
+  width: 100%;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  z-index: 10;
+}
+
+.login-body nav ul {
+  display: flex;
+  list-style: none;
+  gap: 2rem;
+}
+
+.login-body nav a {
+  color: white;
+  text-decoration: none;
+  font-size: 1.1rem;
+}
+
+.login-body nav a:hover {
+  background: white;
+  color: #0d1b2a;
+  border-radius: 20px;
+  padding: 5px 10px;
 }
