@@ -1,15 +1,15 @@
 <!DOCTYPE html>
-<html>
+<html lang="es">
 
 <head>
+<meta charset="UTF-8">
 <title>Generador de Horarios</title>
 <link rel="stylesheet" href="css/style.css">
+<link rel="icon" type="image/png" href="images/icon.png">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 </head>
 
 <body>
-
-<div class="overlay">
 
 <!-- NAVBAR -->
 <nav>
@@ -28,29 +28,68 @@
   </ul>
 </nav>
 
-<div class="container">
+<!-- ACCESO DENEGADO (visible si no está logueado) -->
+<div class="horarios-page" id="acceso-denegado" style="display:none;">
+  <div class="horarios-card acceso-card">
+    <h2>Acceso restringido</h2>
+    <p>Debes iniciar sesión para acceder al generador de horarios.</p>
+    <a class="btn" href="login.html">Iniciar sesión</a>
+  </div>
+</div>
 
-<h2>Generar nuevo horario</h2>
+<!-- CONTENIDO GENERADOR (visible si está logueado) -->
+<div class="container" id="contenido-generador" style="display:none;">
 
-<p>Introduce los datos necesarios para generar un horario optimizado.</p>
+  <h2>Generar nuevo horario</h2>
+  <p>Introduce los datos necesarios para generar un horario optimizado.</p>
 
-<form>
-
-<input type="text" placeholder="Asignatura">
-
-<input type="text" placeholder="Profesor">
-
-<input type="number" placeholder="Número de alumnos">
-
-<input type="text" placeholder="Franja horaria">
-
-<button type="submit">Generar horario</button>
-
-</form>
+  <form>
+    <input type="text" placeholder="Asignatura">
+    <input type="text" placeholder="Profesor">
+    <input type="number" placeholder="Número de alumnos">
+    <input type="text" placeholder="Franja horaria">
+    <button type="submit">Generar horario</button>
+  </form>
 
 </div>
 
-</div>
+<footer>
+  <p>Trabajo de Fin de Grado — Plataforma Web Inteligente Para Automatizacion de Procesos Universitarios</p>
+  <p>Ingenieria Telematica — Universidad de Alcala</p>
+  <p>Autor: David Paluso Corral</p>
+</footer>
+
+<script>
+const loginLi = document.getElementById("login-li");
+const usuario = localStorage.getItem("usuario");
+
+if(usuario){
+  // Mostrar contenido
+  document.getElementById("contenido-generador").style.display = "flex";
+
+  // Actualizar navbar
+  loginLi.innerHTML = `
+    <div class="user-dropdown">
+      <span id="user-btn">Hola, ${usuario}</span>
+      <div class="user-dropdown-content">
+        <a href="#" id="logout-btn">Cerrar sesión</a>
+      </div>
+    </div>
+  `;
+  document.getElementById("user-btn").addEventListener("click", () => {
+    loginLi.querySelector(".user-dropdown").classList.toggle("active");
+  });
+  document.getElementById("logout-btn").addEventListener("click", (e) => {
+    e.preventDefault();
+    localStorage.removeItem("usuario");
+    window.location.reload();
+  });
+} else {
+  // Mostrar página de acceso denegado con fondo
+  document.body.classList.add("horarios-body");
+  document.getElementById("acceso-denegado").style.display = "flex";
+}
+</script>
 
 </body>
 </html>

@@ -40,6 +40,11 @@
 <script>
 const form = document.getElementById("loginForm");
 
+// Guardar página de origen para volver tras el login
+const returnUrl = (document.referrer && new URL(document.referrer).origin === window.location.origin)
+  ? document.referrer
+  : "index.html";
+
 // Lista de usuarios válidos
 const usuarios = [
   { username: "admin", password: "admin" },
@@ -48,7 +53,7 @@ const usuarios = [
 
 form.addEventListener("submit", (e) => {
   e.preventDefault();
-  
+
   const userInput = document.getElementById("username").value.trim();
   const passInput = document.getElementById("password").value.trim();
 
@@ -61,7 +66,7 @@ form.addEventListener("submit", (e) => {
 
   if (usuarioValido) {
     localStorage.setItem("usuario", usuarioValido.username);
-    window.location.href = "index.html";
+    window.location.href = returnUrl;
   } else {
     alert("Usuario o contraseña incorrectos");
   }

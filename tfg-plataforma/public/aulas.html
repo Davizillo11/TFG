@@ -55,5 +55,29 @@
 
 </div>
 
+<script>
+const loginLi = document.getElementById("login-li");
+const usuario = localStorage.getItem("usuario");
+
+if(usuario){
+  loginLi.innerHTML = `
+    <div class="user-dropdown">
+      <span id="user-btn">Hola, ${usuario}</span>
+      <div class="user-dropdown-content">
+        <a href="#" id="logout-btn">Cerrar sesión</a>
+      </div>
+    </div>
+  `;
+  document.getElementById("user-btn").addEventListener("click", () => {
+    loginLi.querySelector(".user-dropdown").classList.toggle("active");
+  });
+  document.getElementById("logout-btn").addEventListener("click", (e) => {
+    e.preventDefault();
+    localStorage.removeItem("usuario");
+    window.location.reload();
+  });
+}
+</script>
+
 </body>
 </html>
