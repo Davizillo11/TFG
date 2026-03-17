@@ -40,35 +40,32 @@
 <script>
 const form = document.getElementById("loginForm");
 
-// Guardar página de origen para volver tras el login
 const returnUrl = (document.referrer && new URL(document.referrer).origin === window.location.origin)
   ? document.referrer
-  : "index.html";
+  : "/index.html";
 
-// Lista de usuarios válidos
-const usuarios = [
-  { username: "admin", password: "admin" },
-  { username: "david", password: "david" }
-];
-
-form.addEventListener("submit", (e) => {
+form.addEventListener("submit", async (e) => {
   e.preventDefault();
 
-  const userInput = document.getElementById("username").value.trim();
-  const passInput = document.getElementById("password").value.trim();
+  const username = document.getElementById("username").value.trim();
+  const password = document.getElementById("password").value.trim();
 
-  if (!userInput || !passInput) {
+  if (!username || !password) {
     alert("Introduce usuario y contraseña");
     return;
   }
 
-  const usuarioValido = usuarios.find(u => u.username === userInput && u.password === passInput);
+  const res = await fetch("/api/v1/auth/login", {
+    method:  "POST",
+    headers: { "Content-Type": "application/json" },
+    body:    JSON.stringify({ username, password })
+  });
 
-  if (usuarioValido) {
-    localStorage.setItem("usuario", usuarioValido.username);
+  if (res.ok) {
     window.location.href = returnUrl;
   } else {
-    alert("Usuario o contraseña incorrectos");
+    const data = await res.json();
+    alert(data.error || "Credenciales incorrectas");
   }
 });
 </script>

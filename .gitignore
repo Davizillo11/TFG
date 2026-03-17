@@ -1,6 +1,5 @@
 node_modules/
-<<<<<<< HEAD
 package-lock.json
-=======
-package-lock.json
->>>>>>> 6c3a2d6d830dd21cb7148eaa1ee9a2d19f7e1cd4
+*.db
+*.db-shm
+*.db-wal

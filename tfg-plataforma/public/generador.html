@@ -1,15 +1,13 @@
 <!DOCTYPE html>
 <html lang="es">
-
 <head>
-<meta charset="UTF-8">
-<title>Generador de Horarios</title>
-<link rel="stylesheet" href="css/style.css">
-<link rel="icon" type="image/png" href="images/icon.png">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta charset="UTF-8">
+  <title>Generador de Horarios</title>
+  <link rel="stylesheet" href="css/style.css">
+  <link rel="icon" type="image/png" href="images/icon.png">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
 </head>
-
-<body>
+<body class="horarios-body">
 
 <!-- NAVBAR -->
 <nav>
@@ -22,13 +20,13 @@
   <ul>
     <li><a href="index.html">Inicio</a></li>
     <li><a href="horarios.html">Horarios</a></li>
-    <li><a href="aulas.html">Aulas</a></li>
     <li><a href="generador.html">Generador</a></li>
+    <li id="admin-li" style="display:none;"><a href="admin.html">Admin</a></li>
     <li id="login-li"><a class="btn-login" href="login.html">Iniciar sesión</a></li>
   </ul>
 </nav>
 
-<!-- ACCESO DENEGADO (visible si no está logueado) -->
+<!-- ACCESO DENEGADO -->
 <div class="horarios-page" id="acceso-denegado" style="display:none;">
   <div class="horarios-card acceso-card">
     <h2>Acceso restringido</h2>
@@ -37,19 +35,61 @@
   </div>
 </div>
 
-<!-- CONTENIDO GENERADOR (visible si está logueado) -->
-<div class="container" id="contenido-generador" style="display:none;">
+<!-- CONTENIDO GENERADOR -->
+<div class="horarios-page" id="contenido-generador" style="display:none;">
 
-  <h2>Generar nuevo horario</h2>
-  <p>Introduce los datos necesarios para generar un horario optimizado.</p>
+  <div class="gen-title">
+    <h1>Generador de Horarios</h1>
+    <p>Introduce los datos necesarios y genera un horario optimizado sin solapamientos.</p>
+  </div>
 
-  <form>
-    <input type="text" placeholder="Asignatura">
-    <input type="text" placeholder="Profesor">
-    <input type="number" placeholder="Número de alumnos">
-    <input type="text" placeholder="Franja horaria">
-    <button type="submit">Generar horario</button>
-  </form>
+  <div class="gen-grid">
+
+    <!-- AULAS -->
+    <div class="gen-section">
+      <h3>Selecciona las Aulas</h3>
+      <button class="select-all-btn" onclick="toggleAll('aulas-list')">Seleccionar / Deseleccionar todo</button>
+      <div class="check-list" id="aulas-list">
+        <p class="empty-msg">Cargando...</p>
+      </div>
+    </div>
+
+    <!-- ASIGNATURAS -->
+    <div class="gen-section">
+      <h3>Selecciona las Asignaturas</h3>
+      <button class="select-all-btn" onclick="toggleAll('asig-list')">Seleccionar / Deseleccionar todo</button>
+      <div class="check-list" id="asig-list">
+        <p class="empty-msg">Cargando...</p>
+      </div>
+    </div>
+
+    <!-- FRANJAS HORARIAS -->
+    <div class="gen-section gen-section-full">
+      <h3>Franjas Horarias</h3>
+      <div class="days-grid">
+        <label class="day-check"><input type="checkbox" value="0" checked> Lunes</label>
+        <label class="day-check"><input type="checkbox" value="1" checked> Martes</label>
+        <label class="day-check"><input type="checkbox" value="2" checked> Miércoles</label>
+        <label class="day-check"><input type="checkbox" value="3" checked> Jueves</label>
+        <label class="day-check"><input type="checkbox" value="4" checked> Viernes</label>
+      </div>
+      <div class="time-inputs">
+        <label>Hora inicio</label>
+        <input type="time" id="hora-inicio" value="08:00">
+        <label>Hora fin</label>
+        <input type="time" id="hora-fin" value="20:00">
+        <label>Duración sesión</label>
+        <select id="duracion-sesion">
+          <option value="60">1 hora</option>
+          <option value="90">1h 30min</option>
+          <option value="120" selected>2 horas</option>
+        </select>
+      </div>
+    </div>
+
+  </div>
+
+  <button class="btn-generate" onclick="generarHorario()">Generar Horario</button>
 
 </div>
 
@@ -59,35 +99,81 @@
   <p>Autor: David Paluso Corral</p>
 </footer>
 
+<script src="js/auth.js"></script>
 <script>
-const loginLi = document.getElementById("login-li");
-const usuario = localStorage.getItem("usuario");
-
-if(usuario){
-  // Mostrar contenido
+document.addEventListener("DOMContentLoaded", async () => {
+  const user = await Auth.init({ requireAuth: true });
+  if (!user) return;
   document.getElementById("contenido-generador").style.display = "flex";
+  await Promise.all([loadAulas(), loadAsignaturas()]);
+});
 
-  // Actualizar navbar
-  loginLi.innerHTML = `
-    <div class="user-dropdown">
-      <span id="user-btn">Hola, ${usuario}</span>
-      <div class="user-dropdown-content">
-        <a href="#" id="logout-btn">Cerrar sesión</a>
-      </div>
-    </div>
-  `;
-  document.getElementById("user-btn").addEventListener("click", () => {
-    loginLi.querySelector(".user-dropdown").classList.toggle("active");
-  });
-  document.getElementById("logout-btn").addEventListener("click", (e) => {
-    e.preventDefault();
-    localStorage.removeItem("usuario");
-    window.location.reload();
-  });
-} else {
-  // Mostrar página de acceso denegado con fondo
-  document.body.classList.add("horarios-body");
-  document.getElementById("acceso-denegado").style.display = "flex";
+// ── Load from DB ──────────────────────────────────
+async function loadAulas() {
+  const res  = await fetch("/api/v1/classrooms");
+  const data = await res.json();
+  const list = document.getElementById("aulas-list");
+  if (!data.length) { list.innerHTML = `<p class="empty-msg">Sin aulas. Añade en el panel Admin.</p>`; return; }
+  list.innerHTML = data.map(a => `
+    <label class="check-item">
+      <input type="checkbox" value="${a.id}" data-capacity="${a.capacity}" data-type="${a.type}" checked>
+      <span>
+        <span class="check-label-main">${a.name}</span>
+        <span class="check-label-sub">${a.capacity} plazas · ${a.type}</span>
+      </span>
+    </label>`).join("");
+}
+
+async function loadAsignaturas() {
+  const res  = await fetch("/api/v1/subjects");
+  const data = await res.json();
+  const list = document.getElementById("asig-list");
+  if (!data.length) { list.innerHTML = `<p class="empty-msg">Sin asignaturas. Añade en el panel Admin.</p>`; return; }
+  list.innerHTML = data.map(s => `
+    <label class="check-item">
+      <input type="checkbox" value="${s.id}" data-students="${s.students}" data-hours="${s.hours_week}" data-teacher="${s.teacher_id || ''}" checked>
+      <span>
+        <span class="check-label-main">${s.name}</span>
+        <span class="check-label-sub">${s.degree || ''} ${s.year ? s.year+'º' : ''} · ${s.hours_week}h/sem</span>
+      </span>
+    </label>`).join("");
+}
+
+// ── Select all toggle ─────────────────────────────
+function toggleAll(listId) {
+  const boxes = document.querySelectorAll(`#${listId} input[type="checkbox"]`);
+  const allChecked = [...boxes].every(b => b.checked);
+  boxes.forEach(b => b.checked = !allChecked);
+}
+
+// ── Generar ───────────────────────────────────────
+function generarHorario() {
+  const aulasSeleccionadas = [...document.querySelectorAll("#aulas-list input:checked")]
+    .map(cb => ({ id: parseInt(cb.value), capacity: parseInt(cb.dataset.capacity), type: cb.dataset.type }));
+
+  const asigSeleccionadas = [...document.querySelectorAll("#asig-list input:checked")]
+    .map(cb => ({ id: parseInt(cb.value), students: parseInt(cb.dataset.students), hours: parseInt(cb.dataset.hours), teacher_id: cb.dataset.teacher || null }));
+
+  if (!aulasSeleccionadas.length)  return alert("Selecciona al menos un aula.");
+  if (!asigSeleccionadas.length)   return alert("Selecciona al menos una asignatura.");
+
+  const diasSeleccionados = [...document.querySelectorAll(".day-check input:checked")]
+    .map(cb => parseInt(cb.value));
+  if (!diasSeleccionados.length) return alert("Selecciona al menos un día.");
+
+  const payload = {
+    aulas:      aulasSeleccionadas,
+    asignaturas: asigSeleccionadas,
+    franjas: {
+      dias:       diasSeleccionados,
+      horaInicio: document.getElementById("hora-inicio").value,
+      horaFin:    document.getElementById("hora-fin").value,
+      duracion:   parseInt(document.getElementById("duracion-sesion").value)
+    }
+  };
+
+  sessionStorage.setItem("generadorData", JSON.stringify(payload));
+  window.location.href = "resultado.html";
 }
 </script>
 

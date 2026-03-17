@@ -1,0 +1,70 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <title>Resultado del Horario</title>
+  <link rel="stylesheet" href="css/style.css">
+  <link rel="icon" type="image/png" href="images/icon.png">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+</head>
+<body class="horarios-body">
+
+<!-- NAVBAR -->
+<nav>
+  <div class="logo">
+    <a href="index.html" class="no-hover">
+      <img src="images/icon.png" alt="Logo">
+      <h1>TFG Plataforma</h1>
+    </a>
+  </div>
+  <ul>
+    <li><a href="index.html">Inicio</a></li>
+    <li><a href="horarios.html">Horarios</a></li>
+    <li><a href="generador.html">Generador</a></li>
+    <li id="admin-li" style="display:none;"><a href="admin.html">Admin</a></li>
+    <li id="login-li"><a class="btn-login" href="login.html">Iniciar sesión</a></li>
+  </ul>
+</nav>
+
+<!-- ACCESO DENEGADO -->
+<div class="horarios-page" id="acceso-denegado" style="display:none;">
+  <div class="horarios-card acceso-card">
+    <h2>Acceso restringido</h2>
+    <p>Debes iniciar sesión para ver los resultados.</p>
+    <a class="btn" href="login.html">Iniciar sesión</a>
+  </div>
+</div>
+
+<!-- CONTENIDO RESULTADO -->
+<div class="resultado-page" id="contenido-resultado" style="display:none;">
+
+  <div class="gen-title">
+    <h1>Resultado del Horario</h1>
+    <p>Visualización del horario generado.</p>
+  </div>
+
+  <div class="resultado-card">
+    <h2>Horario en construcción</h2>
+    <p>La visualización del horario generado estará disponible en la siguiente fase del desarrollo.</p>
+    <a class="btn" href="generador.html">Volver al Generador</a>
+  </div>
+
+</div>
+
+<footer>
+  <p>Trabajo de Fin de Grado — Plataforma Web Inteligente Para Automatizacion de Procesos Universitarios</p>
+  <p>Ingenieria Telematica — Universidad de Alcala</p>
+  <p>Autor: David Paluso Corral</p>
+</footer>
+
+<script src="js/auth.js"></script>
+<script>
+document.addEventListener("DOMContentLoaded", async () => {
+  const user = await Auth.init({ requireAuth: true });
+  if (!user) return;
+  document.getElementById("contenido-resultado").style.display = "flex";
+});
+</script>
+
+</body>
+</html>

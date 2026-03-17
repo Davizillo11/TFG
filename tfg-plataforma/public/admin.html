@@ -1,0 +1,350 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <title>Panel de Administración</title>
+  <link rel="stylesheet" href="css/style.css">
+  <link rel="icon" type="image/png" href="images/icon.png">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+</head>
+<body class="horarios-body">
+
+<nav>
+  <div class="logo">
+    <a href="index.html" class="no-hover">
+      <img src="images/icon.png" alt="Logo">
+      <h1>TFG Plataforma</h1>
+    </a>
+  </div>
+  <ul>
+    <li><a href="index.html">Inicio</a></li>
+    <li><a href="horarios.html">Horarios</a></li>
+    <li><a href="generador.html">Generador</a></li>
+    <li id="admin-li" style="display:none;"><a href="admin.html">Admin</a></li>
+    <li id="login-li"><a class="btn-login" href="login.html">Iniciar sesión</a></li>
+  </ul>
+</nav>
+
+<!-- ACCESO DENEGADO -->
+<div class="horarios-page" id="acceso-denegado" style="display:none;">
+  <div class="horarios-card acceso-card">
+    <h2>Acceso restringido</h2>
+    <p>Debes iniciar sesión para acceder al panel de administración.</p>
+    <a class="btn" href="login.html">Iniciar sesión</a>
+  </div>
+</div>
+
+<!-- CONTENIDO ADMIN -->
+<div class="admin-page" id="contenido-admin" style="display:none;">
+
+  <div class="admin-title">
+    <h1>Panel de Administración</h1>
+    <p>Gestiona los recursos del sistema.</p>
+  </div>
+
+  <div class="admin-tabs-wrapper">
+
+    <!-- TAB BUTTONS -->
+    <div class="admin-tabs">
+      <button class="admin-tab-btn active" onclick="switchTab('aulas')">Aulas</button>
+      <button class="admin-tab-btn"        onclick="switchTab('profesores')">Profesores</button>
+      <button class="admin-tab-btn"        onclick="switchTab('asignaturas')">Asignaturas</button>
+      <button class="admin-tab-btn"        onclick="switchTab('usuarios')">Usuarios</button>
+    </div>
+
+    <!-- ── AULAS ── -->
+    <div class="admin-tab-content active" id="tab-aulas">
+      <h3 class="admin-section-title">Aulas</h3>
+      <div class="gen-form" style="margin-bottom:20px;">
+        <input  type="text"   id="a-name"     placeholder="Nombre (ej. Aula B-007)">
+        <input  type="number" id="a-capacity" placeholder="Capacidad" min="1">
+        <select id="a-type">
+          <option value="teoria">Teoría</option>
+          <option value="laboratorio">Laboratorio</option>
+          <option value="seminario">Seminario</option>
+        </select>
+        <input  type="text"   id="a-building" placeholder="Edificio">
+        <button class="btn-add" onclick="addAula()">+ Añadir</button>
+      </div>
+      <table class="data-table">
+        <thead><tr><th>Nombre</th><th>Capacidad</th><th>Tipo</th><th>Edificio</th><th></th></tr></thead>
+        <tbody id="tbody-aulas"><tr><td colspan="5" class="empty-msg">Cargando...</td></tr></tbody>
+      </table>
+    </div>
+
+    <!-- ── PROFESORES ── -->
+    <div class="admin-tab-content" id="tab-profesores">
+      <h3 class="admin-section-title">Profesores</h3>
+      <div class="gen-form" style="margin-bottom:20px;">
+        <input type="text" id="p-name"  placeholder="Nombre completo">
+        <input type="text" id="p-dept"  placeholder="Departamento">
+        <input type="email" id="p-email" placeholder="Email">
+        <button class="btn-add" onclick="addProfesor()">+ Añadir</button>
+      </div>
+      <table class="data-table">
+        <thead><tr><th>Nombre</th><th>Departamento</th><th>Email</th><th></th></tr></thead>
+        <tbody id="tbody-profesores"><tr><td colspan="4" class="empty-msg">Cargando...</td></tr></tbody>
+      </table>
+    </div>
+
+    <!-- ── ASIGNATURAS ── -->
+    <div class="admin-tab-content" id="tab-asignaturas">
+      <h3 class="admin-section-title">Asignaturas</h3>
+      <div class="gen-form" style="margin-bottom:20px;flex-wrap:wrap;">
+        <input  type="text"   id="s-name"     placeholder="Nombre asignatura">
+        <input  type="text"   id="s-code"     placeholder="Código (ej. GIT-3-SO)">
+        <input  type="text"   id="s-degree"   placeholder="Titulación">
+        <input  type="number" id="s-year"     placeholder="Curso" min="1" max="4">
+        <input  type="number" id="s-students" placeholder="Alumnos" min="1">
+        <input  type="number" id="s-hours"    placeholder="Horas/sem" min="1" max="20" value="4">
+        <select id="s-teacher"><option value="">-- Profesor --</option></select>
+        <button class="btn-add" onclick="addAsignatura()">+ Añadir</button>
+      </div>
+      <table class="data-table">
+        <thead><tr><th>Nombre</th><th>Código</th><th>Titulación</th><th>Curso</th><th>Alumnos</th><th>H/sem</th><th>Profesor</th><th></th></tr></thead>
+        <tbody id="tbody-asignaturas"><tr><td colspan="8" class="empty-msg">Cargando...</td></tr></tbody>
+      </table>
+    </div>
+
+    <!-- ── USUARIOS ── -->
+    <div class="admin-tab-content" id="tab-usuarios">
+      <h3 class="admin-section-title">Usuarios</h3>
+      <div class="gen-form" style="margin-bottom:20px;">
+        <input  type="text"     id="u-username" placeholder="Usuario">
+        <input  type="password" id="u-password" placeholder="Contraseña">
+        <select id="u-role">
+          <option value="user">Usuario</option>
+          <option value="admin">Admin</option>
+        </select>
+        <button class="btn-add" onclick="addUsuario()">+ Añadir</button>
+      </div>
+      <table class="data-table">
+        <thead><tr><th>Usuario</th><th>Rol</th><th>Creado</th><th></th></tr></thead>
+        <tbody id="tbody-usuarios"><tr><td colspan="4" class="empty-msg">Cargando...</td></tr></tbody>
+      </table>
+    </div>
+
+  </div>
+</div>
+
+<footer>
+  <p>Trabajo de Fin de Grado — Plataforma Web Inteligente Para Automatizacion de Procesos Universitarios</p>
+  <p>Ingenieria Telematica — Universidad de Alcala</p>
+  <p>Autor: David Paluso Corral</p>
+</footer>
+
+<script src="js/auth.js"></script>
+<script>
+document.addEventListener("DOMContentLoaded", async () => {
+  const user = await Auth.init({ requireAuth: true });
+  if (!user) return;
+  document.getElementById("contenido-admin").style.display = "flex";
+  loadAll();
+});
+
+// ── Tabs ──────────────────────────────────────────
+function switchTab(name) {
+  document.querySelectorAll(".admin-tab-content").forEach(el => el.classList.remove("active"));
+  document.querySelectorAll(".admin-tab-btn").forEach(el => el.classList.remove("active"));
+  document.getElementById("tab-" + name).classList.add("active");
+  event.target.classList.add("active");
+}
+
+// ── Load all data ─────────────────────────────────
+async function loadAll() {
+  await Promise.all([loadAulas(), loadProfesores(), loadAsignaturas(), loadUsuarios()]);
+}
+
+// ── AULAS ─────────────────────────────────────────
+let aulas = [];
+async function loadAulas() {
+  const res = await fetch("/api/v1/classrooms");
+  aulas = await res.json();
+  renderAulas();
+}
+
+function renderAulas() {
+  const tbody = document.getElementById("tbody-aulas");
+  if (!aulas.length) { tbody.innerHTML = `<tr><td colspan="5" class="empty-msg">Sin aulas</td></tr>`; return; }
+  tbody.innerHTML = aulas.map(a => `
+    <tr>
+      <td>${a.name}</td>
+      <td>${a.capacity}</td>
+      <td>${a.type}</td>
+      <td>${a.building || "—"}</td>
+      <td><button class="btn-remove" onclick="deleteAula(${a.id})">✕</button></td>
+    </tr>`).join("");
+}
+
+async function addAula() {
+  const name     = document.getElementById("a-name").value.trim();
+  const capacity = document.getElementById("a-capacity").value;
+  const type     = document.getElementById("a-type").value;
+  const building = document.getElementById("a-building").value.trim();
+  if (!name || !capacity) return alert("Nombre y capacidad requeridos");
+
+  const res = await fetch("/api/v1/classrooms", {
+    method: "POST", headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ name, capacity, type, building })
+  });
+  if (res.ok) {
+    document.getElementById("a-name").value = "";
+    document.getElementById("a-capacity").value = "";
+    document.getElementById("a-building").value = "";
+    await loadAulas();
+  } else {
+    const d = await res.json(); alert(d.error);
+  }
+}
+
+async function deleteAula(id) {
+  if (!confirm("¿Eliminar esta aula?")) return;
+  await fetch("/api/v1/classrooms/" + id, { method: "DELETE" });
+  await loadAulas();
+}
+
+// ── PROFESORES ────────────────────────────────────
+let profesores = [];
+async function loadProfesores() {
+  const res = await fetch("/api/v1/teachers");
+  profesores = await res.json();
+  renderProfesores();
+  updateTeacherSelect();
+}
+
+function renderProfesores() {
+  const tbody = document.getElementById("tbody-profesores");
+  if (!profesores.length) { tbody.innerHTML = `<tr><td colspan="4" class="empty-msg">Sin profesores</td></tr>`; return; }
+  tbody.innerHTML = profesores.map(p => `
+    <tr>
+      <td>${p.name}</td>
+      <td>${p.department || "—"}</td>
+      <td>${p.email || "—"}</td>
+      <td><button class="btn-remove" onclick="deleteProfesor(${p.id})">✕</button></td>
+    </tr>`).join("");
+}
+
+function updateTeacherSelect() {
+  const sel = document.getElementById("s-teacher");
+  sel.innerHTML = `<option value="">-- Profesor --</option>` +
+    profesores.map(p => `<option value="${p.id}">${p.name}</option>`).join("");
+}
+
+async function addProfesor() {
+  const name  = document.getElementById("p-name").value.trim();
+  const dept  = document.getElementById("p-dept").value.trim();
+  const email = document.getElementById("p-email").value.trim();
+  if (!name) return alert("Nombre requerido");
+
+  const res = await fetch("/api/v1/teachers", {
+    method: "POST", headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ name, department: dept, email })
+  });
+  if (res.ok) {
+    document.getElementById("p-name").value  = "";
+    document.getElementById("p-dept").value  = "";
+    document.getElementById("p-email").value = "";
+    await loadProfesores();
+  } else {
+    const d = await res.json(); alert(d.error);
+  }
+}
+
+async function deleteProfesor(id) {
+  if (!confirm("¿Eliminar este profesor?")) return;
+  await fetch("/api/v1/teachers/" + id, { method: "DELETE" });
+  await loadProfesores();
+}
+
+// ── ASIGNATURAS ───────────────────────────────────
+async function loadAsignaturas() {
+  const res = await fetch("/api/v1/subjects");
+  const subjects = await res.json();
+  const tbody = document.getElementById("tbody-asignaturas");
+  if (!subjects.length) { tbody.innerHTML = `<tr><td colspan="8" class="empty-msg">Sin asignaturas</td></tr>`; return; }
+  tbody.innerHTML = subjects.map(s => `
+    <tr>
+      <td>${s.name}</td>
+      <td>${s.code || "—"}</td>
+      <td>${s.degree || "—"}</td>
+      <td>${s.year || "—"}</td>
+      <td>${s.students || "—"}</td>
+      <td>${s.hours_week}</td>
+      <td>${s.teacher_name || "—"}</td>
+      <td><button class="btn-remove" onclick="deleteAsignatura(${s.id})">✕</button></td>
+    </tr>`).join("");
+}
+
+async function addAsignatura() {
+  const name       = document.getElementById("s-name").value.trim();
+  const code       = document.getElementById("s-code").value.trim();
+  const degree     = document.getElementById("s-degree").value.trim();
+  const year       = document.getElementById("s-year").value;
+  const students   = document.getElementById("s-students").value;
+  const hours_week = document.getElementById("s-hours").value;
+  const teacher_id = document.getElementById("s-teacher").value;
+  if (!name) return alert("Nombre requerido");
+
+  const res = await fetch("/api/v1/subjects", {
+    method: "POST", headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ name, code, degree, year, students, hours_week, teacher_id: teacher_id || null })
+  });
+  if (res.ok) {
+    ["s-name","s-code","s-degree","s-year","s-students"].forEach(id => document.getElementById(id).value = "");
+    document.getElementById("s-hours").value = "4";
+    await loadAsignaturas();
+  } else {
+    const d = await res.json(); alert(d.error);
+  }
+}
+
+async function deleteAsignatura(id) {
+  if (!confirm("¿Eliminar esta asignatura?")) return;
+  await fetch("/api/v1/subjects/" + id, { method: "DELETE" });
+  await loadAsignaturas();
+}
+
+// ── USUARIOS ──────────────────────────────────────
+async function loadUsuarios() {
+  const res = await fetch("/api/v1/users");
+  const users = await res.json();
+  const tbody = document.getElementById("tbody-usuarios");
+  if (!users.length) { tbody.innerHTML = `<tr><td colspan="4" class="empty-msg">Sin usuarios</td></tr>`; return; }
+  tbody.innerHTML = users.map(u => `
+    <tr>
+      <td>${u.username}</td>
+      <td>${u.role}</td>
+      <td>${new Date(u.created_at).toLocaleDateString("es-ES")}</td>
+      <td><button class="btn-remove" onclick="deleteUsuario(${u.id})">✕</button></td>
+    </tr>`).join("");
+}
+
+async function addUsuario() {
+  const username = document.getElementById("u-username").value.trim();
+  const password = document.getElementById("u-password").value;
+  const role     = document.getElementById("u-role").value;
+  if (!username || !password) return alert("Usuario y contraseña requeridos");
+
+  const res = await fetch("/api/v1/users", {
+    method: "POST", headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ username, password, role })
+  });
+  if (res.ok) {
+    document.getElementById("u-username").value = "";
+    document.getElementById("u-password").value = "";
+    await loadUsuarios();
+  } else {
+    const d = await res.json(); alert(d.error);
+  }
+}
+
+async function deleteUsuario(id) {
+  if (!confirm("¿Eliminar este usuario?")) return;
+  const res = await fetch("/api/v1/users/" + id, { method: "DELETE" });
+  if (res.ok) await loadUsuarios();
+  else { const d = await res.json(); alert(d.error); }
+}
+</script>
+
+</body>
+</html>

@@ -1,74 +1,35 @@
 const express = require("express");
 const session = require("express-session");
-const sqlite3 = require("sqlite3").verbose();
-const bodyParser = require("body-parser");
-const path = require("path");
+const path    = require("path");
 
-const app = express();
+const app  = express();
 const PORT = 3000;
 
-// Base de datos
-const db = new sqlite3.Database("./database/database.db");
-
-// Middleware
-app.use(bodyParser.urlencoded({ extended: true }));
+// ── Middleware ────────────────────────────────────
+app.use(express.json());
+app.use(express.urlencoded({ extended: true }));
 app.use(express.static("public"));
 
-app.use(
-  session({
-    secret: "tfg-secret",
-    resave: false,
-    saveUninitialized: true,
-  })
-);
+app.use(session({
+  secret:            process.env.SESSION_SECRET || "tfg-secret-2024",
+  resave:            false,
+  saveUninitialized: false,
+  cookie: { secure: false, maxAge: 24 * 60 * 60 * 1000 } // 24h
+}));
 
-// Crear tabla usuarios si no existe
-db.run(`
-CREATE TABLE IF NOT EXISTS users (
-  id INTEGER PRIMARY KEY AUTOINCREMENT,
-  username TEXT,
-  password TEXT
-)
-`);
+// ── Database & Schema ─────────────────────────────
+require("./database/schema");
 
-// Insertar admin si no existe
-db.get("SELECT * FROM users WHERE username='admin'", (err, row) => {
-  if (!row) {
-    db.run("INSERT INTO users (username, password) VALUES (?,?)", [
-      "admin",
-      "admin",
-    ]);
-  }
-});
+// ── Routes ────────────────────────────────────────
+app.use("/api/v1/auth",       require("./routes/auth"));
+app.use("/api/v1/classrooms", require("./routes/classrooms"));
+app.use("/api/v1/teachers",   require("./routes/teachers"));
+app.use("/api/v1/subjects",   require("./routes/subjects"));
+app.use("/api/v1/users",      require("./routes/users"));
 
-// LOGIN
-app.post("/login", (req, res) => {
-  const { username, password } = req.body;
-
-  db.get(
-    "SELECT * FROM users WHERE username=? AND password=?",
-    [username, password],
-    (err, user) => {
-      if (user) {
-        req.session.user = user;
-        res.redirect("/pages/index.html");
-      } else {
-        res.send("Credenciales incorrectas");
-      }
-    }
-  );
-});
-
+// ── Serve app ─────────────────────────────────────
 app.get("/", (req, res) => {
-  res.sendFile(__dirname + "/public/login.html");
-});
-
-
-
-// Logout
-app.get("/logout", (req, res) => {
-  req.session.destroy();
-  res.redirect("/login.html");
+  res.sendFile(path.join(__dirname, "public", "index.html"));
 });
 
 app.listen(PORT, () => {

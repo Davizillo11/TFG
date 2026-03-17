@@ -20,8 +20,8 @@
   <ul>
     <li><a href="index.html">Inicio</a></li>
     <li><a href="horarios.html">Horarios</a></li>
-    <li><a href="aulas.html">Aulas</a></li>
     <li><a href="generador.html">Generador</a></li>
+    <li id="admin-li" style="display:none;"><a href="admin.html">Admin</a></li>
     <li id="login-li"><a class="btn-login" href="login.html">Iniciar sesión</a></li>
   </ul>
 </nav>
@@ -83,73 +83,34 @@
   <p>Autor: David Paluso Corral</p>
 </footer>
 
+<script src="js/auth.js"></script>
 <script>
-const loginLi = document.getElementById("login-li");
-const usuario = localStorage.getItem("usuario");
+document.addEventListener("DOMContentLoaded", async () => {
+  // Auth — página pública, solo actualiza el navbar
+  await Auth.init();
 
-if(usuario){
-  loginLi.innerHTML = `
-    <div class="user-dropdown">
-      <span id="user-btn">Hola, ${usuario}</span>
-      <div class="user-dropdown-content">
-        <a href="#" id="logout-btn">Cerrar sesión</a>
-      </div>
-    </div>
-  `;
-
-  // Abrir/cerrar menú al hacer click
-  const userBtn = document.getElementById("user-btn");
-  const dropdown = loginLi.querySelector(".user-dropdown");
-
-  userBtn.addEventListener("click", ()=>{
-    dropdown.classList.toggle("active");
-  });
-
-  // Cerrar sesión
-  const logoutBtn = document.getElementById("logout-btn");
-  logoutBtn.addEventListener("click", (e)=>{
-    e.preventDefault();
-    localStorage.removeItem("usuario"); // borrar usuario
-    window.location.reload(); // refresca la página
-  });
-}
-
-document.addEventListener("DOMContentLoaded", () => {
-  // --- Animación About al scroll ---
+  // Animación About al scroll
   const aboutSection = document.querySelector('.about-inner');
-
   const checkAbout = () => {
-    const sectionTop = aboutSection.getBoundingClientRect().top;
-    const screenHeight = window.innerHeight;
-
-    if(sectionTop < screenHeight - 100){
+    if (aboutSection.getBoundingClientRect().top < window.innerHeight - 100)
       aboutSection.classList.add('visible');
-    }
   };
-
   checkAbout();
   window.addEventListener('scroll', checkAbout);
 
-  // --- Animación Features al scroll con retraso secuencial ---
+  // Animación Features al scroll
   const features = document.querySelectorAll('.feature-card');
-
   const checkFeatures = () => {
-    features.forEach((feature, index) => {
-      const top = feature.getBoundingClientRect().top;
-      const screenHeight = window.innerHeight;
-
-      if(top < screenHeight - 100 && !feature.classList.contains('visible')){
-        setTimeout(() => {
-          feature.classList.add('visible');
-        }, index * 500); // cada tarjeta retrasada 200ms
+    features.forEach((feature, i) => {
+      if (feature.getBoundingClientRect().top < window.innerHeight - 100
+          && !feature.classList.contains('visible')) {
+        setTimeout(() => feature.classList.add('visible'), i * 500);
       }
     });
   };
-
   checkFeatures();
   window.addEventListener('scroll', checkFeatures);
 });
-
 </script>
 
 </body>
