@@ -21,11 +21,13 @@ app.use(session({
 require("./database/schema");
 
 // ── Routes ────────────────────────────────────────
-app.use("/api/v1/auth",       require("./routes/auth"));
-app.use("/api/v1/classrooms", require("./routes/classrooms"));
-app.use("/api/v1/teachers",   require("./routes/teachers"));
-app.use("/api/v1/subjects",   require("./routes/subjects"));
-app.use("/api/v1/users",      require("./routes/users"));
+app.use("/api/v1/auth",                        require("./routes/auth"));
+app.use("/api/v1/classrooms",                  require("./routes/classrooms"));
+app.use("/api/v1/teachers",                    require("./routes/teachers"));
+app.use("/api/v1/teachers/:id/availability",   require("./routes/availability"));
+app.use("/api/v1/subjects",                    require("./routes/subjects"));
+app.use("/api/v1/users",                       require("./routes/users"));
+app.use("/api/v1/stats",                       require("./routes/stats"));
 
 // ── Serve app ─────────────────────────────────────
 app.get("/", (req, res) => {

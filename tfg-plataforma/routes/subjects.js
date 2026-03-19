@@ -5,13 +5,14 @@ const requireAdmin = require("../middleware/adminOnly");
 
 const router = express.Router();
 
-// GET all (with teacher name)
+// GET all (with all teacher names via GROUP_CONCAT)
 router.get("/", requireAuth, (req, res) => {
   db.all(`
-    SELECT s.*, t.name AS teacher_name, t.id AS teacher_id
+    SELECT s.*, GROUP_CONCAT(t.name, ', ') AS teacher_names
     FROM subjects s
     LEFT JOIN subject_teachers st ON s.id = st.subject_id
     LEFT JOIN teachers t ON st.teacher_id = t.id
+    GROUP BY s.id
     ORDER BY s.degree, s.year, s.name
   `, (err, rows) => {
     if (err) return res.status(500).json({ error: err.message });

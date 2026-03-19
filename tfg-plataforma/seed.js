@@ -122,22 +122,57 @@ async function seed() {
   console.log("✓ Disponibilidades");
 
   // ── Asignaturas ───────────────────────────────────
-  const subjects = [
+   const subjects = [
     // code,           name,                              degree,   yr, sem, students, h/w
-    ["TEL-1-MAT1",  "Matemáticas I",                    "Teleco",  1,  1,   120, 6],
-    ["TEL-1-FIS1",  "Física I",                         "Teleco",  1,  1,   120, 6],
-    ["TEL-1-PRG",   "Fundamentos de Programación",      "Teleco",  1,  1,   120, 6],
-    ["TEL-1-ALG",   "Álgebra Lineal",                   "Teleco",  1,  2,   110, 4],
-    ["TEL-1-EXP",   "Expresión Gráfica",                "Teleco",  1,  2,   110, 4],
-    ["TEL-2-MAT2",  "Matemáticas II",                   "Teleco",  2,  1,   100, 6],
-    ["TEL-2-FIS2",  "Física II",                        "Teleco",  2,  1,   100, 6],
-    ["TEL-2-POO",   "Programación Orientada a Objetos", "Teleco",  2,  1,   100, 4],
-    ["TEL-2-ELEX",  "Electrónica Básica",               "Teleco",  2,  2,   100, 6],
-    ["TEL-2-REDES", "Redes de Computadores I",          "Teleco",  2,  2,   100, 4],
-    ["GIT-3-SO",    "Sistemas Operativos",              "GIT",     3,  1,    60, 6],
-    ["GIT-3-BD",    "Bases de Datos",                   "GIT",     3,  1,    60, 4],
-    ["GIT-3-IS",    "Ingeniería de Software",           "GIT",     3,  2,    60, 4],
-    ["GIT-3-REDES2","Redes de Computadores II",         "GIT",     3,  2,    60, 6],
+    // 1 cuatri teleco
+    ["TEL-1-CAL1",  "Cálculo I",                        "Teleco",  1,  1,   450, 4],
+    ["TEL-1-SINF",  "Sistemas Informáticos",            "Teleco",  1,  1,   450, 4],
+    ["TEL-1-TDC",   "Teoría de Circuitos",              "Teleco",  1,  1,   450, 4],
+    ["TEL-1-ALG",   "Álgebra Lineal",                   "Teleco",  1,  1,   450, 4],
+    ["TEL-1-TRANS1","Transversal I",                      "Teleco",  1,  1,   450, 4],
+    // 2 cuatri teleco
+    ["TEL-1-CAL2",  "Cálculo II",                       "Teleco",  1,  2,   450, 4],
+    ["TEL-1-PRG",   "Programación",                     "Teleco",  1,  2,   450, 4],
+    ["TEL-1-ADC",   "Análisis de Circuitos",            "Teleco",  1,  2,   450, 4],
+    ["TEL-1-FF1",   "Fundamentos Físicos I",            "Teleco",  1,  2,   450, 4],
+    ["TEL-1-ECO",   "Economia de la Empresa",           "Teleco",  1,  2,   450, 4],
+    // 3 cuatri teleco
+    ["TEL-2-EBAS",  "Electrónica Básica",               "Teleco",  2,  1,   300, 4],
+    ["TEL-2-EST",   "Estadistica",                      "Teleco",  2,  1,   300, 4],
+    ["TEL-2-SYS",   "Señales y Sistemas",               "Teleco",  2,  1,   300, 4],
+    ["TEL-2-FF2",   "Fundamentos Físicos II",           "Teleco",  2,  1,   300, 4],
+    ["TEL-2-REDES1","Arquitectura de Redes I",          "Teleco",  2,  1,   300, 4],
+    // 4 cuatri teleco
+    ["TEL-2-ED",    "Electrónica Digital",              "Teleco",  2,  2,   300, 4],
+    ["TEL-2-EC",    "Electronica de Circuitos",         "Teleco",  2,  2,   300, 4],
+    ["TEL-2-PPO",   "Propagacion de Ondas",             "Teleco",  2,  2,   300, 4],
+    ["TEL-2-TC",    "Teoria de la Comunicación",        "Teleco",  2,  2,   300, 4],
+    ["TEL-2-REDES2","Arquitectura de Redes II",         "Teleco",  2,  2,   300, 4],
+    // 5 cuatri GIT
+    ["GIT-3-PA",    "Programacion Avanzada",            "GIT",     3,  1,    30, 4],
+    ["GIT-3-SERTEL","Servicios Telematicos",            "GIT",     3,  1,    30, 4],
+    ["GIT-3-SED",   "Sistemas Electronicos Digitales",  "GIT",     3,  1,    30, 5],
+    ["GIT-3-AC",    "Arquitectura de Computadores",     "GIT",     3,  1,    30, 4],
+    ["GIT-3-REDES3","Redes de Comunicaciones",          "GIT",     3,  1,    30, 4],
+    // 6 cuatri GIT
+    ["GIT-3-SEG",    "Seguridad",                                   "GIT",     3,  2,    30, 4],
+    ["GIT-3-REDES4", "Conmutacion",                                 "GIT",     3,  2,    30, 4],
+    ["GIT-3-SSOO",   "Sistemas Operativos",                         "GIT",     3,  2,    30, 4],
+    ["GIT-3-LRSS",   "Laboratorio de Redes, Sistemas y Servicios",  "GIT",     3,  2,    30, 4],
+    ["GIT-3-TRANS2", "Transversal II",                              "GIT",     3,  2,    30, 4],
+    // 5 cuatri GITT
+    ["GIT-3-DIS",   "Diseño Electrónico",               "GITT",    3,  1,    30, 4],
+    ["GIT-3-TDS",   "Tratamiento Digital de Señales",   "GITT",    3,  1,    30, 4],
+    ["GIT-3-SED",   "Sistemas Electronicos Digitales",  "GITT",    3,  1,    30, 5],
+    ["GIT-3-AC",    "Arquitectura de Computadores",     "GITT",    3,  1,    30, 4],
+    ["GIT-3-REDES3","Redes de Comunicaciones",          "GITT",    3,  1,    30, 4],
+    // 6 cuatri GITT
+    ["GIT-3-CD",    "Comunicaciones Digitales",                    "GITT",    3,  2,    30, 4],
+    ["GIT-3-MNTO",  "Metodos Numeros y Tecnicas de Optimizacion",  "GITT",    3,  2,    30, 4],
+    ["GIT-3-SUBSIS","Subsistemas Electronicos",                    "GITT",    3,  2,    30, 4],
+    ["GIT-3-TAF",   "Tecnologias de Alta Frecuencia",              "GITT",    3,  2,    30, 4],
+    ["GIT-3-SSOO",   "Sistemas Operativos",                         "GIT",     3,  2,    30, 4],
+
     ["GIEC-3-TDS",  "Tratamiento Digital de Señales",  "GIEC",    3,  1,    50, 6],
     ["GIEC-3-ELC",  "Electrónica de Comunicaciones",   "GIEC",    3,  1,    50, 4],
     ["GIEC-3-COM",  "Comunicaciones Digitales",        "GIEC",    3,  2,    50, 6],

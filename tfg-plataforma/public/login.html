@@ -26,29 +26,20 @@
 <div class="login-container">
   <h2>Plataforma Inteligente Universitaria</h2>
 
-<form id="loginForm" autocomplete="off" novalidate>
-  <!-- campo "falso" para engañar al autocompletado -->
-  <input type="text" name="fakeusernameremembered" style="display:none">
-  <input type="password" name="fakepasswordremembered" style="display:none">
-
-  <!-- inputs reales con nombres únicos -->
-  <input type="text" id="username" name="username_real" placeholder="Usuario" autocomplete="new-username" required>
-  <input type="password" id="password" name="password_real" placeholder="Contraseña" autocomplete="new-password" required>
-  <button type="submit">Iniciar sesión</button>
-</form>
+<div id="loginForm" autocomplete="off">
+  <input type="text"     id="tfg-user" placeholder="Usuario"     autocomplete="off" spellcheck="false">
+  <input type="text" id="tfg-pass" placeholder="Contraseña" autocomplete="off" class="masked-input">
+  <button id="login-btn">Iniciar sesión</button>
+</div>
 
 <script>
-const form = document.getElementById("loginForm");
-
 const returnUrl = (document.referrer && new URL(document.referrer).origin === window.location.origin)
   ? document.referrer
   : "/index.html";
 
-form.addEventListener("submit", async (e) => {
-  e.preventDefault();
-
-  const username = document.getElementById("username").value.trim();
-  const password = document.getElementById("password").value.trim();
+async function doLogin() {
+  const username = document.getElementById("tfg-user").value.trim();
+  const password = document.getElementById("tfg-pass").value.trim();
 
   if (!username || !password) {
     alert("Introduce usuario y contraseña");
@@ -67,6 +58,12 @@ form.addEventListener("submit", async (e) => {
     const data = await res.json();
     alert(data.error || "Credenciales incorrectas");
   }
+}
+
+document.getElementById("login-btn").addEventListener("click", doLogin);
+
+document.getElementById("tfg-pass").addEventListener("keydown", e => {
+  if (e.key === "Enter") doLogin();
 });
 </script>
 

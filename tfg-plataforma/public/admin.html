@@ -42,6 +42,15 @@
     <p>Gestiona los recursos del sistema.</p>
   </div>
 
+  <!-- STATS -->
+  <div class="stats-grid">
+    <div class="stat-card"><span class="stat-num" id="stat-aulas">—</span><span class="stat-lbl">Aulas</span></div>
+    <div class="stat-card"><span class="stat-num" id="stat-profesores">—</span><span class="stat-lbl">Profesores</span></div>
+    <div class="stat-card"><span class="stat-num" id="stat-asignaturas">—</span><span class="stat-lbl">Asignaturas</span></div>
+    <div class="stat-card"><span class="stat-num" id="stat-usuarios">—</span><span class="stat-lbl">Usuarios</span></div>
+    <div class="stat-card"><span class="stat-num" id="stat-horarios">—</span><span class="stat-lbl">Horarios</span></div>
+  </div>
+
   <div class="admin-tabs-wrapper">
 
     <!-- TAB BUTTONS -->
@@ -76,14 +85,14 @@
     <div class="admin-tab-content" id="tab-profesores">
       <h3 class="admin-section-title">Profesores</h3>
       <div class="gen-form" style="margin-bottom:20px;">
-        <input type="text" id="p-name"  placeholder="Nombre completo">
-        <input type="text" id="p-dept"  placeholder="Departamento">
+        <input type="text"  id="p-name"  placeholder="Nombre completo">
+        <input type="text"  id="p-dept"  placeholder="Departamento">
         <input type="email" id="p-email" placeholder="Email">
         <button class="btn-add" onclick="addProfesor()">+ Añadir</button>
       </div>
       <table class="data-table">
-        <thead><tr><th>Nombre</th><th>Departamento</th><th>Email</th><th></th></tr></thead>
-        <tbody id="tbody-profesores"><tr><td colspan="4" class="empty-msg">Cargando...</td></tr></tbody>
+        <thead><tr><th>Nombre</th><th>Departamento</th><th>Email</th><th>Disponibilidad</th><th></th></tr></thead>
+        <tbody id="tbody-profesores"><tr><td colspan="5" class="empty-msg">Cargando...</td></tr></tbody>
       </table>
     </div>
 
@@ -101,7 +110,7 @@
         <button class="btn-add" onclick="addAsignatura()">+ Añadir</button>
       </div>
       <table class="data-table">
-        <thead><tr><th>Nombre</th><th>Código</th><th>Titulación</th><th>Curso</th><th>Alumnos</th><th>H/sem</th><th>Profesor</th><th></th></tr></thead>
+        <thead><tr><th>Nombre</th><th>Código</th><th>Titulación</th><th>Curso</th><th>Alumnos</th><th>H/sem</th><th>Profesores</th><th></th></tr></thead>
         <tbody id="tbody-asignaturas"><tr><td colspan="8" class="empty-msg">Cargando...</td></tr></tbody>
       </table>
     </div>
@@ -127,6 +136,21 @@
   </div>
 </div>
 
+<!-- ── MODAL DISPONIBILIDAD ── -->
+<div class="modal-overlay" id="avail-modal">
+  <div class="modal-card">
+    <div class="modal-header">
+      <h3 id="avail-modal-title">Disponibilidad</h3>
+      <button class="modal-close" onclick="closeAvailModal()">✕</button>
+    </div>
+    <div class="avail-grid" id="avail-grid"></div>
+    <div class="modal-actions">
+      <button class="btn-add" style="background:#6c757d;" onclick="closeAvailModal()">Cancelar</button>
+      <button class="btn-add" onclick="saveAvailability()">Guardar cambios</button>
+    </div>
+  </div>
+</div>
+
 <footer>
   <p>Trabajo de Fin de Grado — Plataforma Web Inteligente Para Automatizacion de Procesos Universitarios</p>
   <p>Ingenieria Telematica — Universidad de Alcala</p>
@@ -140,6 +164,7 @@ document.addEventListener("DOMContentLoaded", async () => {
   if (!user) return;
   document.getElementById("contenido-admin").style.display = "flex";
   loadAll();
+  loadStats();
 });
 
 // ── Tabs ──────────────────────────────────────────
@@ -148,6 +173,18 @@ function switchTab(name) {
   document.querySelectorAll(".admin-tab-btn").forEach(el => el.classList.remove("active"));
   document.getElementById("tab-" + name).classList.add("active");
   event.target.classList.add("active");
+}
+
+// ── Stats ─────────────────────────────────────────
+async function loadStats() {
+  const res = await fetch("/api/v1/stats");
+  if (!res.ok) return;
+  const s = await res.json();
+  document.getElementById("stat-aulas").textContent       = s.classrooms;
+  document.getElementById("stat-profesores").textContent  = s.teachers;
+  document.getElementById("stat-asignaturas").textContent = s.subjects;
+  document.getElementById("stat-usuarios").textContent    = s.users;
+  document.getElementById("stat-horarios").textContent    = s.schedules;
 }
 
 // ── Load all data ─────────────────────────────────
@@ -161,6 +198,7 @@ async function loadAulas() {
   const res = await fetch("/api/v1/classrooms");
   aulas = await res.json();
   renderAulas();
+  loadStats();
 }
 
 function renderAulas() {
@@ -210,16 +248,18 @@ async function loadProfesores() {
   profesores = await res.json();
   renderProfesores();
   updateTeacherSelect();
+  loadStats();
 }
 
 function renderProfesores() {
   const tbody = document.getElementById("tbody-profesores");
-  if (!profesores.length) { tbody.innerHTML = `<tr><td colspan="4" class="empty-msg">Sin profesores</td></tr>`; return; }
+  if (!profesores.length) { tbody.innerHTML = `<tr><td colspan="5" class="empty-msg">Sin profesores</td></tr>`; return; }
   tbody.innerHTML = profesores.map(p => `
     <tr>
       <td>${p.name}</td>
       <td>${p.department || "—"}</td>
       <td>${p.email || "—"}</td>
+      <td><button class="btn-avail" onclick="openAvailModal(${p.id}, '${p.name.replace(/'/g,"\\'")}')">Ver / Editar</button></td>
       <td><button class="btn-remove" onclick="deleteProfesor(${p.id})">✕</button></td>
     </tr>`).join("");
 }
@@ -270,9 +310,10 @@ async function loadAsignaturas() {
       <td>${s.year || "—"}</td>
       <td>${s.students || "—"}</td>
       <td>${s.hours_week}</td>
-      <td>${s.teacher_name || "—"}</td>
+      <td>${s.teacher_names || "—"}</td>
       <td><button class="btn-remove" onclick="deleteAsignatura(${s.id})">✕</button></td>
     </tr>`).join("");
+  loadStats();
 }
 
 async function addAsignatura() {
@@ -317,6 +358,7 @@ async function loadUsuarios() {
       <td>${new Date(u.created_at).toLocaleDateString("es-ES")}</td>
       <td><button class="btn-remove" onclick="deleteUsuario(${u.id})">✕</button></td>
     </tr>`).join("");
+  loadStats();
 }
 
 async function addUsuario() {
@@ -344,6 +386,85 @@ async function deleteUsuario(id) {
   if (res.ok) await loadUsuarios();
   else { const d = await res.json(); alert(d.error); }
 }
+
+// ── DISPONIBILIDAD MODAL ──────────────────────────
+const DAYS  = ["Lun", "Mar", "Mié", "Jue", "Vie"];
+const HOURS = [8,9,10,11,12,13,14,15,16,17,18,19];
+let currentTeacherId = null;
+
+function buildAvailGrid(markedSet) {
+  const grid = document.getElementById("avail-grid");
+  let html = `<div class="avail-hour"></div>`;
+  DAYS.forEach(d => { html += `<div class="avail-header">${d}</div>`; });
+
+  HOURS.forEach(h => {
+    html += `<div class="avail-hour">${String(h).padStart(2,"0")}:00</div>`;
+    DAYS.forEach((_, di) => {
+      const on = markedSet.has(`${di}-${h}`) ? "on" : "";
+      html += `<div class="avail-cell ${on}" data-day="${di}" data-hour="${h}" onclick="toggleCell(this)"></div>`;
+    });
+  });
+  grid.innerHTML = html;
+}
+
+function expandSlots(slots) {
+  const set = new Set();
+  for (const s of slots) {
+    const startH = parseInt(s.slot_start);
+    const endH   = parseInt(s.slot_end);
+    for (let h = startH; h < endH; h++) {
+      set.add(`${s.day_of_week}-${h}`);
+    }
+  }
+  return set;
+}
+
+async function openAvailModal(teacherId, teacherName) {
+  currentTeacherId = teacherId;
+  document.getElementById("avail-modal-title").textContent = `Disponibilidad — ${teacherName}`;
+  document.getElementById("avail-modal").classList.add("open");
+
+  const res = await fetch(`/api/v1/teachers/${teacherId}/availability`);
+  const slots = await res.json();
+  buildAvailGrid(expandSlots(slots));
+}
+
+function closeAvailModal() {
+  document.getElementById("avail-modal").classList.remove("open");
+  currentTeacherId = null;
+}
+
+function toggleCell(cell) {
+  cell.classList.toggle("on");
+}
+
+async function saveAvailability() {
+  const slots = [];
+  document.querySelectorAll("#avail-grid .avail-cell.on").forEach(cell => {
+    const h = parseInt(cell.dataset.hour);
+    slots.push({
+      day_of_week: parseInt(cell.dataset.day),
+      slot_start:  String(h).padStart(2,"0") + ":00",
+      slot_end:    String(h + 1).padStart(2,"0") + ":00"
+    });
+  });
+
+  const res = await fetch(`/api/v1/teachers/${currentTeacherId}/availability`, {
+    method: "PUT", headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ slots })
+  });
+
+  if (res.ok) {
+    closeAvailModal();
+  } else {
+    const d = await res.json(); alert(d.error);
+  }
+}
+
+// Close modal on overlay click
+document.getElementById("avail-modal").addEventListener("click", e => {
+  if (e.target === e.currentTarget) closeAvailModal();
+});
 </script>
 
 </body>

@@ -1,0 +1,115 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <title>Cambiar contraseña</title>
+  <link rel="stylesheet" href="css/style.css">
+  <link rel="icon" type="image/png" href="images/icon.png">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+</head>
+<body class="horarios-body">
+
+<nav>
+  <div class="logo">
+    <a href="index.html" class="no-hover">
+      <img src="images/icon.png" alt="Logo">
+      <h1>TFG Plataforma</h1>
+    </a>
+  </div>
+  <ul>
+    <li><a href="index.html">Inicio</a></li>
+    <li><a href="horarios.html">Horarios</a></li>
+    <li><a href="generador.html">Generador</a></li>
+    <li id="admin-li" style="display:none;"><a href="admin.html">Admin</a></li>
+    <li id="login-li"><a class="btn-login" href="login.html">Iniciar sesión</a></li>
+  </ul>
+</nav>
+
+<!-- ACCESO DENEGADO -->
+<div class="horarios-page" id="acceso-denegado" style="display:none;">
+  <div class="horarios-card acceso-card">
+    <h2>Acceso restringido</h2>
+    <p>Debes iniciar sesión para ver tu perfil.</p>
+    <a class="btn" href="login.html">Iniciar sesión</a>
+  </div>
+</div>
+
+<!-- CONTENIDO -->
+<div class="profile-page" id="contenido-perfil" style="display:none;">
+  <div class="profile-card">
+    <h2>Cambiar contraseña</h2>
+    <p class="profile-sub">Usuario: <strong id="profile-username">—</strong></p>
+
+    <div class="profile-msg" id="profile-msg"></div>
+
+    <form id="change-pass-form">
+      <div class="profile-field">
+        <label>Contraseña actual</label>
+        <input type="text" id="cur-pass" autocomplete="off" placeholder="••••••••" class="masked-input">
+      </div>
+      <div class="profile-field">
+        <label>Nueva contraseña</label>
+        <input type="text" id="new-pass" autocomplete="off" placeholder="••••••••" class="masked-input">
+      </div>
+      <div class="profile-field">
+        <label>Confirmar nueva contraseña</label>
+        <input type="text" id="new-pass2" autocomplete="off" placeholder="••••••••" class="masked-input">
+      </div>
+      <button type="submit" class="btn-generate" style="font-size:15px; padding:12px; margin-top:8px;">
+        Cambiar contraseña
+      </button>
+    </form>
+  </div>
+</div>
+
+<footer>
+  <p>Trabajo de Fin de Grado — Plataforma Web Inteligente Para Automatizacion de Procesos Universitarios</p>
+  <p>Ingenieria Telematica — Universidad de Alcala</p>
+  <p>Autor: David Paluso Corral</p>
+</footer>
+
+<script src="js/auth.js"></script>
+<script>
+document.addEventListener("DOMContentLoaded", async () => {
+  const user = await Auth.init({ requireAuth: true });
+  if (!user) return;
+
+  document.getElementById("contenido-perfil").style.display = "flex";
+  document.getElementById("profile-username").textContent = user.username;
+
+  document.getElementById("change-pass-form").addEventListener("submit", async e => {
+    e.preventDefault();
+    const msg      = document.getElementById("profile-msg");
+    const curPass  = document.getElementById("cur-pass").value;
+    const newPass  = document.getElementById("new-pass").value;
+    const newPass2 = document.getElementById("new-pass2").value;
+
+    msg.className = "profile-msg";
+    msg.textContent = "";
+
+    if (newPass !== newPass2) {
+      msg.className = "profile-msg error";
+      msg.textContent = "Las contraseñas nuevas no coinciden.";
+      return;
+    }
+
+    const res = await fetch("/api/v1/auth/change-password", {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ currentPassword: curPass, newPassword: newPass })
+    });
+    const data = await res.json();
+
+    if (res.ok) {
+      msg.className = "profile-msg ok";
+      msg.textContent = "Contraseña cambiada correctamente.";
+      document.getElementById("change-pass-form").reset();
+    } else {
+      msg.className = "profile-msg error";
+      msg.textContent = data.error || "Error al cambiar la contraseña.";
+    }
+  });
+});
+</script>
+
+</body>
+</html>

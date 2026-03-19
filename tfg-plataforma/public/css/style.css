@@ -332,25 +332,36 @@ footer p {
   transform: translateY(0);
 }
 
-.user-dropdown-content a {
+.dropdown-item {
   display: flex;
   align-items: center;
   gap: 8px;
-  color: #c0392b;
   padding: 12px 16px;
   text-decoration: none;
   font-weight: 500;
   font-size: 14px;
   transition: background 0.2s;
+  color: #333;
 }
 
-.user-dropdown-content a::before {
+.dropdown-item:hover {
+  background: #f4f6f9;
+  color: #0d1b2a;
+}
+
+.dropdown-item--danger {
+  color: #c0392b;
+  border-top: 1px solid #f0f0f0;
+}
+
+.dropdown-item--danger::before {
   content: "⏻";
   font-size: 15px;
 }
 
-.user-dropdown-content a:hover {
+.dropdown-item--danger:hover {
   background: #fdf0ef;
+  color: #c0392b;
 }
 
 /* CONTAINER GENERAL */
@@ -571,6 +582,12 @@ select:focus {
   font-size: 22px;
 }
 
+/* Mask text input to look like password without triggering browser password manager */
+.masked-input {
+  -webkit-text-security: disc;
+  font-family: sans-serif;
+}
+
 /* Inputs */
 .login-container input {
   width: 100%;
@@ -668,7 +685,7 @@ select:focus {
 
 .gen-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(380px, 1fr));
+  grid-template-columns: repeat(2, 1fr);
   gap: 25px;
   width: 100%;
   max-width: 1200px;
@@ -1012,3 +1029,245 @@ select:focus {
   font-size: 15px;
   margin-bottom: 20px;
 }
+
+/* ── STATS GRID (admin dashboard) ───────────────── */
+.stats-grid {
+  display: flex;
+  gap: 16px;
+  flex-wrap: wrap;
+  justify-content: center;
+  width: 100%;
+  max-width: 1100px;
+  margin-bottom: 10px;
+}
+
+.stat-card {
+  background: rgba(255,255,255,0.15);
+  border: 1px solid rgba(255,255,255,0.3);
+  border-radius: 14px;
+  padding: 18px 30px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  min-width: 120px;
+  backdrop-filter: blur(6px);
+  transition: background 0.2s;
+}
+
+.stat-card:hover {
+  background: rgba(255,255,255,0.22);
+}
+
+.stat-num {
+  font-size: 36px;
+  font-weight: 700;
+  color: white;
+  line-height: 1;
+}
+
+.stat-lbl {
+  font-size: 12px;
+  font-weight: 600;
+  color: rgba(255,255,255,0.75);
+  text-transform: uppercase;
+  letter-spacing: 0.8px;
+}
+
+/* ── MODAL OVERLAY ───────────────────────────────── */
+.modal-overlay {
+  display: none;
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,0.6);
+  z-index: 200;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+}
+
+.modal-overlay.open {
+  display: flex;
+}
+
+.modal-card {
+  background: white;
+  border-radius: 16px;
+  padding: 30px;
+  width: 100%;
+  max-width: 780px;
+  max-height: 90vh;
+  overflow-y: auto;
+  box-shadow: 0 20px 60px rgba(0,0,0,0.5);
+  position: relative;
+}
+
+.modal-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 22px;
+}
+
+.modal-header h3 {
+  font-size: 18px;
+  color: #0d1b2a;
+}
+
+.modal-close {
+  background: none;
+  border: none;
+  font-size: 22px;
+  cursor: pointer;
+  color: #888;
+  line-height: 1;
+  padding: 4px 8px;
+  border-radius: 6px;
+  transition: 0.2s;
+}
+
+.modal-close:hover {
+  background: #f0f0f0;
+  color: #333;
+}
+
+/* ── AVAILABILITY GRID ───────────────────────────── */
+.avail-grid {
+  display: grid;
+  grid-template-columns: 60px repeat(5, 1fr);
+  gap: 3px;
+  font-size: 12px;
+}
+
+.avail-grid .avail-header {
+  text-align: center;
+  font-weight: 700;
+  color: #0d1b2a;
+  padding: 6px 4px;
+  font-size: 12px;
+}
+
+.avail-grid .avail-hour {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  padding-right: 8px;
+  color: #888;
+  font-size: 11px;
+  font-weight: 600;
+}
+
+.avail-cell {
+  background: #f0f0f0;
+  border-radius: 5px;
+  height: 32px;
+  cursor: pointer;
+  transition: background 0.15s, transform 0.1s;
+}
+
+.avail-cell.on {
+  background: #00b4d8;
+}
+
+.avail-cell:hover {
+  transform: scale(1.05);
+  opacity: 0.85;
+}
+
+.modal-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+  margin-top: 20px;
+}
+
+.btn-avail {
+  padding: 6px 14px;
+  background: #0d1b2a;
+  color: white;
+  border: none;
+  border-radius: 7px;
+  cursor: pointer;
+  font-size: 12px;
+  font-weight: 600;
+  transition: 0.2s;
+  white-space: nowrap;
+}
+
+.btn-avail:hover {
+  background: #1a2f45;
+}
+
+/* ── PROFILE PAGE ────────────────────────────────── */
+.profile-page {
+  position: relative;
+  z-index: 1;
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 60px 20px;
+}
+
+.profile-card {
+  background: rgba(255,255,255,0.96);
+  border-radius: 16px;
+  padding: 40px 44px;
+  width: 100%;
+  max-width: 440px;
+  box-shadow: 0 12px 40px rgba(0,0,0,0.4);
+}
+
+.profile-card h2 {
+  font-size: 22px;
+  color: #0d1b2a;
+  margin-bottom: 6px;
+}
+
+.profile-card .profile-sub {
+  font-size: 14px;
+  color: #888;
+  margin-bottom: 28px;
+}
+
+.profile-field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-bottom: 16px;
+}
+
+.profile-field label {
+  font-size: 12px;
+  font-weight: 700;
+  color: #0d1b2a;
+  text-transform: uppercase;
+  letter-spacing: 0.6px;
+}
+
+.profile-field input,
+.profile-field .masked-input {
+  padding: 10px 14px;
+  border: 1px solid #ddd;
+  border-radius: 8px;
+  font-size: 14px;
+  color: #333;
+  transition: 0.2s;
+}
+
+.profile-field input:focus {
+  outline: none;
+  border-color: #00b4d8;
+  box-shadow: 0 0 0 2px rgba(0,180,216,0.2);
+}
+
+.profile-msg {
+  font-size: 13px;
+  padding: 10px 14px;
+  border-radius: 8px;
+  margin-bottom: 14px;
+  display: none;
+}
+
+.profile-msg.ok    { background: #e6f9ee; color: #1a7f45; display: block; }
+.profile-msg.error { background: #fdf0ef; color: #c0392b; display: block; }

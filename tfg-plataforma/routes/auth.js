@@ -34,4 +34,28 @@ router.get("/me", (req, res) => {
   res.json({ user: req.session.user });
 });
 
+// POST /api/v1/auth/change-password
+router.post("/change-password", async (req, res) => {
+  if (!req.session.user) return res.status(401).json({ error: "No autenticado" });
+
+  const { currentPassword, newPassword } = req.body;
+  if (!currentPassword || !newPassword)
+    return res.status(400).json({ error: "Faltan campos" });
+  if (newPassword.length < 4)
+    return res.status(400).json({ error: "La contraseña debe tener al menos 4 caracteres" });
+
+  db.get("SELECT * FROM users WHERE id = ?", [req.session.user.id], async (err, user) => {
+    if (err || !user) return res.status(500).json({ error: "Error del servidor" });
+
+    const match = await bcrypt.compare(currentPassword, user.password);
+    if (!match) return res.status(401).json({ error: "Contraseña actual incorrecta" });
+
+    const hash = await bcrypt.hash(newPassword, 12);
+    db.run("UPDATE users SET password = ? WHERE id = ?", [hash, user.id], err2 => {
+      if (err2) return res.status(500).json({ error: err2.message });
+      res.json({ ok: true });
+    });
+  });
+});
+
 module.exports = router;

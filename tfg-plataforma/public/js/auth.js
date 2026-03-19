@@ -21,7 +21,8 @@ const Auth = (() => {
       <div class="user-dropdown">
         <span id="user-btn">Hola, ${user.username}</span>
         <div class="user-dropdown-content">
-          <a href="#" id="logout-btn">Cerrar sesión</a>
+          <a href="/profile.html" class="dropdown-item">Cambiar contraseña</a>
+          <a href="#" id="logout-btn" class="dropdown-item dropdown-item--danger">Cerrar sesión</a>
         </div>
       </div>`;
 
