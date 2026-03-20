@@ -48,7 +48,22 @@
     <!-- AULAS -->
     <div class="gen-section">
       <h3>Selecciona las Aulas</h3>
-      <button class="select-all-btn" onclick="toggleAll('aulas-list')">Seleccionar / Deseleccionar todo</button>
+      <div class="gen-filters">
+        <select id="filter-zone" onchange="filterAulas()">
+          <option value="">Todas las zonas</option>
+          <option value="Este">Este</option>
+          <option value="Sur">Sur</option>
+          <option value="Oeste">Oeste</option>
+          <option value="Norte">Norte</option>
+        </select>
+        <select id="filter-type" onchange="filterAulas()">
+          <option value="">Todos los tipos</option>
+          <option value="teoria">Teoría</option>
+          <option value="laboratorio">Laboratorio</option>
+          <option value="seminario">Seminario</option>
+        </select>
+        <button class="select-all-btn" onclick="toggleAll('aulas-list')">Seleccionar / Deseleccionar todo</button>
+      </div>
       <div class="check-list" id="aulas-list">
         <p class="empty-msg">Cargando...</p>
       </div>
@@ -57,7 +72,29 @@
     <!-- ASIGNATURAS -->
     <div class="gen-section">
       <h3>Selecciona las Asignaturas</h3>
-      <button class="select-all-btn" onclick="toggleAll('asig-list')">Seleccionar / Deseleccionar todo</button>
+      <div class="gen-filters">
+        <select id="filter-degree" onchange="filterAsignaturas()">
+          <option value="">Todas las carreras</option>
+          <option value="Teleco">Teleco</option>
+          <option value="GIT">GIT</option>
+          <option value="GITT">GITT</option>
+          <option value="GIEC">GIEC</option>
+          <option value="GIST">GIST</option>
+        </select>
+        <select id="filter-year" onchange="filterAsignaturas()">
+          <option value="">Todos los cursos</option>
+          <option value="1">1º</option>
+          <option value="2">2º</option>
+          <option value="3">3º</option>
+          <option value="4">4º</option>
+        </select>
+        <select id="filter-sem" onchange="filterAsignaturas()">
+          <option value="">Todos los cuatrimestres</option>
+          <option value="1">1er cuatrimestre</option>
+          <option value="2">2do cuatrimestre</option>
+        </select>
+        <button class="select-all-btn" onclick="toggleAll('asig-list')">Seleccionar / Deseleccionar todo</button>
+      </div>
       <div class="check-list" id="asig-list">
         <p class="empty-msg">Cargando...</p>
       </div>
@@ -109,19 +146,40 @@ document.addEventListener("DOMContentLoaded", async () => {
 });
 
 // ── Load from DB ──────────────────────────────────
+function getZone(name) {
+  const c = name[0].toUpperCase();
+  if (c === "E") return "Este";
+  if (c === "S") return "Sur";
+  if (c === "O") return "Oeste";
+  return "Norte"; // N y P
+}
+
 async function loadAulas() {
   const res  = await fetch("/api/v1/classrooms");
   const data = await res.json();
   const list = document.getElementById("aulas-list");
   if (!data.length) { list.innerHTML = `<p class="empty-msg">Sin aulas. Añade en el panel Admin.</p>`; return; }
-  list.innerHTML = data.map(a => `
-    <label class="check-item">
+  list.innerHTML = data.map(a => {
+    const zone = getZone(a.name);
+    return `
+    <label class="check-item" data-zone="${zone}" data-type="${a.type}">
       <input type="checkbox" value="${a.id}" data-capacity="${a.capacity}" data-type="${a.type}" checked>
       <span>
         <span class="check-label-main">${a.name}</span>
-        <span class="check-label-sub">${a.capacity} plazas · ${a.type}</span>
+        <span class="check-label-sub">${zone} · ${a.capacity} plazas · ${a.type}</span>
       </span>
-    </label>`).join("");
+    </label>`;
+  }).join("");
+}
+
+function filterAulas() {
+  const zone = document.getElementById("filter-zone").value;
+  const type = document.getElementById("filter-type").value;
+  document.querySelectorAll("#aulas-list .check-item").forEach(item => {
+    const matchZone = !zone || item.dataset.zone === zone;
+    const matchType = !type || item.dataset.type === type;
+    item.style.display = (matchZone && matchType) ? "" : "none";
+  });
 }
 
 async function loadAsignaturas() {
@@ -130,13 +188,25 @@ async function loadAsignaturas() {
   const list = document.getElementById("asig-list");
   if (!data.length) { list.innerHTML = `<p class="empty-msg">Sin asignaturas. Añade en el panel Admin.</p>`; return; }
   list.innerHTML = data.map(s => `
-    <label class="check-item">
-      <input type="checkbox" value="${s.id}" data-students="${s.students}" data-hours="${s.hours_week}" data-teacher="${s.teacher_id || ''}" checked>
+    <label class="check-item" data-degree="${s.degree || ''}" data-year="${s.year || ''}" data-semester="${s.semester || ''}">
+      <input type="checkbox" value="${s.id}" data-students="${s.students}" data-hours="${s.hours_week}" data-teacher="${s.teacher_names || ''}" checked>
       <span>
         <span class="check-label-main">${s.name}</span>
         <span class="check-label-sub">${s.degree || ''} ${s.year ? s.year+'º' : ''} · ${s.hours_week}h/sem</span>
       </span>
     </label>`).join("");
+}
+
+function filterAsignaturas() {
+  const degree = document.getElementById("filter-degree").value;
+  const year   = document.getElementById("filter-year").value;
+  const sem    = document.getElementById("filter-sem").value;
+  document.querySelectorAll("#asig-list .check-item").forEach(item => {
+    const matchDegree = !degree || item.dataset.degree   === degree;
+    const matchYear   = !year   || item.dataset.year     === year;
+    const matchSem    = !sem    || item.dataset.semester  === sem;
+    item.style.display = (matchDegree && matchYear && matchSem) ? "" : "none";
+  });
 }
 
 // ── Select all toggle ─────────────────────────────
