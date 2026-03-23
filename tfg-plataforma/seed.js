@@ -18,10 +18,11 @@ async function seed() {
     role TEXT NOT NULL DEFAULT 'user',
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP
   )`);
-  await run(`CREATE TABLE IF NOT EXISTS classrooms (
+  await run("DROP TABLE IF EXISTS classrooms");
+  await run(`CREATE TABLE classrooms (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     name TEXT NOT NULL, capacity INTEGER NOT NULL,
-    type TEXT NOT NULL DEFAULT 'teoria', building TEXT
+    type TEXT NOT NULL DEFAULT 'teoria', building TEXT, zone TEXT
   )`);
   await run(`CREATE TABLE IF NOT EXISTS teachers (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -78,26 +79,30 @@ async function seed() {
     { prefix: "OA", zone: "Oeste"},
     { prefix: "NA", zone: "Norte"},
   ];
-  for (const { prefix } of wings) {
+  for (const { prefix, zone } of wings) {
     for (let i = 1; i <= 8; i++) {
       const capacity = (i === 6 || i === 7) ? 40 : 80;
-      await run("INSERT INTO classrooms (name, capacity, type, building) VALUES (?,?,?,?)",
-        [`${prefix}${i}`, capacity, "teoria", EPS]);
+      await run("INSERT INTO classrooms (name, capacity, type, building, zone) VALUES (?,?,?,?,?)",
+        [`${prefix}${i}`, capacity, "teoria", EPS, zone]);
     }
   }
 
   // Planta 2 — Laboratorios Este/Sur/Oeste (EL/SL/OL 1-12, aforo 30)
-  const labWings = ["EL", "SL", "OL"];
-  for (const prefix of labWings) {
+  const labWings = [
+    { prefix: "EL", zone: "Este"  },
+    { prefix: "SL", zone: "Sur"   },
+    { prefix: "OL", zone: "Oeste" },
+  ];
+  for (const { prefix, zone } of labWings) {
     for (let i = 1; i <= 12; i++) {
-      await run("INSERT INTO classrooms (name, capacity, type, building) VALUES (?,?,?,?)",
-        [`${prefix}${i}`, 30, "laboratorio", EPS]);
+      await run("INSERT INTO classrooms (name, capacity, type, building, zone) VALUES (?,?,?,?,?)",
+        [`${prefix}${i}`, 30, "laboratorio", EPS, zone]);
     }
   }
 
   // Planta 2 Norte — Seminarios grandes PL1 y PL2
-  await run("INSERT INTO classrooms (name, capacity, type, building) VALUES (?,?,?,?)", ["PL1", 60, "seminario", EPS]);
-  await run("INSERT INTO classrooms (name, capacity, type, building) VALUES (?,?,?,?)", ["PL2", 60, "seminario", EPS]);
+  await run("INSERT INTO classrooms (name, capacity, type, building, zone) VALUES (?,?,?,?,?)", ["PL1", 60, "seminario", EPS, "Norte"]);
+  await run("INSERT INTO classrooms (name, capacity, type, building, zone) VALUES (?,?,?,?,?)", ["PL2", 60, "seminario", EPS, "Norte"]);
 
   console.log("✓ Aulas");
 

@@ -72,11 +72,12 @@
           <option value="laboratorio">Laboratorio</option>
           <option value="seminario">Seminario</option>
         </select>
+        <input type="text" id="a-zone" placeholder="Zona (ej. Planta baja)">
         <input  type="text"   id="a-building" placeholder="Edificio">
         <button class="btn-add" onclick="addAula()">+ Añadir</button>
       </div>
       <table class="data-table">
-        <thead><tr><th>Nombre</th><th>Capacidad</th><th>Tipo</th><th>Edificio</th><th></th></tr></thead>
+        <thead><tr><th>Nombre</th><th>Capacidad</th><th>Tipo</th><th>Zona</th><th>Edificio</th><th></th></tr></thead>
         <tbody id="tbody-aulas"><tr><td colspan="5" class="empty-msg">Cargando...</td></tr></tbody>
       </table>
     </div>
@@ -104,6 +105,11 @@
         <input  type="text"   id="s-code"     placeholder="Código (ej. GIT-3-SO)">
         <input  type="text"   id="s-degree"   placeholder="Titulación">
         <input  type="number" id="s-year"     placeholder="Curso" min="1" max="4">
+        <select id="s-semester">
+          <option value="">Año completo</option>
+          <option value="1">1er cuatrimestre</option>
+          <option value="2">2do cuatrimestre</option>
+        </select>
         <input  type="number" id="s-students" placeholder="Alumnos" min="1">
         <input  type="number" id="s-hours"    placeholder="Horas/sem" min="1" max="20" value="4">
         <select id="s-teacher"><option value="">-- Profesor --</option></select>
@@ -203,12 +209,13 @@ async function loadAulas() {
 
 function renderAulas() {
   const tbody = document.getElementById("tbody-aulas");
-  if (!aulas.length) { tbody.innerHTML = `<tr><td colspan="5" class="empty-msg">Sin aulas</td></tr>`; return; }
+  if (!aulas.length) { tbody.innerHTML = `<tr><td colspan="6" class="empty-msg">Sin aulas</td></tr>`; return; }
   tbody.innerHTML = aulas.map(a => `
     <tr>
       <td>${a.name}</td>
       <td>${a.capacity}</td>
       <td>${a.type}</td>
+      <td>${a.zone || "—"}</td>
       <td>${a.building || "—"}</td>
       <td><button class="btn-remove" onclick="deleteAula(${a.id})">✕</button></td>
     </tr>`).join("");
@@ -218,16 +225,18 @@ async function addAula() {
   const name     = document.getElementById("a-name").value.trim();
   const capacity = document.getElementById("a-capacity").value;
   const type     = document.getElementById("a-type").value;
+  const zone     = document.getElementById("a-zone").value;
   const building = document.getElementById("a-building").value.trim();
   if (!name || !capacity) return alert("Nombre y capacidad requeridos");
 
   const res = await fetch("/api/v1/classrooms", {
     method: "POST", headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ name, capacity, type, building })
+    body: JSON.stringify({ name, capacity, type, zone, building })
   });
   if (res.ok) {
     document.getElementById("a-name").value = "";
     document.getElementById("a-capacity").value = "";
+    document.getElementById("a-zone").value = "";
     document.getElementById("a-building").value = "";
     await loadAulas();
   } else {
@@ -321,6 +330,7 @@ async function addAsignatura() {
   const code       = document.getElementById("s-code").value.trim();
   const degree     = document.getElementById("s-degree").value.trim();
   const year       = document.getElementById("s-year").value;
+  const semester   = document.getElementById("s-semester").value;
   const students   = document.getElementById("s-students").value;
   const hours_week = document.getElementById("s-hours").value;
   const teacher_id = document.getElementById("s-teacher").value;
@@ -328,10 +338,11 @@ async function addAsignatura() {
 
   const res = await fetch("/api/v1/subjects", {
     method: "POST", headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ name, code, degree, year, students, hours_week, teacher_id: teacher_id || null })
+    body: JSON.stringify({ name, code, degree, year, semester: semester || null, students, hours_week, teacher_id: teacher_id || null })
   });
   if (res.ok) {
     ["s-name","s-code","s-degree","s-year","s-students"].forEach(id => document.getElementById(id).value = "");
+    document.getElementById("s-semester").value = "";
     document.getElementById("s-hours").value = "4";
     await loadAsignaturas();
   } else {

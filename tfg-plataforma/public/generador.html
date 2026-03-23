@@ -51,16 +51,9 @@
       <div class="gen-filters">
         <select id="filter-zone" onchange="filterAulas()">
           <option value="">Todas las zonas</option>
-          <option value="Este">Este</option>
-          <option value="Sur">Sur</option>
-          <option value="Oeste">Oeste</option>
-          <option value="Norte">Norte</option>
         </select>
         <select id="filter-type" onchange="filterAulas()">
           <option value="">Todos los tipos</option>
-          <option value="teoria">Teoría</option>
-          <option value="laboratorio">Laboratorio</option>
-          <option value="seminario">Seminario</option>
         </select>
         <button class="select-all-btn" onclick="toggleAll('aulas-list')">Seleccionar / Deseleccionar todo</button>
       </div>
@@ -75,23 +68,12 @@
       <div class="gen-filters">
         <select id="filter-degree" onchange="filterAsignaturas()">
           <option value="">Todas las carreras</option>
-          <option value="Teleco">Teleco</option>
-          <option value="GIT">GIT</option>
-          <option value="GITT">GITT</option>
-          <option value="GIEC">GIEC</option>
-          <option value="GIST">GIST</option>
         </select>
         <select id="filter-year" onchange="filterAsignaturas()">
           <option value="">Todos los cursos</option>
-          <option value="1">1º</option>
-          <option value="2">2º</option>
-          <option value="3">3º</option>
-          <option value="4">4º</option>
         </select>
         <select id="filter-sem" onchange="filterAsignaturas()">
           <option value="">Todos los cuatrimestres</option>
-          <option value="1">1er cuatrimestre</option>
-          <option value="2">2do cuatrimestre</option>
         </select>
         <button class="select-all-btn" onclick="toggleAll('asig-list')">Seleccionar / Deseleccionar todo</button>
       </div>
@@ -146,33 +128,55 @@ document.addEventListener("DOMContentLoaded", async () => {
 });
 
 // ── Load from DB ──────────────────────────────────
-function getZone(name) {
-  const c = name[0].toUpperCase();
-  if (c === "E") return "Este";
-  if (c === "S") return "Sur";
-  if (c === "O") return "Oeste";
-  return "Norte"; // N y P
-}
+let aulasData = [];
 
 async function loadAulas() {
   const res  = await fetch("/api/v1/classrooms");
-  const data = await res.json();
+  aulasData  = await res.json();
   const list = document.getElementById("aulas-list");
-  if (!data.length) { list.innerHTML = `<p class="empty-msg">Sin aulas. Añade en el panel Admin.</p>`; return; }
-  list.innerHTML = data.map(a => {
-    const zone = getZone(a.name);
-    return `
-    <label class="check-item" data-zone="${zone}" data-type="${a.type}">
+  if (!aulasData.length) { list.innerHTML = `<p class="empty-msg">Sin aulas. Añade en el panel Admin.</p>`; return; }
+
+  // Rellenar zonas dinámicamente
+  const zones = [...new Set(aulasData.map(a => a.zone).filter(Boolean))].sort();
+  const zoneSel = document.getElementById("filter-zone");
+  zones.forEach(z => { const o = document.createElement("option"); o.value = z; o.textContent = z; zoneSel.appendChild(o); });
+
+  renderAulasList();
+  updateTypeFilter();
+}
+
+function updateTypeFilter() {
+  const zone    = document.getElementById("filter-zone").value;
+  const typeSel = document.getElementById("filter-type");
+  const current = typeSel.value;
+
+  const visible = aulasData.filter(a => !zone || a.zone === zone);
+  const types   = [...new Set(visible.map(a => a.type).filter(Boolean))].sort();
+
+  typeSel.innerHTML = `<option value="">Todos los tipos</option>`;
+  types.forEach(t => {
+    const o = document.createElement("option");
+    o.value = t; o.textContent = t.charAt(0).toUpperCase() + t.slice(1);
+    typeSel.appendChild(o);
+  });
+  // Mantener selección si sigue siendo válida
+  if (types.includes(current)) typeSel.value = current;
+}
+
+function renderAulasList() {
+  const list = document.getElementById("aulas-list");
+  list.innerHTML = aulasData.map(a => `
+    <label class="check-item" data-zone="${a.zone || ''}" data-type="${a.type}">
       <input type="checkbox" value="${a.id}" data-capacity="${a.capacity}" data-type="${a.type}" checked>
       <span>
         <span class="check-label-main">${a.name}</span>
-        <span class="check-label-sub">${zone} · ${a.capacity} plazas · ${a.type}</span>
+        <span class="check-label-sub">${[a.zone, a.capacity + ' plazas', a.type].filter(Boolean).join(' · ')}</span>
       </span>
-    </label>`;
-  }).join("");
+    </label>`).join("");
 }
 
 function filterAulas() {
+  updateTypeFilter();
   const zone = document.getElementById("filter-zone").value;
   const type = document.getElementById("filter-type").value;
   document.querySelectorAll("#aulas-list .check-item").forEach(item => {
@@ -182,12 +186,60 @@ function filterAulas() {
   });
 }
 
+let asigData = [];
+
 async function loadAsignaturas() {
   const res  = await fetch("/api/v1/subjects");
-  const data = await res.json();
+  asigData   = await res.json();
   const list = document.getElementById("asig-list");
-  if (!data.length) { list.innerHTML = `<p class="empty-msg">Sin asignaturas. Añade en el panel Admin.</p>`; return; }
-  list.innerHTML = data.map(s => `
+  if (!asigData.length) { list.innerHTML = `<p class="empty-msg">Sin asignaturas. Añade en el panel Admin.</p>`; return; }
+
+  // Rellenar carreras dinámicamente
+  const degrees = [...new Set(asigData.map(s => s.degree).filter(Boolean))].sort();
+  const degreeSel = document.getElementById("filter-degree");
+  degrees.forEach(d => { const o = document.createElement("option"); o.value = d; o.textContent = d; degreeSel.appendChild(o); });
+
+  updateYearFilter();
+  renderAsigList();
+}
+
+const semLabel = ["", "1er cuatrimestre", "2do cuatrimestre"];
+
+function updateYearFilter() {
+  const degree  = document.getElementById("filter-degree").value;
+  const yearSel = document.getElementById("filter-year");
+  const current = yearSel.value;
+
+  const visible = asigData.filter(s => !degree || s.degree === degree);
+  const years   = [...new Set(visible.map(s => s.year).filter(Boolean))].sort((a, b) => a - b);
+
+  yearSel.innerHTML = `<option value="">Todos los cursos</option>`;
+  years.forEach(y => { const o = document.createElement("option"); o.value = y; o.textContent = y + "º"; yearSel.appendChild(o); });
+  if (years.map(String).includes(current)) yearSel.value = current;
+
+  updateSemFilter();
+}
+
+function updateSemFilter() {
+  const degree = document.getElementById("filter-degree").value;
+  const year   = document.getElementById("filter-year").value;
+  const semSel = document.getElementById("filter-sem");
+  const current = semSel.value;
+
+  const visible = asigData.filter(s =>
+    (!degree || s.degree === degree) &&
+    (!year   || String(s.year) === year)
+  );
+  const sems = [...new Set(visible.map(s => s.semester).filter(Boolean))].sort((a, b) => a - b);
+
+  semSel.innerHTML = `<option value="">Todos los cuatrimestres</option>`;
+  sems.forEach(s => { const o = document.createElement("option"); o.value = s; o.textContent = semLabel[s] || s + "º cuatrimestre"; semSel.appendChild(o); });
+  if (sems.map(String).includes(current)) semSel.value = current;
+}
+
+function renderAsigList() {
+  const list = document.getElementById("asig-list");
+  list.innerHTML = asigData.map(s => `
     <label class="check-item" data-degree="${s.degree || ''}" data-year="${s.year || ''}" data-semester="${s.semester || ''}">
       <input type="checkbox" value="${s.id}" data-students="${s.students}" data-hours="${s.hours_week}" data-teacher="${s.teacher_names || ''}" checked>
       <span>
@@ -198,13 +250,14 @@ async function loadAsignaturas() {
 }
 
 function filterAsignaturas() {
+  updateYearFilter();
   const degree = document.getElementById("filter-degree").value;
   const year   = document.getElementById("filter-year").value;
   const sem    = document.getElementById("filter-sem").value;
   document.querySelectorAll("#asig-list .check-item").forEach(item => {
-    const matchDegree = !degree || item.dataset.degree   === degree;
-    const matchYear   = !year   || item.dataset.year     === year;
-    const matchSem    = !sem    || item.dataset.semester  === sem;
+    const matchDegree = !degree || item.dataset.degree    === degree;
+    const matchYear   = !year   || item.dataset.year      === year;
+    const matchSem    = !sem    || item.dataset.semester   === sem;
     item.style.display = (matchDegree && matchYear && matchSem) ? "" : "none";
   });
 }
