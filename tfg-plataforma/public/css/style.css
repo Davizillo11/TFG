@@ -447,7 +447,12 @@ select:focus {
   z-index: 0;
 }
 
-.horarios-body nav,
+.horarios-body nav {
+  position: sticky;
+  top: 0;
+  z-index: 200;
+}
+
 .horarios-body footer {
   position: relative;
   z-index: 10;
