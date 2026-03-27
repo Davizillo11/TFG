@@ -38,78 +38,124 @@
 <!-- CONTENIDO GENERADOR -->
 <div class="horarios-page" id="contenido-generador" style="display:none;">
 
-  <div class="gen-title">
-    <h1>Generador de Horarios</h1>
-    <p>Introduce los datos necesarios y genera un horario optimizado sin solapamientos.</p>
+  <!-- VISTA 1: ELECCIÓN -->
+  <div id="vista-eleccion" style="display:flex;flex-direction:column;align-items:center;justify-content:center;gap:30px;width:100%;max-width:700px;flex:1;">
+    <div class="gen-title">
+      <h1>Generador de Horarios</h1>
+      <p>¿Qué quieres hacer?</p>
+    </div>
+    <div class="choice-grid">
+      <button class="choice-card" onclick="generarTodo()">
+        <span class="choice-icon">⚡</span>
+        <span class="choice-label">Generar todo</span>
+        <span class="choice-sub">Usa todas las aulas y asignaturas con la configuración por defecto</span>
+      </button>
+      <button class="choice-card" onclick="mostrarSeleccion()">
+        <span class="choice-icon">🔧</span>
+        <span class="choice-label">Selección manual</span>
+        <span class="choice-sub">Elige qué aulas y asignaturas incluir y ajusta las franjas horarias</span>
+      </button>
+    </div>
+    <button class="btn-config" onclick="abrirConfig()">⚙ Configuración de exclusiones</button>
   </div>
 
-  <div class="gen-grid">
-
-    <!-- AULAS -->
-    <div class="gen-section">
-      <h3>Selecciona las Aulas</h3>
-      <div class="gen-filters">
-        <select id="filter-zone" onchange="filterAulas()">
-          <option value="">Todas las zonas</option>
-        </select>
-        <select id="filter-type" onchange="filterAulas()">
-          <option value="">Todos los tipos</option>
-        </select>
-        <button class="select-all-btn" onclick="toggleAll('aulas-list')">Seleccionar / Deseleccionar todo</button>
-      </div>
-      <div class="check-list" id="aulas-list">
-        <p class="empty-msg">Cargando...</p>
-      </div>
+  <!-- VISTA 2: SELECCIÓN MANUAL -->
+  <div id="vista-seleccion" style="display:none;flex-direction:column;align-items:center;gap:16px;width:100%;">
+    <div style="width:100%;max-width:1200px;display:flex;align-items:center;gap:12px;">
+      <button onclick="volverEleccion()" style="background:none;border:none;color:white;font-size:14px;cursor:pointer;opacity:0.8;padding:0;">← Volver</button>
+      <span style="color:rgba(255,255,255,0.5);font-size:13px;">Selección Manual</span>
     </div>
+    <div class="gen-grid">
 
-    <!-- ASIGNATURAS -->
-    <div class="gen-section">
-      <h3>Selecciona las Asignaturas</h3>
-      <div class="gen-filters">
-        <select id="filter-degree" onchange="filterAsignaturas()">
-          <option value="">Todas las carreras</option>
-        </select>
-        <select id="filter-year" onchange="filterAsignaturas()">
-          <option value="">Todos los cursos</option>
-        </select>
-        <select id="filter-sem" onchange="filterAsignaturas()">
-          <option value="">Todos los cuatrimestres</option>
-        </select>
-        <button class="select-all-btn" onclick="toggleAll('asig-list')">Seleccionar / Deseleccionar todo</button>
+      <!-- AULAS -->
+      <div class="gen-section">
+        <h3>Selecciona las Aulas</h3>
+        <div class="gen-filters">
+          <select id="filter-zone" onchange="filterAulas()">
+            <option value="">Todas las zonas</option>
+          </select>
+          <select id="filter-type" onchange="filterAulas()">
+            <option value="">Todos los tipos</option>
+          </select>
+          <button class="select-all-btn" onclick="toggleAll('aulas-list')">Seleccionar / Deseleccionar todo</button>
+        </div>
+        <div class="check-list" id="aulas-list">
+          <p class="empty-msg">Cargando...</p>
+        </div>
       </div>
-      <div class="check-list" id="asig-list">
-        <p class="empty-msg">Cargando...</p>
+
+      <!-- ASIGNATURAS -->
+      <div class="gen-section">
+        <h3>Selecciona las Asignaturas</h3>
+        <div class="gen-filters">
+          <select id="filter-degree" onchange="filterAsignaturas()">
+            <option value="">Todas las carreras</option>
+          </select>
+          <select id="filter-year" onchange="filterAsignaturas()">
+            <option value="">Todos los cursos</option>
+          </select>
+          <select id="filter-sem" onchange="filterAsignaturas()">
+            <option value="">Todos los cuatrimestres</option>
+          </select>
+          <button class="select-all-btn" onclick="toggleAll('asig-list')">Seleccionar / Deseleccionar todo</button>
+        </div>
+        <div class="check-list" id="asig-list">
+          <p class="empty-msg">Cargando...</p>
+        </div>
       </div>
+
+      <!-- FRANJAS HORARIAS -->
+      <div class="gen-section gen-section-full">
+        <h3>Franjas Horarias</h3>
+        <div class="days-grid">
+          <label class="day-check"><input type="checkbox" value="0" checked> Lunes</label>
+          <label class="day-check"><input type="checkbox" value="1" checked> Martes</label>
+          <label class="day-check"><input type="checkbox" value="2" checked> Miércoles</label>
+          <label class="day-check"><input type="checkbox" value="3" checked> Jueves</label>
+          <label class="day-check"><input type="checkbox" value="4" checked> Viernes</label>
+        </div>
+        <div class="time-inputs">
+          <label>Hora inicio</label>
+          <input type="time" id="hora-inicio" value="08:00">
+          <label>Hora fin</label>
+          <input type="time" id="hora-fin" value="20:00">
+          <label>Duración sesión</label>
+          <select id="duracion-sesion">
+            <option value="60">1 hora</option>
+            <option value="90">1h 30min</option>
+            <option value="120" selected>2 horas</option>
+          </select>
+        </div>
+      </div>
+
     </div>
-
-    <!-- FRANJAS HORARIAS -->
-    <div class="gen-section gen-section-full">
-      <h3>Franjas Horarias</h3>
-      <div class="days-grid">
-        <label class="day-check"><input type="checkbox" value="0" checked> Lunes</label>
-        <label class="day-check"><input type="checkbox" value="1" checked> Martes</label>
-        <label class="day-check"><input type="checkbox" value="2" checked> Miércoles</label>
-        <label class="day-check"><input type="checkbox" value="3" checked> Jueves</label>
-        <label class="day-check"><input type="checkbox" value="4" checked> Viernes</label>
-      </div>
-      <div class="time-inputs">
-        <label>Hora inicio</label>
-        <input type="time" id="hora-inicio" value="08:00">
-        <label>Hora fin</label>
-        <input type="time" id="hora-fin" value="20:00">
-        <label>Duración sesión</label>
-        <select id="duracion-sesion">
-          <option value="60">1 hora</option>
-          <option value="90">1h 30min</option>
-          <option value="120" selected>2 horas</option>
-        </select>
-      </div>
-    </div>
-
+    <button class="btn-generate" onclick="generarHorario()">Generar Horario</button>
   </div>
 
-  <button class="btn-generate" onclick="generarHorario()">Generar Horario</button>
+</div>
 
+<!-- MODAL CONFIGURACIÓN EXCLUSIONES -->
+<div class="modal-overlay" id="config-modal">
+  <div class="modal-card">
+    <div class="modal-header">
+      <h3>Configuración de exclusiones</h3>
+      <button class="modal-close" onclick="cerrarConfig()">✕</button>
+    </div>
+    <p style="font-size:13px;color:#666;margin-bottom:16px;">Marca los elementos que quieres <strong>excluir</strong> de la generación automática.</p>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:20px;">
+      <div>
+        <h4 style="font-size:14px;color:#0d1b2a;margin-bottom:10px;border-bottom:2px solid #00b4d8;padding-bottom:6px;">Aulas excluidas</h4>
+        <div id="config-aulas" style="max-height:200px;overflow-y:auto;display:flex;flex-direction:column;gap:4px;"></div>
+      </div>
+      <div>
+        <h4 style="font-size:14px;color:#0d1b2a;margin-bottom:10px;border-bottom:2px solid #00b4d8;padding-bottom:6px;">Asignaturas excluidas</h4>
+        <div id="config-asigs" style="max-height:200px;overflow-y:auto;display:flex;flex-direction:column;gap:4px;"></div>
+      </div>
+    </div>
+    <div class="modal-actions">
+      <button class="btn-add" style="background:#6c757d;" onclick="cerrarConfig()">Cerrar</button>
+    </div>
+  </div>
 </div>
 
 <footer>
@@ -120,12 +166,73 @@
 
 <script src="js/auth.js"></script>
 <script>
+let excludedAulas = new Set();
+let excludedAsigs = new Set();
+
 document.addEventListener("DOMContentLoaded", async () => {
   const user = await Auth.init({ requireAuth: true });
   if (!user) return;
   document.getElementById("contenido-generador").style.display = "flex";
   await Promise.all([loadAulas(), loadAsignaturas()]);
 });
+
+function mostrarSeleccion() {
+  document.getElementById("vista-eleccion").style.display = "none";
+  document.getElementById("vista-seleccion").style.display = "flex";
+}
+
+function volverEleccion() {
+  document.getElementById("vista-seleccion").style.display = "none";
+  document.getElementById("vista-eleccion").style.display = "flex";
+}
+
+function abrirConfig() {
+  // Aulas
+  document.getElementById("config-aulas").innerHTML = aulasData.map(a => `
+    <label style="display:flex;align-items:center;gap:8px;font-size:13px;cursor:pointer;">
+      <input type="checkbox" ${excludedAulas.has(a.id) ? "checked" : ""}
+        onchange="toggleExclude('aula', ${a.id}, this.checked)"
+        style="accent-color:#e74c3c;">
+      ${a.name}
+    </label>`).join("");
+  // Asignaturas
+  document.getElementById("config-asigs").innerHTML = asigData.map(s => `
+    <label style="display:flex;align-items:center;gap:8px;font-size:13px;cursor:pointer;">
+      <input type="checkbox" ${excludedAsigs.has(s.id) ? "checked" : ""}
+        onchange="toggleExclude('asig', ${s.id}, this.checked)"
+        style="accent-color:#e74c3c;">
+      ${s.name}
+    </label>`).join("");
+  document.getElementById("config-modal").classList.add("open");
+}
+
+function cerrarConfig() {
+  document.getElementById("config-modal").classList.remove("open");
+}
+
+function toggleExclude(tipo, id, checked) {
+  if (tipo === "aula") checked ? excludedAulas.add(id) : excludedAulas.delete(id);
+  else                 checked ? excludedAsigs.add(id) : excludedAsigs.delete(id);
+}
+
+function generarTodo() {
+  const aulas = aulasData
+    .filter(a => !excludedAulas.has(a.id))
+    .map(a => ({ id: a.id, capacity: a.capacity, type: a.type }));
+  const asigs = asigData
+    .filter(s => !excludedAsigs.has(s.id))
+    .map(s => ({ id: s.id, students: s.students, hours: s.hours_week, teacher_id: s.teacher_names || null }));
+
+  if (!aulas.length) return alert("No hay aulas disponibles.");
+  if (!asigs.length) return alert("No hay asignaturas disponibles.");
+
+  const payload = {
+    aulas, asignaturas: asigs,
+    franjas: { dias: [0,1,2,3,4], horaInicio: "08:00", horaFin: "20:00", duracion: 120 }
+  };
+  sessionStorage.setItem("generadorData", JSON.stringify(payload));
+  window.location.href = "resultado.html";
+}
 
 // ── Load from DB ──────────────────────────────────
 let aulasData = [];

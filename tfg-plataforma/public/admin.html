@@ -64,7 +64,7 @@
     <!-- ── AULAS ── -->
     <div class="admin-tab-content active" id="tab-aulas">
       <h3 class="admin-section-title">Aulas</h3>
-      <div class="gen-form" style="margin-bottom:20px;">
+      <div class="gen-form" style="margin-bottom:10px;">
         <input  type="text"   id="a-name"     placeholder="Nombre (ej. Aula B-007)">
         <input  type="number" id="a-capacity" placeholder="Capacidad" min="1">
         <select id="a-type">
@@ -72,25 +72,32 @@
           <option value="laboratorio">Laboratorio</option>
           <option value="seminario">Seminario</option>
         </select>
-        <input type="text" id="a-zone" placeholder="Zona (ej. Planta baja)">
-        <input  type="text"   id="a-building" placeholder="Edificio">
-        <button class="btn-add" onclick="addAula()">+ Añadir</button>
+        <input type="text" id="a-zone"     placeholder="Zona"     list="zone-suggestions">
+        <input type="text" id="a-building" placeholder="Edificio" list="building-suggestions">
+        <datalist id="zone-suggestions"></datalist>
+        <datalist id="building-suggestions"></datalist>
+        <button id="a-submit-btn" class="btn-add" onclick="submitAula()">+ Añadir</button>
+        <button id="a-cancel-btn" class="btn-add" style="background:#6c757d;display:none" onclick="cancelAulaEdit()">Cancelar</button>
       </div>
+      <input type="text" id="search-aulas" class="search-input" placeholder="Buscar aula..." oninput="renderAulas()">
       <table class="data-table">
         <thead><tr><th>Nombre</th><th>Capacidad</th><th>Tipo</th><th>Zona</th><th>Edificio</th><th></th></tr></thead>
-        <tbody id="tbody-aulas"><tr><td colspan="5" class="empty-msg">Cargando...</td></tr></tbody>
+        <tbody id="tbody-aulas"><tr><td colspan="6" class="empty-msg">Cargando...</td></tr></tbody>
       </table>
     </div>
 
     <!-- ── PROFESORES ── -->
     <div class="admin-tab-content" id="tab-profesores">
       <h3 class="admin-section-title">Profesores</h3>
-      <div class="gen-form" style="margin-bottom:20px;">
+      <div class="gen-form" style="margin-bottom:10px;">
         <input type="text"  id="p-name"  placeholder="Nombre completo">
-        <input type="text"  id="p-dept"  placeholder="Departamento">
+        <input type="text"  id="p-dept"  placeholder="Departamento" list="dept-suggestions">
         <input type="email" id="p-email" placeholder="Email">
-        <button class="btn-add" onclick="addProfesor()">+ Añadir</button>
+        <datalist id="dept-suggestions"></datalist>
+        <button id="p-submit-btn" class="btn-add" onclick="submitProfesor()">+ Añadir</button>
+        <button id="p-cancel-btn" class="btn-add" style="background:#6c757d;display:none" onclick="cancelProfesorEdit()">Cancelar</button>
       </div>
+      <input type="text" id="search-profesores" class="search-input" placeholder="Buscar profesor..." oninput="renderProfesores()">
       <table class="data-table">
         <thead><tr><th>Nombre</th><th>Departamento</th><th>Email</th><th>Disponibilidad</th><th></th></tr></thead>
         <tbody id="tbody-profesores"><tr><td colspan="5" class="empty-msg">Cargando...</td></tr></tbody>
@@ -100,10 +107,10 @@
     <!-- ── ASIGNATURAS ── -->
     <div class="admin-tab-content" id="tab-asignaturas">
       <h3 class="admin-section-title">Asignaturas</h3>
-      <div class="gen-form" style="margin-bottom:20px;flex-wrap:wrap;">
+      <div class="gen-form" style="margin-bottom:10px;flex-wrap:wrap;">
         <input  type="text"   id="s-name"     placeholder="Nombre asignatura">
         <input  type="text"   id="s-code"     placeholder="Código (ej. GIT-3-SO)">
-        <input  type="text"   id="s-degree"   placeholder="Titulación">
+        <input  type="text"   id="s-degree"   placeholder="Titulación" list="degree-suggestions">
         <input  type="number" id="s-year"     placeholder="Curso" min="1" max="4">
         <select id="s-semester">
           <option value="">Año completo</option>
@@ -113,10 +120,13 @@
         <input  type="number" id="s-students" placeholder="Alumnos" min="1">
         <input  type="number" id="s-hours"    placeholder="Horas/sem" min="1" max="20" value="4">
         <select id="s-teacher"><option value="">-- Profesor --</option></select>
-        <button class="btn-add" onclick="addAsignatura()">+ Añadir</button>
+        <datalist id="degree-suggestions"></datalist>
+        <button id="s-submit-btn" class="btn-add" onclick="submitAsignatura()">+ Añadir</button>
+        <button id="s-cancel-btn" class="btn-add" style="background:#6c757d;display:none" onclick="cancelAsignaturaEdit()">Cancelar</button>
       </div>
+      <input type="text" id="search-asignaturas" class="search-input" placeholder="Buscar asignatura..." oninput="renderAsignaturas()">
       <table class="data-table">
-        <thead><tr><th>Nombre</th><th>Código</th><th>Titulación</th><th>Curso</th><th>Alumnos</th><th>H/sem</th><th>Profesores</th><th></th></tr></thead>
+        <thead><tr><th>Nombre</th><th>Código</th><th>Titulación</th><th>Curso</th><th>Alumnos</th><th>H/sem</th><th>Profesor</th><th></th></tr></thead>
         <tbody id="tbody-asignaturas"><tr><td colspan="8" class="empty-msg">Cargando...</td></tr></tbody>
       </table>
     </div>
@@ -200,48 +210,77 @@ async function loadAll() {
 
 // ── AULAS ─────────────────────────────────────────
 let aulas = [];
+let aulaEditId = null;
+
 async function loadAulas() {
   const res = await fetch("/api/v1/classrooms");
   aulas = await res.json();
+  // Datalists
+  const zones     = [...new Set(aulas.map(a => a.zone).filter(Boolean))];
+  const buildings = [...new Set(aulas.map(a => a.building).filter(Boolean))];
+  document.getElementById("zone-suggestions").innerHTML     = zones.map(z => `<option value="${z}">`).join("");
+  document.getElementById("building-suggestions").innerHTML = buildings.map(b => `<option value="${b}">`).join("");
   renderAulas();
   loadStats();
 }
 
 function renderAulas() {
+  const q = (document.getElementById("search-aulas")?.value || "").toLowerCase();
   const tbody = document.getElementById("tbody-aulas");
-  if (!aulas.length) { tbody.innerHTML = `<tr><td colspan="6" class="empty-msg">Sin aulas</td></tr>`; return; }
-  tbody.innerHTML = aulas.map(a => `
+  const list = aulas.filter(a => !q || a.name.toLowerCase().includes(q));
+  if (!list.length) { tbody.innerHTML = `<tr><td colspan="6" class="empty-msg">Sin aulas</td></tr>`; return; }
+  tbody.innerHTML = list.map(a => `
     <tr>
       <td>${a.name}</td>
       <td>${a.capacity}</td>
       <td>${a.type}</td>
       <td>${a.zone || "—"}</td>
       <td>${a.building || "—"}</td>
-      <td><button class="btn-remove" onclick="deleteAula(${a.id})">✕</button></td>
+      <td>
+        <button class="btn-edit" onclick="editAula(${a.id})">✏</button>
+        <button class="btn-remove" onclick="deleteAula(${a.id})">✕</button>
+      </td>
     </tr>`).join("");
 }
 
-async function addAula() {
+function editAula(id) {
+  const a = aulas.find(x => x.id === id);
+  if (!a) return;
+  aulaEditId = id;
+  document.getElementById("a-name").value     = a.name;
+  document.getElementById("a-capacity").value = a.capacity;
+  document.getElementById("a-type").value     = a.type;
+  document.getElementById("a-zone").value     = a.zone || "";
+  document.getElementById("a-building").value = a.building || "";
+  document.getElementById("a-submit-btn").textContent = "Guardar";
+  document.getElementById("a-cancel-btn").style.display = "";
+  document.getElementById("a-name").focus();
+}
+
+function cancelAulaEdit() {
+  aulaEditId = null;
+  ["a-name","a-capacity","a-zone","a-building"].forEach(id => document.getElementById(id).value = "");
+  document.getElementById("a-type").value = "teoria";
+  document.getElementById("a-submit-btn").textContent = "+ Añadir";
+  document.getElementById("a-cancel-btn").style.display = "none";
+}
+
+async function submitAula() {
   const name     = document.getElementById("a-name").value.trim();
   const capacity = document.getElementById("a-capacity").value;
   const type     = document.getElementById("a-type").value;
-  const zone     = document.getElementById("a-zone").value;
+  const zone     = document.getElementById("a-zone").value.trim();
   const building = document.getElementById("a-building").value.trim();
   if (!name || !capacity) return alert("Nombre y capacidad requeridos");
 
-  const res = await fetch("/api/v1/classrooms", {
-    method: "POST", headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ name, capacity, type, zone, building })
+  const url    = aulaEditId ? `/api/v1/classrooms/${aulaEditId}` : "/api/v1/classrooms";
+  const method = aulaEditId ? "PUT" : "POST";
+  const res = await fetch(url, {
+    method, headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ name, capacity, type, zone: zone || null, building: building || null })
   });
-  if (res.ok) {
-    document.getElementById("a-name").value = "";
-    document.getElementById("a-capacity").value = "";
-    document.getElementById("a-zone").value = "";
-    document.getElementById("a-building").value = "";
-    await loadAulas();
-  } else {
-    const d = await res.json(); alert(d.error);
-  }
+  if (res.ok) { cancelAulaEdit(); await loadAulas(); }
+  else { const d = await res.json(); alert(d.error); }
 }
 
 async function deleteAula(id) {
@@ -252,51 +291,78 @@ async function deleteAula(id) {
 
 // ── PROFESORES ────────────────────────────────────
 let profesores = [];
+let profesorEditId = null;
+
 async function loadProfesores() {
   const res = await fetch("/api/v1/teachers");
   profesores = await res.json();
+  // Datalist departamentos
+  const depts = [...new Set(profesores.map(p => p.department).filter(Boolean))];
+  document.getElementById("dept-suggestions").innerHTML = depts.map(d => `<option value="${d}">`).join("");
   renderProfesores();
   updateTeacherSelect();
   loadStats();
 }
 
 function renderProfesores() {
+  const q = (document.getElementById("search-profesores")?.value || "").toLowerCase();
   const tbody = document.getElementById("tbody-profesores");
-  if (!profesores.length) { tbody.innerHTML = `<tr><td colspan="5" class="empty-msg">Sin profesores</td></tr>`; return; }
-  tbody.innerHTML = profesores.map(p => `
+  const list = profesores.filter(p => !q || p.name.toLowerCase().includes(q) || (p.department||"").toLowerCase().includes(q));
+  if (!list.length) { tbody.innerHTML = `<tr><td colspan="5" class="empty-msg">Sin profesores</td></tr>`; return; }
+  tbody.innerHTML = list.map(p => `
     <tr>
       <td>${p.name}</td>
       <td>${p.department || "—"}</td>
       <td>${p.email || "—"}</td>
       <td><button class="btn-avail" onclick="openAvailModal(${p.id}, '${p.name.replace(/'/g,"\\'")}')">Ver / Editar</button></td>
-      <td><button class="btn-remove" onclick="deleteProfesor(${p.id})">✕</button></td>
+      <td>
+        <button class="btn-edit" onclick="editProfesor(${p.id})">✏</button>
+        <button class="btn-remove" onclick="deleteProfesor(${p.id})">✕</button>
+      </td>
     </tr>`).join("");
+}
+
+function editProfesor(id) {
+  const p = profesores.find(x => x.id === id);
+  if (!p) return;
+  profesorEditId = id;
+  document.getElementById("p-name").value  = p.name;
+  document.getElementById("p-dept").value  = p.department || "";
+  document.getElementById("p-email").value = p.email || "";
+  document.getElementById("p-submit-btn").textContent = "Guardar";
+  document.getElementById("p-cancel-btn").style.display = "";
+  document.getElementById("p-name").focus();
+}
+
+function cancelProfesorEdit() {
+  profesorEditId = null;
+  ["p-name","p-dept","p-email"].forEach(id => document.getElementById(id).value = "");
+  document.getElementById("p-submit-btn").textContent = "+ Añadir";
+  document.getElementById("p-cancel-btn").style.display = "none";
 }
 
 function updateTeacherSelect() {
   const sel = document.getElementById("s-teacher");
+  const cur = sel.value;
   sel.innerHTML = `<option value="">-- Profesor --</option>` +
     profesores.map(p => `<option value="${p.id}">${p.name}</option>`).join("");
+  sel.value = cur;
 }
 
-async function addProfesor() {
+async function submitProfesor() {
   const name  = document.getElementById("p-name").value.trim();
   const dept  = document.getElementById("p-dept").value.trim();
   const email = document.getElementById("p-email").value.trim();
   if (!name) return alert("Nombre requerido");
 
-  const res = await fetch("/api/v1/teachers", {
-    method: "POST", headers: { "Content-Type": "application/json" },
+  const url    = profesorEditId ? `/api/v1/teachers/${profesorEditId}` : "/api/v1/teachers";
+  const method = profesorEditId ? "PUT" : "POST";
+  const res = await fetch(url, {
+    method, headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ name, department: dept, email })
   });
-  if (res.ok) {
-    document.getElementById("p-name").value  = "";
-    document.getElementById("p-dept").value  = "";
-    document.getElementById("p-email").value = "";
-    await loadProfesores();
-  } else {
-    const d = await res.json(); alert(d.error);
-  }
+  if (res.ok) { cancelProfesorEdit(); await loadProfesores(); }
+  else { const d = await res.json(); alert(d.error); }
 }
 
 async function deleteProfesor(id) {
@@ -306,12 +372,25 @@ async function deleteProfesor(id) {
 }
 
 // ── ASIGNATURAS ───────────────────────────────────
+let asignaturas = [];
+let asigEditId = null;
+
 async function loadAsignaturas() {
   const res = await fetch("/api/v1/subjects");
-  const subjects = await res.json();
+  asignaturas = await res.json();
+  // Datalist titulaciones
+  const degrees = [...new Set(asignaturas.map(s => s.degree).filter(Boolean))];
+  document.getElementById("degree-suggestions").innerHTML = degrees.map(d => `<option value="${d}">`).join("");
+  renderAsignaturas();
+  loadStats();
+}
+
+function renderAsignaturas() {
+  const q = (document.getElementById("search-asignaturas")?.value || "").toLowerCase();
   const tbody = document.getElementById("tbody-asignaturas");
-  if (!subjects.length) { tbody.innerHTML = `<tr><td colspan="8" class="empty-msg">Sin asignaturas</td></tr>`; return; }
-  tbody.innerHTML = subjects.map(s => `
+  const list = asignaturas.filter(s => !q || s.name.toLowerCase().includes(q) || (s.code||"").toLowerCase().includes(q));
+  if (!list.length) { tbody.innerHTML = `<tr><td colspan="8" class="empty-msg">Sin asignaturas</td></tr>`; return; }
+  tbody.innerHTML = list.map(s => `
     <tr>
       <td>${s.name}</td>
       <td>${s.code || "—"}</td>
@@ -320,12 +399,39 @@ async function loadAsignaturas() {
       <td>${s.students || "—"}</td>
       <td>${s.hours_week}</td>
       <td>${s.teacher_names || "—"}</td>
-      <td><button class="btn-remove" onclick="deleteAsignatura(${s.id})">✕</button></td>
+      <td>
+        <button class="btn-edit" onclick="editAsignatura(${s.id})">✏</button>
+        <button class="btn-remove" onclick="deleteAsignatura(${s.id})">✕</button>
+      </td>
     </tr>`).join("");
-  loadStats();
 }
 
-async function addAsignatura() {
+function editAsignatura(id) {
+  const s = asignaturas.find(x => x.id === id);
+  if (!s) return;
+  asigEditId = id;
+  document.getElementById("s-name").value     = s.name;
+  document.getElementById("s-code").value     = s.code || "";
+  document.getElementById("s-degree").value   = s.degree || "";
+  document.getElementById("s-year").value     = s.year || "";
+  document.getElementById("s-semester").value = s.semester || "";
+  document.getElementById("s-students").value = s.students || "";
+  document.getElementById("s-hours").value    = s.hours_week;
+  document.getElementById("s-submit-btn").textContent = "Guardar";
+  document.getElementById("s-cancel-btn").style.display = "";
+  document.getElementById("s-name").focus();
+}
+
+function cancelAsignaturaEdit() {
+  asigEditId = null;
+  ["s-name","s-code","s-degree","s-year","s-students"].forEach(id => document.getElementById(id).value = "");
+  document.getElementById("s-semester").value = "";
+  document.getElementById("s-hours").value = "4";
+  document.getElementById("s-submit-btn").textContent = "+ Añadir";
+  document.getElementById("s-cancel-btn").style.display = "none";
+}
+
+async function submitAsignatura() {
   const name       = document.getElementById("s-name").value.trim();
   const code       = document.getElementById("s-code").value.trim();
   const degree     = document.getElementById("s-degree").value.trim();
@@ -336,18 +442,14 @@ async function addAsignatura() {
   const teacher_id = document.getElementById("s-teacher").value;
   if (!name) return alert("Nombre requerido");
 
-  const res = await fetch("/api/v1/subjects", {
-    method: "POST", headers: { "Content-Type": "application/json" },
+  const url    = asigEditId ? `/api/v1/subjects/${asigEditId}` : "/api/v1/subjects";
+  const method = asigEditId ? "PUT" : "POST";
+  const res = await fetch(url, {
+    method, headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ name, code, degree, year, semester: semester || null, students, hours_week, teacher_id: teacher_id || null })
   });
-  if (res.ok) {
-    ["s-name","s-code","s-degree","s-year","s-students"].forEach(id => document.getElementById(id).value = "");
-    document.getElementById("s-semester").value = "";
-    document.getElementById("s-hours").value = "4";
-    await loadAsignaturas();
-  } else {
-    const d = await res.json(); alert(d.error);
-  }
+  if (res.ok) { cancelAsignaturaEdit(); await loadAsignaturas(); }
+  else { const d = await res.json(); alert(d.error); }
 }
 
 async function deleteAsignatura(id) {
