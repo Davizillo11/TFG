@@ -509,6 +509,10 @@ select:focus {
   letter-spacing: 0.6px;
 }
 
+#acceso-denegado {
+  justify-content: center;
+}
+
 .acceso-card {
   text-align: center;
   display: flex;
