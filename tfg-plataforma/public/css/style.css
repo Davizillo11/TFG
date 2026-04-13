@@ -879,19 +879,45 @@ select:focus {
 
 .time-inputs {
   display: flex;
-  gap: 15px;
+  gap: 14px;
   flex-wrap: wrap;
+  align-items: flex-end;
+  justify-content: center;
+}
+
+.ti-group {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
   align-items: center;
 }
 
-.time-inputs label {
+.ti-group label {
+  font-size: 13px;
+  color: #555;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.ti-group input[type="time"],
+.ti-group select {
+  padding: 8px 12px;
+  border: 1px solid #ddd;
+  border-radius: 8px;
+  font-size: 14px;
+  color: #333;
+  background: white;
+}
+
+/* legacy: etiquetas sueltas dentro de time-inputs */
+.time-inputs > label {
   font-size: 13px;
   color: #555;
   font-weight: 600;
 }
 
 .time-inputs input[type="time"],
-.time-inputs select {
+.time-inputs > select {
   padding: 8px 12px;
   border: 1px solid #ddd;
   border-radius: 8px;
@@ -1267,17 +1293,24 @@ select:focus {
 /* ── AVAILABILITY GRID ───────────────────────────── */
 .avail-grid {
   display: grid;
-  grid-template-columns: 60px repeat(5, 1fr);
-  gap: 3px;
+  grid-template-columns: 64px repeat(5, 1fr);
+  gap: 4px;
   font-size: 12px;
+  user-select: none;
 }
 
 .avail-grid .avail-header {
   text-align: center;
   font-weight: 700;
-  color: #0d1b2a;
+  color: #1a2f45;
   padding: 6px 4px;
   font-size: 12px;
+  cursor: pointer;
+  border-radius: 5px;
+  transition: background 0.15s;
+}
+.avail-grid .avail-header:hover {
+  background: rgba(0,180,216,0.12);
 }
 
 .avail-grid .avail-hour {
@@ -1285,26 +1318,37 @@ select:focus {
   align-items: center;
   justify-content: flex-end;
   padding-right: 8px;
-  color: #888;
+  color: #666;
   font-size: 11px;
   font-weight: 600;
 }
 
-.avail-cell {
-  background: #f0f0f0;
-  border-radius: 5px;
-  height: 32px;
+.avail-grid .avail-slot-lbl {
   cursor: pointer;
-  transition: background 0.15s, transform 0.1s;
+  border-radius: 5px;
+  transition: background 0.15s, color 0.15s;
+}
+.avail-grid .avail-slot-lbl:hover {
+  background: rgba(0,180,216,0.1);
+  color: #00b4d8;
+}
+
+.avail-cell {
+  background: #e8f0f5;
+  border-radius: 5px;
+  height: 36px;
+  cursor: pointer;
+  transition: background 0.1s;
+  border: 1px solid #d0dde8;
 }
 
 .avail-cell.on {
   background: #00b4d8;
+  border-color: #0096c7;
 }
 
 .avail-cell:hover {
-  transform: scale(1.05);
-  opacity: 0.85;
+  background: #b3e5f0;
 }
 
 .modal-actions {

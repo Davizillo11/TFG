@@ -59,6 +59,7 @@
       <button class="admin-tab-btn"        onclick="switchTab('profesores')">Profesores</button>
       <button class="admin-tab-btn"        onclick="switchTab('asignaturas')">Asignaturas</button>
       <button class="admin-tab-btn"        onclick="switchTab('usuarios')">Usuarios</button>
+      <button class="admin-tab-btn"        onclick="switchTab('horarios');loadHorarios()">Horarios</button>
     </div>
 
     <!-- ── AULAS ── -->
@@ -149,6 +150,32 @@
       </table>
     </div>
 
+    <!-- ── HORARIOS ── -->
+    <div class="admin-tab-content" id="tab-horarios">
+      <h3 class="admin-section-title">Horarios Generados</h3>
+      <table class="data-table" id="horarios-table">
+        <thead><tr><th>Nombre</th><th>Sesiones</th><th>Estado</th><th>Creado por</th><th>Fecha</th><th></th></tr></thead>
+        <tbody id="tbody-horarios"><tr><td colspan="6" class="empty-msg">Selecciona esta pestaña para cargar…</td></tr></tbody>
+      </table>
+
+    </div>
+
+  </div>
+</div>
+
+<!-- ── MODAL VISOR HORARIO ── -->
+<div class="modal-overlay" id="sched-view-modal">
+  <div class="modal-card" style="max-width:960px;width:95%;background:#12121e;border:1px solid rgba(255,255,255,0.12);color:#fff;padding:0;">
+    <div class="modal-header" style="background:rgba(255,255,255,0.06);border-bottom:1px solid rgba(255,255,255,0.1);padding:16px 20px;border-radius:16px 16px 0 0;">
+      <h3 id="sched-view-title" style="color:#fff;margin:0;">Horario</h3>
+      <button class="modal-close" onclick="closeAdminViewer()" style="color:rgba(255,255,255,0.6);">✕</button>
+    </div>
+    <div style="overflow-x:auto;max-height:65vh;overflow-y:auto;padding:4px 0;">
+      <div id="admin-viewer-grid"></div>
+    </div>
+    <div class="modal-actions" style="padding:14px 20px;border-top:1px solid rgba(255,255,255,0.08);">
+      <button class="btn-add" style="background:#6c757d;" onclick="closeAdminViewer()">Cerrar</button>
+    </div>
   </div>
 </div>
 
@@ -158,6 +185,11 @@
     <div class="modal-header">
       <h3 id="avail-modal-title">Disponibilidad</h3>
       <button class="modal-close" onclick="closeAvailModal()">✕</button>
+    </div>
+    <div style="display:flex;gap:8px;padding:0 0 12px;flex-wrap:wrap;align-items:center;">
+      <button class="btn-add" style="font-size:0.78rem;padding:5px 14px;background:#4caf7d;border:none;" onclick="availAll()">Marcar todo</button>
+      <button class="btn-add" style="font-size:0.78rem;padding:5px 14px;background:#e06c75;border:none;" onclick="availNone()">Limpiar todo</button>
+      <span style="font-size:0.72rem;color:#999;margin-left:4px;">Arrastra · Clic en día o franja para seleccionar columna/fila</span>
     </div>
     <div class="avail-grid" id="avail-grid"></div>
     <div class="modal-actions">
@@ -179,6 +211,7 @@ document.addEventListener("DOMContentLoaded", async () => {
   const user = await Auth.init({ requireAuth: true });
   if (!user) return;
   document.getElementById("contenido-admin").style.display = "flex";
+  initAvailListeners();
   loadAll();
   loadStats();
 });
@@ -502,32 +535,101 @@ async function deleteUsuario(id) {
 
 // ── DISPONIBILIDAD MODAL ──────────────────────────
 const DAYS  = ["Lun", "Mar", "Mié", "Jue", "Vie"];
-const HOURS = [8,9,10,11,12,13,14,15,16,17,18,19];
+// Franjas reales del horario escolar
+const SLOTS = [
+  ["08:00","08:55"],
+  ["08:55","09:50"],
+  ["09:50","10:45"],
+  ["11:15","12:10"],
+  ["12:10","13:05"],
+  ["13:05","14:00"],
+];
 let currentTeacherId = null;
 
 function buildAvailGrid(markedSet) {
   const grid = document.getElementById("avail-grid");
   let html = `<div class="avail-hour"></div>`;
-  DAYS.forEach(d => { html += `<div class="avail-header">${d}</div>`; });
-
-  HOURS.forEach(h => {
-    html += `<div class="avail-hour">${String(h).padStart(2,"0")}:00</div>`;
+  DAYS.forEach((d, di) => {
+    html += `<div class="avail-header avail-day-hdr" data-di="${di}" title="Clic: columna completa">${d}</div>`;
+  });
+  SLOTS.forEach(([start, end]) => {
+    html += `<div class="avail-hour avail-slot-lbl" data-start="${start}" data-end="${end}" title="Clic: fila completa">${start}</div>`;
     DAYS.forEach((_, di) => {
-      const on = markedSet.has(`${di}-${h}`) ? "on" : "";
-      html += `<div class="avail-cell ${on}" data-day="${di}" data-hour="${h}" onclick="toggleCell(this)"></div>`;
+      const on = markedSet.has(`${di}-${start}`) ? "on" : "";
+      html += `<div class="avail-cell ${on}" data-day="${di}" data-start="${start}" data-end="${end}"></div>`;
     });
   });
   grid.innerHTML = html;
+  // Los listeners de arrastre y cabeceras se registran una sola vez en initAvailListeners()
 }
 
-function expandSlots(slots) {
-  const set = new Set();
-  for (const s of slots) {
-    const startH = parseInt(s.slot_start);
-    const endH   = parseInt(s.slot_end);
-    for (let h = startH; h < endH; h++) {
-      set.add(`${s.day_of_week}-${h}`);
+// Se llama UNA sola vez tras cargar el DOM
+function initAvailListeners() {
+  const grid = document.getElementById("avail-grid");
+  let dragging = false;
+  let dragValue = null;
+
+  // ── Arrastrar ─────────────────────────────────
+  grid.addEventListener("mousedown", e => {
+    const cell = e.target.closest(".avail-cell");
+    if (!cell) return;
+    e.preventDefault();
+    dragging  = true;
+    dragValue = !cell.classList.contains("on");
+    cell.classList.toggle("on", dragValue);
+  });
+  grid.addEventListener("mouseover", e => {
+    if (!dragging) return;
+    const cell = e.target.closest(".avail-cell");
+    if (cell) cell.classList.toggle("on", dragValue);
+  });
+  document.addEventListener("mouseup", () => { dragging = false; });
+
+  // ── Clic en cabecera de día (columna) ─────────
+  grid.addEventListener("click", e => {
+    const hdr = e.target.closest(".avail-day-hdr");
+    if (hdr) {
+      const cells = [...grid.querySelectorAll(`.avail-cell[data-day="${hdr.dataset.di}"]`)];
+      const allOn = cells.every(c => c.classList.contains("on"));
+      cells.forEach(c => c.classList.toggle("on", !allOn));
+      return;
     }
+    // ── Clic en etiqueta de franja (fila) ─────────
+    const lbl = e.target.closest(".avail-slot-lbl");
+    if (lbl) {
+      const cells = [...grid.querySelectorAll(`.avail-cell[data-start="${lbl.dataset.start}"]`)];
+      const allOn = cells.every(c => c.classList.contains("on"));
+      cells.forEach(c => c.classList.toggle("on", !allOn));
+    }
+  });
+}
+
+function availAll() {
+  document.querySelectorAll("#avail-grid .avail-cell").forEach(c => c.classList.add("on"));
+}
+function availNone() {
+  document.querySelectorAll("#avail-grid .avail-cell").forEach(c => c.classList.remove("on"));
+}
+
+function expandSlots(dbRows) {
+  const set = new Set();
+  for (const r of dbRows) {
+    // Coincidencia exacta con una franja canónica
+    const match = SLOTS.find(([s]) => s === r.slot_start);
+    if (match) {
+      set.add(`${r.day_of_week}-${match[0]}`);
+      continue;
+    }
+    // Compatibilidad con registros legacy (horas enteras "09:00" etc.):
+    // buscar la franja cuyo inicio esté más próximo
+    const rMin = r.slot_start.split(":").reduce((h, m) => h * 60 + +m, 0);
+    let best = null, bestDiff = Infinity;
+    for (const [s] of SLOTS) {
+      const sMin = s.split(":").reduce((h, m) => h * 60 + +m, 0);
+      const diff = Math.abs(sMin - rMin);
+      if (diff < bestDiff) { bestDiff = diff; best = s; }
+    }
+    if (best) set.add(`${r.day_of_week}-${best}`);
   }
   return set;
 }
@@ -537,9 +639,9 @@ async function openAvailModal(teacherId, teacherName) {
   document.getElementById("avail-modal-title").textContent = `Disponibilidad — ${teacherName}`;
   document.getElementById("avail-modal").classList.add("open");
 
-  const res = await fetch(`/api/v1/teachers/${teacherId}/availability`);
-  const slots = await res.json();
-  buildAvailGrid(expandSlots(slots));
+  const res  = await fetch(`/api/v1/teachers/${teacherId}/availability`);
+  const rows = await res.json();
+  buildAvailGrid(expandSlots(rows));
 }
 
 function closeAvailModal() {
@@ -547,18 +649,14 @@ function closeAvailModal() {
   currentTeacherId = null;
 }
 
-function toggleCell(cell) {
-  cell.classList.toggle("on");
-}
 
 async function saveAvailability() {
   const slots = [];
   document.querySelectorAll("#avail-grid .avail-cell.on").forEach(cell => {
-    const h = parseInt(cell.dataset.hour);
     slots.push({
       day_of_week: parseInt(cell.dataset.day),
-      slot_start:  String(h).padStart(2,"0") + ":00",
-      slot_end:    String(h + 1).padStart(2,"0") + ":00"
+      slot_start:  cell.dataset.start,
+      slot_end:    cell.dataset.end,
     });
   });
 
@@ -578,6 +676,127 @@ async function saveAvailability() {
 document.getElementById("avail-modal").addEventListener("click", e => {
   if (e.target === e.currentTarget) closeAvailModal();
 });
+document.getElementById("sched-view-modal").addEventListener("click", e => {
+  if (e.target === e.currentTarget) closeAdminViewer();
+});
+
+
+// ── HORARIOS TAB ──────────────────────────────────
+const ADM_DAY_NAMES = ["Lunes","Martes","Miércoles","Jueves","Viernes"];
+const ADM_PALETTE   = ["#4f8ef7","#e06c75","#98c379","#e5c07b","#c678dd","#56b6c2","#61afef","#d19a66","#f78c6c","#a9b1d6"];
+function admTimeToMin(t) { const [h,m] = t.split(":").map(Number); return h*60+m; }
+
+let horariosLoaded = false;
+
+async function loadHorarios() {
+  if (horariosLoaded) return;
+  horariosLoaded = true;
+
+  const res  = await fetch("/api/v1/schedules");
+  const list = await res.json();
+  const tbody = document.getElementById("tbody-horarios");
+
+  if (!list.length) {
+    tbody.innerHTML = `<tr><td colspan="6" class="empty-msg">No hay horarios generados.</td></tr>`;
+    return;
+  }
+  tbody.innerHTML = list.map(s => `
+    <tr>
+      <td style="font-weight:600;">${s.name || "Horario #" + s.id}</td>
+      <td>${s.session_count}</td>
+      <td><span style="display:inline-block;padding:2px 9px;border-radius:20px;font-size:0.72rem;font-weight:700;background:${s.status==="active"?"rgba(152,195,121,0.2)":"rgba(255,255,255,0.07)"};color:${s.status==="active"?"#98c379":"rgba(255,255,255,0.4)"}">${s.status}</span></td>
+      <td>${s.created_by || "—"}</td>
+      <td>${new Date(s.created_at).toLocaleDateString("es-ES",{day:"2-digit",month:"short",year:"numeric",hour:"2-digit",minute:"2-digit"})}</td>
+      <td>
+        <button class="btn-edit" onclick="viewAdminSchedule(${s.id},'${(s.name||"Horario #"+s.id).replace(/'/g,"\\'")}')">Ver</button>
+        <button class="btn-remove" onclick="deleteAdminSchedule(${s.id})">✕</button>
+      </td>
+    </tr>`).join("");
+}
+
+async function viewAdminSchedule(id, name) {
+  document.getElementById("sched-view-title").textContent = name;
+  document.getElementById("admin-viewer-grid").innerHTML =
+    `<div style="padding:40px;text-align:center;color:rgba(255,255,255,0.35);">Cargando…</div>`;
+  document.getElementById("sched-view-modal").classList.add("open");
+
+  const res  = await fetch(`/api/v1/schedules/${id}`);
+  const data = await res.json();
+  if (!data.sesiones?.length) {
+    document.getElementById("admin-viewer-grid").innerHTML =
+      `<div style="padding:40px;text-align:center;color:rgba(255,255,255,0.35);">Sin sesiones.</div>`;
+    return;
+  }
+  renderAdminTable(data.sesiones);
+}
+
+function closeAdminViewer() {
+  document.getElementById("sched-view-modal").classList.remove("open");
+}
+
+async function deleteAdminSchedule(id) {
+  if (!confirm("¿Eliminar este horario?")) return;
+  const res = await fetch(`/api/v1/schedules/${id}`, { method:"DELETE" });
+  if (res.ok) { closeAdminViewer(); horariosLoaded = false; loadHorarios(); loadStats(); }
+  else { const d = await res.json(); alert(d.error); }
+}
+
+function renderAdminTable(sesiones) {
+  const dias  = [...new Set(sesiones.map(s => s.day))].sort();
+  const slotMap = {};
+  for (const s of sesiones) slotMap[s.start] = s.end;
+  const slots = Object.entries(slotMap).sort((a,b) => admTimeToMin(a[0]) - admTimeToMin(b[0]));
+  const byDaySlot = {};
+  for (const s of sesiones) {
+    if (!byDaySlot[s.day]) byDaySlot[s.day] = {};
+    byDaySlot[s.day][s.start] = s;
+  }
+  const colorMap = {};
+  let ci = 0;
+  for (const s of sesiones) {
+    const k = s.degree || s.subject;
+    if (!(k in colorMap)) colorMap[k] = ADM_PALETTE[ci++ % ADM_PALETTE.length];
+  }
+
+  const header = `<tr>
+    <th style="width:80px;padding:10px 8px;font-size:0.82rem;font-weight:700;color:rgba(255,255,255,0.6);text-align:center;background:rgba(255,255,255,0.07);border-bottom:2px solid rgba(255,255,255,0.12);border-right:2px solid rgba(255,255,255,0.1);"></th>
+    ${dias.map(d => `<th style="padding:10px 8px;font-size:0.82rem;font-weight:700;color:#fff;text-align:center;background:rgba(255,255,255,0.07);border-bottom:2px solid rgba(255,255,255,0.12);border-right:1px solid rgba(255,255,255,0.07);width:auto;">${ADM_DAY_NAMES[d]}</th>`).join("")}
+  </tr>`;
+
+  let rows = "";
+  let prevEnd = null;
+  for (const [slotStart, slotEnd] of slots) {
+    if (prevEnd !== null && prevEnd !== slotStart) {
+      rows += `<tr style="background:rgba(229,192,123,0.08);border-top:1px solid rgba(229,192,123,0.25);border-bottom:1px solid rgba(229,192,123,0.25);">
+        <td style="padding:5px 10px;text-align:right;font-size:0.7rem;color:rgba(229,192,123,0.8);font-weight:700;background:rgba(229,192,123,0.06);border-right:2px solid rgba(229,192,123,0.2);">${prevEnd}<br><span style="opacity:.6">${slotStart}</span></td>
+        <td colspan="${dias.length}" style="text-align:center;font-size:0.72rem;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:rgba(229,192,123,0.75);">Recreo</td>
+      </tr>`;
+    }
+    const cells = dias.map(d => {
+      const s = byDaySlot[d]?.[slotStart];
+      if (!s) return `<td style="padding:4px;height:62px;vertical-align:top;border-right:1px solid rgba(255,255,255,0.05);"></td>`;
+      const color = colorMap[s.degree || s.subject] || ADM_PALETTE[0];
+      return `<td style="padding:4px;height:62px;vertical-align:top;border-right:1px solid rgba(255,255,255,0.05);">
+        <div style="border-radius:7px;padding:7px 9px;border-left:4px solid ${color};background:color-mix(in srgb,${color} 22%,rgba(18,18,28,0.97));height:100%;box-sizing:border-box;display:flex;flex-direction:column;justify-content:center;align-items:center;text-align:center;">
+          <div style="font-size:0.78rem;font-weight:700;color:#fff;line-height:1.3;">${s.subject}</div>
+          <div style="font-size:0.67rem;color:rgba(255,255,255,0.5);margin-top:3px;">${s.classroom||""}</div>
+          ${s.teacher?`<div style="font-size:0.62rem;color:rgba(255,255,255,0.3);margin-top:2px;">${s.teacher}</div>`:""}
+        </div>
+      </td>`;
+    }).join("");
+    rows += `<tr style="border-bottom:1px solid rgba(255,255,255,0.05);">
+      <td style="padding:8px 10px;text-align:right;white-space:nowrap;background:rgba(255,255,255,0.04);border-right:2px solid rgba(255,255,255,0.08);vertical-align:middle;">
+        <span style="display:block;font-size:0.76rem;font-weight:700;color:rgba(255,255,255,0.8);">${slotStart}</span>
+        <span style="display:block;font-size:0.63rem;color:rgba(255,255,255,0.28);margin-top:2px;">${slotEnd}</span>
+      </td>
+      ${cells}
+    </tr>`;
+    prevEnd = slotEnd;
+  }
+
+  document.getElementById("admin-viewer-grid").innerHTML =
+    `<table style="width:100%;border-collapse:collapse;table-layout:fixed;"><thead>${header}</thead><tbody>${rows}</tbody></table>`;
+}
 </script>
 
 </body>

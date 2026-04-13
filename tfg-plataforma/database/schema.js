@@ -38,7 +38,8 @@ db.serialize(() => {
     year       INTEGER,
     semester   INTEGER,
     students   INTEGER,
-    hours_week INTEGER DEFAULT 4
+    hours_week INTEGER DEFAULT 4,
+    room_type  TEXT    DEFAULT NULL
   )`);
 
   // Subject–Teacher junction

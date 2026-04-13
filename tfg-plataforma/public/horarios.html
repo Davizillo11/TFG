@@ -1,17 +1,261 @@
 <!DOCTYPE html>
 <html lang="es">
-
 <head>
-<meta charset="UTF-8">
-<title>Horarios</title>
-<link rel="stylesheet" href="css/style.css">
-<link rel="icon" type="image/png" href="images/icon.png">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-</head>
+  <meta charset="UTF-8">
+  <title>Horarios</title>
+  <link rel="stylesheet" href="css/style.css">
+  <link rel="icon" type="image/png" href="images/icon.png">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <style>
+    /* ── Tabs ── */
+    .hor-tabs-bar {
+      display: flex;
+      gap: 6px;
+      padding: 4px;
+      background: rgba(0,0,0,0.35);
+      border-radius: 12px;
+      width: fit-content;
+      margin: 0 auto 24px;
+      backdrop-filter: blur(6px);
+      border: 1px solid rgba(255,255,255,0.12);
+    }
+    .hor-tab-btn {
+      padding: 9px 26px;
+      border: none;
+      border-radius: 9px;
+      font-size: 0.9rem;
+      font-weight: 600;
+      cursor: pointer;
+      background: transparent;
+      color: rgba(255,255,255,0.55);
+      transition: all 0.2s;
+    }
+    .hor-tab-btn.active {
+      background: rgba(255,255,255,0.15);
+      color: #fff;
+      box-shadow: 0 2px 10px rgba(0,0,0,0.3);
+    }
+    .hor-tab-btn:hover:not(.active) { color: rgba(255,255,255,0.8); }
 
+    .hor-tab-panel { display: none; }
+    .hor-tab-panel.active { display: block; }
+
+    /* ── Universidad tab (original) ── */
+    .horarios-card {
+      background: rgba(255,255,255,0.95);
+      border-radius: 16px;
+      padding: 24px 32px;
+      max-width: 700px;
+      margin: 0 auto;
+      color: #222;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 20px;
+    }
+    .selectors { display: flex; flex-wrap: wrap; gap: 20px; justify-content: center; align-items: flex-end; }
+    .selector-group { display: flex; flex-direction: column; gap: 6px; align-items: center; min-width: 140px; }
+    .selector-group label { font-size: 0.82rem; font-weight: 600; color: #555; text-align: center; }
+    .selector-group select { padding: 8px 14px; border-radius: 8px; border: 1px solid #ccc; font-size: 0.9rem; width: 100%; text-align: center; }
+    .horario-display { text-align: center; margin-top: 16px; }
+    .horario-display img { max-width: 100%; border-radius: 10px; box-shadow: 0 4px 20px rgba(0,0,0,0.4); }
+
+    /* ── Generados tab ── */
+    .gen-panel {
+      max-width: 1100px;
+      margin: 0 auto;
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+    }
+    .gen-panel-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      flex-wrap: wrap;
+      gap: 10px;
+    }
+    .gen-panel-header h2 { margin: 0; font-size: 1.25rem; color: #fff; }
+    .gen-panel-header p  { margin: 4px 0 0; font-size: 0.82rem; color: rgba(255,255,255,0.55); }
+
+    /* ── Schedule list cards ── */
+    .sched-list {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+    .sched-item {
+      display: flex;
+      align-items: center;
+      gap: 14px;
+      padding: 14px 20px;
+      background: rgba(15,15,25,0.75);
+      border: 1px solid rgba(255,255,255,0.14);
+      border-radius: 12px;
+      backdrop-filter: blur(8px);
+      flex-wrap: wrap;
+    }
+    .sched-item:hover { border-color: rgba(255,255,255,0.25); background: rgba(25,25,40,0.85); }
+    .sched-item-name {
+      font-size: 0.95rem;
+      font-weight: 700;
+      color: #fff;
+      flex: 1;
+      min-width: 160px;
+    }
+    .sched-item-meta {
+      font-size: 0.78rem;
+      color: rgba(255,255,255,0.45);
+      display: flex;
+      gap: 14px;
+      flex-wrap: wrap;
+    }
+    .sched-item-meta span { white-space: nowrap; }
+    .badge {
+      display: inline-block;
+      padding: 3px 10px;
+      border-radius: 20px;
+      font-size: 0.72rem;
+      font-weight: 700;
+    }
+    .badge-active { background: rgba(152,195,121,0.2); color: #98c379; border: 1px solid rgba(152,195,121,0.35); }
+    .badge-draft  { background: rgba(255,255,255,0.07); color: rgba(255,255,255,0.4); border: 1px solid rgba(255,255,255,0.12); }
+    .sched-actions { display: flex; gap: 8px; flex-shrink: 0; }
+    .btn-ver  { background: rgba(97,175,239,0.2); border: 1px solid rgba(97,175,239,0.4); color: #61afef; padding: 6px 16px; border-radius: 8px; font-size: 0.82rem; cursor: pointer; font-weight: 600; }
+    .btn-ver:hover  { background: rgba(97,175,239,0.35); }
+    .btn-borrar { background: rgba(224,108,117,0.15); border: 1px solid rgba(224,108,117,0.35); color: #e06c75; padding: 6px 12px; border-radius: 8px; font-size: 0.82rem; cursor: pointer; }
+    .btn-borrar:hover { background: rgba(224,108,117,0.28); }
+    .btn-nuevo {
+      background: rgba(152,195,121,0.2);
+      border: 1px solid rgba(152,195,121,0.4);
+      color: #98c379;
+      padding: 8px 18px;
+      border-radius: 9px;
+      font-size: 0.85rem;
+      font-weight: 600;
+      text-decoration: none;
+      cursor: pointer;
+    }
+    .btn-nuevo:hover { background: rgba(152,195,121,0.32); }
+
+    /* ── Visor horario ── */
+    .viewer-box {
+      background: rgba(10,10,20,0.88);
+      border: 1px solid rgba(255,255,255,0.18);
+      border-radius: 14px;
+      backdrop-filter: blur(10px);
+      overflow: hidden;
+    }
+    .viewer-box-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 14px 20px;
+      border-bottom: 1px solid rgba(255,255,255,0.1);
+      background: rgba(255,255,255,0.05);
+      flex-wrap: wrap;
+      gap: 8px;
+    }
+    .viewer-box-header h3 { margin: 0; font-size: 1rem; color: #fff; }
+    .btn-cerrar-viewer {
+      background: none; border: none;
+      color: rgba(255,255,255,0.45);
+      font-size: 1.3rem; cursor: pointer; padding: 0 4px;
+      line-height: 1;
+    }
+    .btn-cerrar-viewer:hover { color: #fff; }
+    .btn-export {
+      background: rgba(97,175,239,0.15);
+      border: 1px solid rgba(97,175,239,0.3);
+      color: #61afef;
+      padding: 5px 14px; border-radius: 7px;
+      font-size: 0.8rem; cursor: pointer;
+    }
+
+    /* ── Tabla horario ── */
+    .sc-table { width: 100%; border-collapse: collapse; table-layout: fixed; }
+    .sc-table thead th {
+      padding: 12px 8px; font-size: 0.85rem; font-weight: 700;
+      color: #e8e8f0; text-align: center;
+      background: rgba(255,255,255,0.1);
+      border-bottom: 2px solid rgba(255,255,255,0.15);
+      border-right: 1px solid rgba(255,255,255,0.08);
+    }
+    .sc-table thead th { width: auto; }
+    .sc-table thead th:first-child { width: 80px; border-right: 2px solid rgba(255,255,255,0.12); }
+    .sc-table tbody tr { border-bottom: 1px solid rgba(255,255,255,0.06); }
+    .sc-table tbody tr:nth-child(even) { background: rgba(255,255,255,0.015); }
+    .sc-slot-time {
+      padding: 10px 12px; text-align: right; vertical-align: middle;
+      white-space: nowrap;
+      background: rgba(255,255,255,0.06);
+      border-right: 2px solid rgba(255,255,255,0.1);
+    }
+    .sc-slot-time .t-s { font-size: 0.78rem; font-weight: 700; color: #d0d0e8; display: block; }
+    .sc-slot-time .t-e { font-size: 0.65rem; color: rgba(255,255,255,0.28); display: block; margin-top: 2px; }
+    .sc-day-cell {
+      padding: 5px; vertical-align: top; height: 70px;
+      border-right: 1px solid rgba(255,255,255,0.06);
+    }
+    .sc-day-cell:last-child { border-right: none; }
+    .sc-card {
+      border-radius: 8px; padding: 8px 10px;
+      border-left: 4px solid var(--sc);
+      background: color-mix(in srgb, var(--sc) 25%, rgba(18,18,30,0.97));
+      box-shadow: 0 2px 10px rgba(0,0,0,0.45);
+      height: 100%; box-sizing: border-box;
+      display: flex; flex-direction: column; justify-content: center; align-items: center;
+      text-align: center;
+    }
+    .sc-card .c-subj { font-size: 0.8rem; font-weight: 700; color: #fff; line-height: 1.3; }
+    .sc-card .c-room { font-size: 0.69rem; color: rgba(255,255,255,0.55); margin-top: 3px; }
+    .sc-card .c-tchr { font-size: 0.64rem; color: rgba(255,255,255,0.32); margin-top: 2px; }
+    .sc-break-row td {
+      padding: 7px; text-align: center;
+      background: rgba(229,192,123,0.1);
+      border-top: 1px solid rgba(229,192,123,0.3);
+      border-bottom: 1px solid rgba(229,192,123,0.3);
+      font-size: 0.73rem; font-weight: 700; letter-spacing: 0.1em;
+      text-transform: uppercase; color: rgba(229,192,123,0.8);
+    }
+    .sc-break-row .sc-slot-time {
+      background: rgba(229,192,123,0.07);
+      border-right-color: rgba(229,192,123,0.22);
+    }
+    .sc-break-row .sc-slot-time .t-s { color: rgba(229,192,123,0.9); }
+
+    /* ── Visor inline ── */
+    .sched-inline-viewer { margin-top: -8px; margin-bottom: 8px; }
+    .sched-item.open { border-radius: 12px 12px 0 0; border-bottom-color: transparent; }
+
+    /* empty/loading */
+    .empty-msg-gen {
+      text-align: center;
+      padding: 50px 20px;
+      color: rgba(255,255,255,0.3);
+      font-size: 0.9rem;
+      background: rgba(10,10,20,0.6);
+      border: 1px solid rgba(255,255,255,0.1);
+      border-radius: 12px;
+    }
+    .empty-msg-gen a { color: #61afef; }
+
+    @media print {
+      nav, footer, .hor-tabs-bar, .gen-panel-header, .sched-list,
+      #viewer-section .viewer-box-header .btn-cerrar-viewer,
+      #viewer-section .viewer-box-header .btn-export { display: none !important; }
+      body, .horarios-body { background: #fff !important; }
+      .viewer-box { background: #fff !important; border: none !important; }
+      .sc-table thead th { background: #f0f0f0 !important; color: #000 !important; }
+      .sc-slot-time { background: #f8f8f8 !important; }
+      .sc-slot-time .t-s { color: #000 !important; }
+      .sc-card { background: #f5f5f5 !important; box-shadow: none !important; }
+      .sc-card .c-subj { color: #000 !important; }
+    }
+  </style>
+</head>
 <body class="horarios-body">
 
-<!-- NAVBAR -->
 <nav>
   <div class="logo">
     <a href="index.html" class="no-hover">
@@ -28,56 +272,85 @@
   </ul>
 </nav>
 
-<!-- PAGE CONTENT -->
-<div class="horarios-page">
+<div class="horarios-page" id="acceso-denegado" style="display:none;">
+  <div class="horarios-card acceso-card">
+    <h2>Acceso restringido</h2>
+    <p>Debes iniciar sesión para ver los horarios.</p>
+    <a class="btn" href="login.html">Iniciar sesión</a>
+  </div>
+</div>
 
-  <div class="horarios-title">
-    <h1>Horarios actuales</h1>
-    <p>Selecciona tu titulación, curso, grupo y cuatrimestre para consultar el horario.</p>
+<div class="horarios-page" id="contenido" style="display:none;flex-direction:column;">
+
+  <div class="horarios-title" style="margin-bottom:16px;">
+    <h1>Horarios</h1>
+    <p>Consulta los horarios universitarios o los generados con la plataforma</p>
   </div>
 
-  <div class="horarios-card">
-    <div class="selectors">
+  <!-- Tabs -->
+  <div class="hor-tabs-bar">
+    <button class="hor-tab-btn active" onclick="switchTab('universidad')">Horarios Universidad</button>
+    <button class="hor-tab-btn" id="tab-btn-generados" style="display:none;" onclick="switchTab('generados')">Horarios Generados</button>
+  </div>
 
-      <div class="selector-group">
-        <label for="titulacion">Titulación</label>
-        <select id="titulacion">
-          <option value="Teleco">Teleco (1º y 2º)</option>
-          <option value="GITT">GITT</option>
-          <option value="GIEC">GIEC</option>
-          <option value="GIST">GIST</option>
-          <option value="GIT">GIT</option>
-        </select>
+  <!-- ── Tab 1: Universidad ── -->
+  <div class="hor-tab-panel active" id="tab-universidad">
+    <div class="horarios-card">
+      <div class="selectors">
+        <div class="selector-group">
+          <label for="titulacion">Titulación</label>
+          <select id="titulacion" onchange="actualizarCursos()">
+            <option value="Teleco">Teleco (1º y 2º)</option>
+            <option value="GITT">GITT</option>
+            <option value="GIEC">GIEC</option>
+            <option value="GIST">GIST</option>
+            <option value="GIT">GIT</option>
+          </select>
+        </div>
+        <div class="selector-group">
+          <label for="curso">Curso</label>
+          <select id="curso" onchange="actualizarGrupos()"></select>
+        </div>
+        <div class="selector-group">
+          <label for="grupo">Grupo</label>
+          <select id="grupo" onchange="actualizarHorario()"></select>
+        </div>
+        <div class="selector-group">
+          <label for="cuatri">Cuatrimestre</label>
+          <select id="cuatri" onchange="actualizarGrupos()">
+            <option value="1">Cuatrimestre 1</option>
+            <option value="2">Cuatrimestre 2</option>
+          </select>
+        </div>
+      </div>
+    </div>
+    <div class="horario-display">
+      <img id="horario-img" alt="Horario">
+    </div>
+  </div>
+
+  <!-- ── Tab 2: Generados ── -->
+  <div class="hor-tab-panel" id="tab-generados">
+    <div class="gen-panel">
+
+      <div class="gen-panel-header">
+        <div>
+          <h2>Horarios Generados</h2>
+          <p id="gen-subtitle">Cargando…</p>
+        </div>
+        <a class="btn-nuevo" href="generador.html">+ Nuevo horario</a>
       </div>
 
-      <div class="selector-group">
-        <label for="curso">Curso</label>
-        <select id="curso"></select>
-      </div>
-
-      <div class="selector-group">
-        <label for="grupo">Grupo</label>
-        <select id="grupo"></select>
-      </div>
-
-      <div class="selector-group">
-        <label for="cuatri">Cuatrimestre</label>
-        <select id="cuatri">
-          <option value="1">Cuatrimestre 1</option>
-          <option value="2">Cuatrimestre 2</option>
-        </select>
+      <!-- Lista (el visor se inserta inline después de cada item) -->
+      <div id="sched-list-wrap">
+        <div class="empty-msg-gen">Cargando…</div>
       </div>
 
     </div>
   </div>
 
-  <div class="horario-display">
-    <img id="horario" alt="Horario">
-  </div>
-
 </div>
 
-<!-- FOOTER -->
 <footer>
   <p>Trabajo de Fin de Grado — Plataforma Web Inteligente Para Automatizacion de Procesos Universitarios</p>
   <p>Ingenieria Telematica — Universidad de Alcala</p>
@@ -86,77 +359,313 @@
 
 <script src="js/auth.js"></script>
 <script>
+
+// ── Tabs ──────────────────────────────────────────
+function switchTab(name) {
+  document.querySelectorAll(".hor-tab-panel").forEach(p => p.classList.remove("active"));
+  document.querySelectorAll(".hor-tab-btn").forEach(b => b.classList.remove("active"));
+  document.getElementById("tab-" + name).classList.add("active");
+  event.target.classList.add("active");
+}
+
+// ── Universidad tab ───────────────────────────────
 const horariosDisponibles = {
   Teleco: {
     1: { 1: ["A","B","C","D","E","F"], 2: ["A","B","C","D","E","F"] },
     2: { 1: ["A","B","C","D","E"],     2: ["A","B","C","D","E"] }
   },
-  GITT: {
-    3: { 1: ["A","E"], 2: ["A"] },
-    4: { 1: ["A","E"], 2: ["A"] }
-  },
-  GIEC: {
-    3: { 1: ["C","E"], 2: ["C"] },
-    4: { 1: ["C","E"], 2: ["C"] }
-  },
-  GIST: {
-    3: { 1: ["B","E"], 2: ["B"] },
-    4: { 1: ["B"],     2: ["B"] }
-  },
-  GIT: {
-    3: { 1: ["D","E"], 2: ["D"] },
-    4: { 1: ["D"],     2: ["D"] }
-  }
+  GITT: { 3: { 1: ["A","E"], 2: ["A"] }, 4: { 1: ["A","E"], 2: ["A"] } },
+  GIEC: { 3: { 1: ["C","E"], 2: ["C"] }, 4: { 1: ["C","E"], 2: ["C"] } },
+  GIST: { 3: { 1: ["B","E"], 2: ["B"] }, 4: { 1: ["B"],     2: ["B"] } },
+  GIT:  { 3: { 1: ["D","E"], 2: ["D"] }, 4: { 1: ["D"],     2: ["D"] } }
 };
 
-function actualizarCursos(){
+function actualizarCursos() {
   const tit = document.getElementById("titulacion").value;
-  const cursoSelect = document.getElementById("curso");
-  cursoSelect.innerHTML = "";
-  Object.keys(horariosDisponibles[tit]).forEach(curso => {
-    const opt = document.createElement("option");
-    opt.value = curso;
-    opt.textContent = curso + "º";
-    cursoSelect.appendChild(opt);
+  const sel = document.getElementById("curso");
+  sel.innerHTML = "";
+  Object.keys(horariosDisponibles[tit]).forEach(c => {
+    const o = document.createElement("option");
+    o.value = c; o.textContent = c + "º"; sel.appendChild(o);
   });
   actualizarGrupos();
 }
 
 function actualizarGrupos() {
-  const tit = document.getElementById("titulacion").value;
+  const tit   = document.getElementById("titulacion").value;
   const curso = document.getElementById("curso").value;
   const cuatri = document.getElementById("cuatri").value;
-  const grupoSelect = document.getElementById("grupo");
-  grupoSelect.innerHTML = "";
-  horariosDisponibles[tit][curso][cuatri].forEach(grupo => {
-    const opt = document.createElement("option");
-    opt.value = grupo;
-    opt.textContent = grupo;
-    grupoSelect.appendChild(opt);
+  const sel   = document.getElementById("grupo");
+  sel.innerHTML = "";
+  (horariosDisponibles[tit]?.[curso]?.[cuatri] || []).forEach(g => {
+    const o = document.createElement("option");
+    o.value = g; o.textContent = g; sel.appendChild(o);
   });
   actualizarHorario();
 }
 
-function actualizarHorario(){
-  const tit = document.getElementById("titulacion").value;
+function actualizarHorario() {
+  const tit   = document.getElementById("titulacion").value;
   const curso = document.getElementById("curso").value;
   const grupo = document.getElementById("grupo").value;
   const cuatri = document.getElementById("cuatri").value;
-  document.getElementById("horario").src =
+  document.getElementById("horario-img").src =
     "horarios/" + tit + "_" + curso + "_" + grupo + "_" + cuatri + ".png";
 }
 
-document.getElementById("titulacion").addEventListener("change", actualizarCursos);
-document.getElementById("curso").addEventListener("change", actualizarGrupos);
-document.getElementById("grupo").addEventListener("change", actualizarHorario);
-document.getElementById("cuatri").addEventListener("change", () => {
-  actualizarGrupos();
-  actualizarHorario();
+// ── PDF Export ────────────────────────────────────
+function buildPrintHTML(sesiones, title) {
+  const DAY_NMS = ["Lunes","Martes","Miércoles","Jueves","Viernes"];
+  const COLORS = [
+    {b:"#2563eb",bg:"#dbeafe"},{b:"#dc2626",bg:"#fee2e2"},
+    {b:"#16a34a",bg:"#dcfce7"},{b:"#d97706",bg:"#fef3c7"},
+    {b:"#7c3aed",bg:"#ede9fe"},{b:"#0891b2",bg:"#cffafe"},
+    {b:"#0284c7",bg:"#e0f2fe"},{b:"#c2410c",bg:"#ffedd5"},
+    {b:"#9333ea",bg:"#f3e8ff"},{b:"#475569",bg:"#f1f5f9"},
+  ];
+  const colorMap = {};
+  let ci = 0;
+  for (const s of sesiones) {
+    const k = s.degree || s.subject;
+    if (!(k in colorMap)) colorMap[k] = COLORS[ci++ % COLORS.length];
+  }
+  function tm(t) { const [h,m] = t.split(":").map(Number); return h*60+m; }
+  const dias = [...new Set(sesiones.map(s => s.day))].sort();
+  const slotMap = {};
+  for (const s of sesiones) slotMap[s.start] = s.end;
+  const slots = Object.entries(slotMap).sort((a,b) => tm(a[0])-tm(b[0]));
+  const byDS = {};
+  for (const s of sesiones) { if (!byDS[s.day]) byDS[s.day]={}; byDS[s.day][s.start]=s; }
+
+  const hdr = `<tr>
+    <th style="width:72px;padding:10px 6px;background:#0f172a;color:#94a3b8;border:1px solid #334155;font-size:11px;"></th>
+    ${dias.map(d=>`<th style="padding:10px 8px;font-size:13px;font-weight:700;text-align:center;background:#1e293b;color:#fff;border:1px solid #334155;">${DAY_NMS[d]}</th>`).join("")}
+  </tr>`;
+
+  let rows="", prevEnd=null;
+  for (const [st,se] of slots) {
+    if (prevEnd && prevEnd!==st) {
+      rows+=`<tr style="background:#fef3c7;">
+        <td style="padding:4px 6px;text-align:center;font-size:10px;font-weight:700;color:#92400e;background:#fef9c3;border-right:2px solid #f59e0b;">${prevEnd}<br><span style="opacity:.7">${st}</span></td>
+        <td colspan="${dias.length}" style="text-align:center;font-size:10px;font-weight:700;letter-spacing:.07em;text-transform:uppercase;color:#92400e;border-top:1px solid #f59e0b;border-bottom:1px solid #f59e0b;">☕ Recreo</td>
+      </tr>`;
+    }
+    const cells = dias.map(d=>{
+      const s=byDS[d]?.[st];
+      if(!s) return `<td style="padding:4px;height:64px;border-right:1px solid #e2e8f0;"></td>`;
+      const c=colorMap[s.degree||s.subject]||COLORS[0];
+      return `<td style="padding:4px;height:64px;vertical-align:middle;border-right:1px solid #e2e8f0;">
+        <div style="border-radius:6px;padding:7px 8px;border-left:4px solid ${c.b};background:${c.bg};height:100%;box-sizing:border-box;display:flex;flex-direction:column;justify-content:center;align-items:center;text-align:center;">
+          <div style="font-size:12px;font-weight:700;color:#0f172a;line-height:1.3;">${s.subject}</div>
+          <div style="font-size:10px;color:#475569;margin-top:3px;">${s.classroom||""}</div>
+          ${s.teacher?`<div style="font-size:9px;color:#64748b;margin-top:2px;">${s.teacher}</div>`:""}
+        </div>
+      </td>`;
+    }).join("");
+    rows+=`<tr style="border-bottom:1px solid #e2e8f0;">
+      <td style="padding:8px 6px;text-align:center;vertical-align:middle;background:#f8fafc;border-right:2px solid #cbd5e1;">
+        <span style="display:block;font-size:12px;font-weight:700;color:#1e293b;">${st}</span>
+        <span style="display:block;font-size:10px;color:#94a3b8;margin-top:2px;">${se}</span>
+      </td>${cells}
+    </tr>`;
+    prevEnd=se;
+  }
+
+  const legend = Object.entries(colorMap).map(([k,c])=>
+    `<span style="display:inline-flex;align-items:center;gap:5px;margin:3px 10px 3px 0;font-size:11px;color:#334155;">
+      <span style="width:10px;height:10px;border-radius:50%;background:${c.b};display:inline-block;"></span>${k}
+    </span>`).join("");
+
+  return `<!DOCTYPE html><html lang="es"><head><meta charset="UTF-8"><title>${title}</title>
+<style>*{margin:0;padding:0;box-sizing:border-box}body{font-family:Arial,Helvetica,sans-serif;background:#fff;color:#000;padding:18px 22px}
+@media print{@page{margin:10mm 8mm;size:A4 landscape}body{padding:0}}</style></head><body>
+<div style="display:flex;justify-content:space-between;align-items:flex-end;margin-bottom:14px;padding-bottom:10px;border-bottom:2px solid #1e293b;">
+  <div>
+    <h1 style="font-size:20px;font-weight:800;color:#0f172a;">${title}</h1>
+    <p style="font-size:11px;color:#64748b;margin-top:3px;">${sesiones.length} sesiones · ${new Date().toLocaleDateString("es-ES",{day:"2-digit",month:"long",year:"numeric"})}</p>
+  </div>
+  <div style="font-size:10px;color:#94a3b8;text-align:right;">TFG Plataforma<br>Universidad de Alcalá</div>
+</div>
+<table style="width:100%;border-collapse:collapse;table-layout:fixed;"><thead>${hdr}</thead><tbody>${rows}</tbody></table>
+${Object.keys(colorMap).length>1?`<div style="margin-top:12px;padding-top:8px;border-top:1px solid #e2e8f0;"><span style="font-size:10px;font-weight:700;color:#64748b;text-transform:uppercase;letter-spacing:.06em;margin-right:6px;">Leyenda:</span>${legend}</div>`:""}
+</body></html>`;
+}
+
+function exportPDF(id, name) {
+  fetch(`/api/v1/schedules/${id}`)
+    .then(r => r.json())
+    .then(data => {
+      if (!data.sesiones?.length) return alert("Sin sesiones para exportar.");
+      const win = window.open("", "_blank", "width=1000,height=700");
+      win.document.write(buildPrintHTML(data.sesiones, name));
+      win.document.close();
+      win.addEventListener("load", () => { win.focus(); win.print(); });
+    })
+    .catch(() => alert("Error al cargar el horario."));
+}
+
+// ── Generados tab ─────────────────────────────────
+const DAY_NAMES = ["Lunes","Martes","Miércoles","Jueves","Viernes"];
+const PALETTE   = ["#4f8ef7","#e06c75","#98c379","#e5c07b","#c678dd","#56b6c2","#61afef","#d19a66","#f78c6c","#a9b1d6"];
+function timeToMin(t) { const [h,m] = t.split(":").map(Number); return h*60+m; }
+
+function renderTable(sesiones, containerId) {
+  const dias = [...new Set(sesiones.map(s => s.day))].sort();
+  const slotMap = {};
+  for (const s of sesiones) slotMap[s.start] = s.end;
+  const slots = Object.entries(slotMap).sort((a,b) => timeToMin(a[0]) - timeToMin(b[0]));
+
+  const byDaySlot = {};
+  for (const s of sesiones) {
+    if (!byDaySlot[s.day]) byDaySlot[s.day] = {};
+    byDaySlot[s.day][s.start] = s;
+  }
+
+  const colorMap = {};
+  let ci = 0;
+  for (const s of sesiones) {
+    const k = s.degree || s.subject;
+    if (!(k in colorMap)) colorMap[k] = PALETTE[ci++ % PALETTE.length];
+  }
+
+  const header = `<tr><th></th>${dias.map(d => `<th>${DAY_NAMES[d]}</th>`).join("")}</tr>`;
+  let rows = "";
+  let prevEnd = null;
+
+  for (const [slotStart, slotEnd] of slots) {
+    if (prevEnd !== null && prevEnd !== slotStart) {
+      rows += `<tr class="sc-break-row">
+        <td class="sc-slot-time"><span class="t-s">${prevEnd}</span><span class="t-e">${slotStart}</span></td>
+        <td colspan="${dias.length}">Recreo</td>
+      </tr>`;
+    }
+    const cells = dias.map(d => {
+      const s = byDaySlot[d]?.[slotStart];
+      if (!s) return `<td class="sc-day-cell"></td>`;
+      const color = colorMap[s.degree || s.subject] || PALETTE[0];
+      return `<td class="sc-day-cell">
+        <div class="sc-card" style="--sc:${color}">
+          <div class="c-subj">${s.subject}</div>
+          <div class="c-room">${s.classroom || ""}</div>
+          ${s.teacher ? `<div class="c-tchr">${s.teacher}</div>` : ""}
+        </div>
+      </td>`;
+    }).join("");
+    rows += `<tr>
+      <td class="sc-slot-time"><span class="t-s">${slotStart}</span><span class="t-e">${slotEnd}</span></td>
+      ${cells}
+    </tr>`;
+    prevEnd = slotEnd;
+  }
+
+  document.getElementById(containerId).innerHTML =
+    `<table class="sc-table"><thead>${header}</thead><tbody>${rows}</tbody></table>`;
+}
+
+async function loadGenerados() {
+  const res  = await fetch("/api/v1/schedules");
+  const list = await res.json();
+  const wrap = document.getElementById("sched-list-wrap");
+
+  if (!list.length) {
+    wrap.innerHTML = `<div class="empty-msg-gen">
+      No hay horarios generados todavía.<br>
+      <a href="generador.html">Ir al generador →</a>
+    </div>`;
+    document.getElementById("gen-subtitle").textContent = "0 horarios";
+    return;
+  }
+
+  document.getElementById("gen-subtitle").textContent =
+    `${list.length} horario${list.length !== 1 ? "s" : ""} guardado${list.length !== 1 ? "s" : ""}`;
+
+  // Cada item tiene su propio visor inline oculto debajo
+  wrap.innerHTML = `<div class="sched-list">
+    ${list.map(s => `
+      <div class="sched-item" id="item-${s.id}">
+        <div class="sched-item-name">${s.name || "Horario #" + s.id}</div>
+        <div class="sched-item-meta">
+          <span>${s.session_count} sesiones</span>
+          <span>${new Date(s.created_at).toLocaleDateString("es-ES", { day:"2-digit", month:"short", year:"numeric" })}</span>
+          <span>${s.created_by || "—"}</span>
+        </div>
+        <span class="badge badge-${s.status === "active" ? "active" : "draft"}">${s.status}</span>
+        <div class="sched-actions">
+          <button class="btn-ver" id="btn-ver-${s.id}" onclick="toggleViewer(${s.id}, '${(s.name || "Horario #"+s.id).replace(/'/g,"\\'")}')">Ver</button>
+          <button class="btn-borrar" onclick="deleteSchedule(${s.id})">✕</button>
+        </div>
+      </div>
+      <div class="sched-inline-viewer" id="viewer-${s.id}" style="display:none;">
+        <div class="viewer-box" style="border-radius:0 0 12px 12px;border-top:none;">
+          <div class="viewer-box-header" style="border-radius:0;">
+            <h3>${s.name || "Horario #" + s.id}</h3>
+            <div style="display:flex;gap:8px;align-items:center;">
+              <button class="btn-export" onclick="exportPDF(${s.id}, '${(s.name||"Horario #"+s.id).replace(/'/g,"\\'")}')">Exportar PDF</button>
+              <button class="btn-cerrar-viewer" onclick="toggleViewer(${s.id})">✕</button>
+            </div>
+          </div>
+          <div style="overflow-x:auto;">
+            <div id="viewer-grid-${s.id}">
+              <div style="padding:30px;text-align:center;color:rgba(255,255,255,0.35);">Cargando…</div>
+            </div>
+          </div>
+        </div>
+      </div>`).join("")}
+  </div>`;
+}
+
+async function toggleViewer(id, name) {
+  const viewer = document.getElementById(`viewer-${id}`);
+  const btn    = document.getElementById(`btn-ver-${id}`);
+  const isOpen = viewer.style.display !== "none";
+
+  // Cerrar todos los demás
+  document.querySelectorAll(".sched-inline-viewer").forEach(v => { v.style.display = "none"; });
+  document.querySelectorAll(".btn-ver").forEach(b => { b.textContent = "Ver"; });
+  document.querySelectorAll(".sched-item").forEach(i => i.classList.remove("open"));
+
+  if (isOpen) return; // era toggle: si ya estaba abierto, solo cerrar
+
+  // Abrir este
+  viewer.style.display = "";
+  document.getElementById(`item-${id}`)?.classList.add("open");
+  if (btn) btn.textContent = "Cerrar";
+  viewer.scrollIntoView({ behavior: "smooth", block: "nearest" });
+
+  // Cargar solo si no se ha cargado antes
+  const grid = document.getElementById(`viewer-grid-${id}`);
+  if (grid.dataset.loaded) return;
+  grid.dataset.loaded = "1";
+
+  const res  = await fetch(`/api/v1/schedules/${id}`);
+  const data = await res.json();
+  if (!data.sesiones?.length) {
+    grid.innerHTML = `<div style="padding:30px;text-align:center;color:rgba(255,255,255,0.35);">Sin sesiones.</div>`;
+    return;
+  }
+  renderTable(data.sesiones, `viewer-grid-${id}`);
+}
+
+async function deleteSchedule(id) {
+  if (!confirm("¿Eliminar este horario? No se puede deshacer.")) return;
+  const res = await fetch(`/api/v1/schedules/${id}`, { method: "DELETE" });
+  if (res.ok) { await loadGenerados(); }
+  else { const d = await res.json(); alert(d.error); }
+}
+
+// ── Init ──────────────────────────────────────────
+document.addEventListener("DOMContentLoaded", async () => {
+  // No requiere login; si hay sesión, también muestra la pestaña de horarios generados
+  const user = await Auth.init({ requireAuth: false });
+  document.getElementById("contenido").style.display = "flex";
+  actualizarCursos();
+
+  if (user) {
+    // Mostrar pestaña de generados y cargar datos
+    document.getElementById("tab-btn-generados").style.display = "";
+    await loadGenerados();
+  }
 });
-
-actualizarCursos();
-
-Auth.init();
 </script>
 
 </body>

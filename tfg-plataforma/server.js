@@ -28,6 +28,7 @@ app.use("/api/v1/teachers/:id/availability",   require("./routes/availability"))
 app.use("/api/v1/subjects",                    require("./routes/subjects"));
 app.use("/api/v1/users",                       require("./routes/users"));
 app.use("/api/v1/stats",                       require("./routes/stats"));
+app.use("/api/v1/schedules",                   require("./routes/schedules"));
 
 // ── Serve app ─────────────────────────────────────
 app.get("/", (req, res) => {
