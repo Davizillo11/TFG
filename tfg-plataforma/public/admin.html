@@ -80,7 +80,21 @@
         <button id="a-submit-btn" class="btn-add" onclick="submitAula()">+ Añadir</button>
         <button id="a-cancel-btn" class="btn-add" style="background:#6c757d;display:none" onclick="cancelAulaEdit()">Cancelar</button>
       </div>
-      <input type="text" id="search-aulas" class="search-input" placeholder="Buscar aula..." oninput="renderAulas()">
+      <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:10px;">
+        <input type="text" id="search-aulas" class="search-input" style="flex:1;min-width:160px" placeholder="Buscar aula..." oninput="renderAulas()">
+        <select id="filter-aula-zone" onchange="renderAulas()" style="min-width:120px">
+          <option value="">Todas las zonas</option>
+        </select>
+        <select id="filter-aula-building" onchange="renderAulas()" style="min-width:140px">
+          <option value="">Todos los edificios</option>
+        </select>
+        <select id="filter-aula-type" onchange="renderAulas()" style="min-width:120px">
+          <option value="">Todos los tipos</option>
+          <option value="teoria">Teoría</option>
+          <option value="laboratorio">Laboratorio</option>
+          <option value="seminario">Seminario</option>
+        </select>
+      </div>
       <table class="data-table">
         <thead><tr><th>Nombre</th><th>Capacidad</th><th>Tipo</th><th>Zona</th><th>Edificio</th><th></th></tr></thead>
         <tbody id="tbody-aulas"><tr><td colspan="6" class="empty-msg">Cargando...</td></tr></tbody>
@@ -109,23 +123,40 @@
     <div class="admin-tab-content" id="tab-asignaturas">
       <h3 class="admin-section-title">Asignaturas</h3>
       <div class="gen-form" style="margin-bottom:10px;flex-wrap:wrap;">
-        <input  type="text"   id="s-name"     placeholder="Nombre asignatura">
-        <input  type="text"   id="s-code"     placeholder="Código (ej. GIT-3-SO)">
+        <input  type="text"   id="s-name"     placeholder="Nombre">
+        <input  type="text"   id="s-code"     placeholder="Código">
         <input  type="text"   id="s-degree"   placeholder="Titulación" list="degree-suggestions">
         <input  type="number" id="s-year"     placeholder="Curso" min="1" max="4">
         <select id="s-semester">
-          <option value="">Año completo</option>
-          <option value="1">1er cuatrimestre</option>
-          <option value="2">2do cuatrimestre</option>
+          <option value="">Cuatrimestre</option>
+          <option value="1">1er cuatri</option>
+          <option value="2">2do cuatri</option>
         </select>
         <input  type="number" id="s-students" placeholder="Alumnos" min="1">
         <input  type="number" id="s-hours"    placeholder="Horas/sem" min="1" max="20" value="4">
-        <select id="s-teacher"><option value="">-- Profesor --</option></select>
+        <select id="s-teacher"><option value="">Profesor</option></select>
         <datalist id="degree-suggestions"></datalist>
         <button id="s-submit-btn" class="btn-add" onclick="submitAsignatura()">+ Añadir</button>
         <button id="s-cancel-btn" class="btn-add" style="background:#6c757d;display:none" onclick="cancelAsignaturaEdit()">Cancelar</button>
       </div>
-      <input type="text" id="search-asignaturas" class="search-input" placeholder="Buscar asignatura..." oninput="renderAsignaturas()">
+      <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:10px;">
+        <input type="text" id="search-asignaturas" class="search-input" style="flex:1;min-width:180px" placeholder="Buscar asignatura..." oninput="renderAsignaturas()">
+        <select id="filter-asig-degree" onchange="renderAsignaturas()" style="min-width:130px">
+          <option value="">Todas las titulaciones</option>
+        </select>
+        <select id="filter-asig-year" onchange="renderAsignaturas()" style="min-width:100px">
+          <option value="">Todos los cursos</option>
+          <option value="1">1º</option>
+          <option value="2">2º</option>
+          <option value="3">3º</option>
+          <option value="4">4º</option>
+        </select>
+        <select id="filter-asig-sem" onchange="renderAsignaturas()" style="min-width:140px">
+          <option value="">Ambos cuatrimestres</option>
+          <option value="1">1er cuatrimestre</option>
+          <option value="2">2do cuatrimestre</option>
+        </select>
+      </div>
       <table class="data-table">
         <thead><tr><th>Nombre</th><th>Código</th><th>Titulación</th><th>Curso</th><th>Alumnos</th><th>H/sem</th><th>Profesor</th><th></th></tr></thead>
         <tbody id="tbody-asignaturas"><tr><td colspan="8" class="empty-msg">Cargando...</td></tr></tbody>
@@ -248,19 +279,37 @@ let aulaEditId = null;
 async function loadAulas() {
   const res = await fetch("/api/v1/classrooms");
   aulas = await res.json();
-  // Datalists
-  const zones     = [...new Set(aulas.map(a => a.zone).filter(Boolean))];
-  const buildings = [...new Set(aulas.map(a => a.building).filter(Boolean))];
+  // Datalists (form inputs)
+  const zones     = [...new Set(aulas.map(a => a.zone).filter(Boolean))].sort();
+  const buildings = [...new Set(aulas.map(a => a.building).filter(Boolean))].sort();
   document.getElementById("zone-suggestions").innerHTML     = zones.map(z => `<option value="${z}">`).join("");
   document.getElementById("building-suggestions").innerHTML = buildings.map(b => `<option value="${b}">`).join("");
+  // Filter dropdowns
+  const zoneSel = document.getElementById("filter-aula-zone");
+  const prevZ   = zoneSel.value;
+  zoneSel.innerHTML = `<option value="">Todas las zonas</option>` +
+    zones.map(z => `<option value="${z}"${z===prevZ?" selected":""}>${z}</option>`).join("");
+  const bldSel = document.getElementById("filter-aula-building");
+  const prevB  = bldSel.value;
+  bldSel.innerHTML = `<option value="">Todos los edificios</option>` +
+    buildings.map(b => `<option value="${b}"${b===prevB?" selected":""}>${b}</option>`).join("");
   renderAulas();
   loadStats();
 }
 
 function renderAulas() {
-  const q = (document.getElementById("search-aulas")?.value || "").toLowerCase();
+  const q    = (document.getElementById("search-aulas")?.value || "").toLowerCase();
+  const zone = document.getElementById("filter-aula-zone")?.value || "";
+  const bld  = document.getElementById("filter-aula-building")?.value || "";
+  const type = document.getElementById("filter-aula-type")?.value || "";
   const tbody = document.getElementById("tbody-aulas");
-  const list = aulas.filter(a => !q || a.name.toLowerCase().includes(q));
+  const list = aulas.filter(a => {
+    if (q    && !a.name.toLowerCase().includes(q)) return false;
+    if (zone && a.zone     !== zone) return false;
+    if (bld  && a.building !== bld)  return false;
+    if (type && a.type     !== type) return false;
+    return true;
+  });
   if (!list.length) { tbody.innerHTML = `<tr><td colspan="6" class="empty-msg">Sin aulas</td></tr>`; return; }
   tbody.innerHTML = list.map(a => `
     <tr>
@@ -411,17 +460,31 @@ let asigEditId = null;
 async function loadAsignaturas() {
   const res = await fetch("/api/v1/subjects");
   asignaturas = await res.json();
-  // Datalist titulaciones
-  const degrees = [...new Set(asignaturas.map(s => s.degree).filter(Boolean))];
+  // Datalist titulaciones (form input)
+  const degrees = [...new Set(asignaturas.map(s => s.degree).filter(Boolean))].sort();
   document.getElementById("degree-suggestions").innerHTML = degrees.map(d => `<option value="${d}">`).join("");
+  // Filter dropdown titulaciones
+  const filterDeg = document.getElementById("filter-asig-degree");
+  const prev = filterDeg.value;
+  filterDeg.innerHTML = `<option value="">Todas las titulaciones</option>` +
+    degrees.map(d => `<option value="${d}"${d===prev?" selected":""}>${d}</option>`).join("");
   renderAsignaturas();
   loadStats();
 }
 
 function renderAsignaturas() {
-  const q = (document.getElementById("search-asignaturas")?.value || "").toLowerCase();
+  const q      = (document.getElementById("search-asignaturas")?.value || "").toLowerCase();
+  const deg    = document.getElementById("filter-asig-degree")?.value || "";
+  const yr     = document.getElementById("filter-asig-year")?.value || "";
+  const sem    = document.getElementById("filter-asig-sem")?.value || "";
   const tbody = document.getElementById("tbody-asignaturas");
-  const list = asignaturas.filter(s => !q || s.name.toLowerCase().includes(q) || (s.code||"").toLowerCase().includes(q));
+  const list = asignaturas.filter(s => {
+    if (q   && !s.name.toLowerCase().includes(q) && !(s.code||"").toLowerCase().includes(q)) return false;
+    if (deg && s.degree !== deg) return false;
+    if (yr  && String(s.year) !== yr) return false;
+    if (sem && String(s.semester) !== sem) return false;
+    return true;
+  });
   if (!list.length) { tbody.innerHTML = `<tr><td colspan="8" class="empty-msg">Sin asignaturas</td></tr>`; return; }
   tbody.innerHTML = list.map(s => `
     <tr>

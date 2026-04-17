@@ -18,8 +18,10 @@ db.serialize(() => {
     name     TEXT    NOT NULL,
     capacity INTEGER NOT NULL,
     type     TEXT    NOT NULL DEFAULT 'teoria',
-    building TEXT
+    building TEXT,
+    zone     TEXT
   )`);
+  db.run("ALTER TABLE classrooms ADD COLUMN zone TEXT", () => {});
 
   // Teachers
   db.run(`CREATE TABLE IF NOT EXISTS teachers (
@@ -65,8 +67,12 @@ db.serialize(() => {
     name       TEXT,
     created_by INTEGER REFERENCES users(id),
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-    status     TEXT DEFAULT 'draft'
+    status     TEXT DEFAULT 'draft',
+    degree     TEXT,
+    year       INTEGER
   )`);
+  db.run("ALTER TABLE schedules ADD COLUMN degree TEXT", () => {});
+  db.run("ALTER TABLE schedules ADD COLUMN year INTEGER", () => {});
 
   // Schedule sessions
   db.run(`CREATE TABLE IF NOT EXISTS schedule_sessions (

@@ -58,7 +58,7 @@
       <div class="time-inputs">
         <div class="ti-group">
           <label>Hora inicio</label>
-          <input type="time" id="pref-inicio" value="08:00">
+          <input type="time" id="pref-inicio" value="10:00">
         </div>
         <div class="ti-group">
           <label>Hora fin</label>
@@ -67,10 +67,8 @@
         <div class="ti-group">
           <label>Duración sesión</label>
           <select id="pref-duracion">
-            <option value="55" selected>55 minutos</option>
             <option value="60">1 hora</option>
-            <option value="90">1h 30min</option>
-            <option value="120">2 horas</option>
+<option value="120" selected>2 horas</option>
           </select>
         </div>
       </div>
@@ -82,62 +80,40 @@
         <span class="choice-label">Generar todo</span>
         <span class="choice-sub">Usa todas las aulas y asignaturas con las preferencias anteriores</span>
       </button>
-      <button class="choice-card" onclick="mostrarSeleccion()">
-        <span class="choice-icon">🔧</span>
-        <span class="choice-label">Selección manual</span>
-        <span class="choice-sub">Elige qué aulas y asignaturas incluir</span>
+      <button class="choice-card" onclick="mostrarPorTitulacion()">
+        <span class="choice-icon">🎓</span>
+        <span class="choice-label">Por titulación/curso</span>
+        <span class="choice-sub">Genera el horario de un curso concreto</span>
       </button>
     </div>
-  </div>
 
-  <!-- VISTA 2: SELECCIÓN MANUAL -->
-  <div id="vista-seleccion" style="display:none;flex-direction:column;align-items:center;gap:16px;width:100%;">
-    <div style="width:100%;max-width:1200px;display:flex;align-items:center;gap:12px;">
-      <button onclick="volverEleccion()" style="background:none;border:none;color:white;font-size:14px;cursor:pointer;opacity:0.8;padding:0;">← Volver</button>
-      <span style="color:rgba(255,255,255,0.5);font-size:13px;">Selección Manual</span>
-    </div>
-    <div class="gen-grid">
-
-      <!-- AULAS -->
-      <div class="gen-section">
-        <h3>Selecciona las Aulas</h3>
-        <div class="gen-filters">
-          <select id="filter-zone" onchange="filterAulas()">
-            <option value="">Todas las zonas</option>
+    <!-- Panel titulación/curso (oculto por defecto) -->
+    <div id="panel-titulacion" style="display:none;width:100%;max-width:480px;">
+      <div class="gen-section" style="width:100%;">
+        <h3 style="text-align:center;margin-bottom:16px;">Selecciona titulación, curso y cuatrimestre</h3>
+        <div style="display:flex;gap:12px;flex-wrap:wrap;justify-content:center;margin-bottom:12px;">
+          <select id="tit-degree" onchange="onTitDegreeChange()" style="min-width:160px;padding:8px;border-radius:6px;border:1px solid #ccc;">
+            <option value="">-- Titulación --</option>
           </select>
-          <select id="filter-type" onchange="filterAulas()">
-            <option value="">Todos los tipos</option>
+          <select id="tit-year" onchange="onTitYearChange()" style="min-width:120px;padding:8px;border-radius:6px;border:1px solid #ccc;">
+            <option value="">-- Curso --</option>
           </select>
-          <button class="select-all-btn" onclick="toggleAll('aulas-list')">Seleccionar / Deseleccionar todo</button>
+          <select id="tit-sem" onchange="onTitSemChange()" style="min-width:150px;padding:8px;border-radius:6px;border:1px solid #ccc;">
+            <option value="">-- Cuatrimestre --</option>
+            <option value="1">1er cuatrimestre</option>
+            <option value="2">2do cuatrimestre</option>
+          </select>
         </div>
-        <div class="check-list" id="aulas-list">
-          <p class="empty-msg">Cargando...</p>
-        </div>
-      </div>
-
-      <!-- ASIGNATURAS -->
-      <div class="gen-section">
-        <h3>Selecciona las Asignaturas</h3>
-        <div class="gen-filters">
-          <select id="filter-degree" onchange="filterAsignaturas()">
-            <option value="">Todas las carreras</option>
-          </select>
-          <select id="filter-year" onchange="filterAsignaturas()">
-            <option value="">Todos los cursos</option>
-          </select>
-          <select id="filter-sem" onchange="filterAsignaturas()">
-            <option value="">Todos los cuatrimestres</option>
-          </select>
-          <button class="select-all-btn" onclick="toggleAll('asig-list')">Seleccionar / Deseleccionar todo</button>
-        </div>
-        <div class="check-list" id="asig-list">
-          <p class="empty-msg">Cargando...</p>
+        <p id="tit-warning" style="color:#e8a838;font-size:13px;text-align:center;display:none;margin-bottom:8px;"></p>
+        <p id="tit-info" style="color:rgba(255,255,255,0.65);font-size:13px;text-align:center;margin-bottom:12px;"></p>
+        <div style="display:flex;gap:10px;justify-content:center;">
+          <button class="choice-card" style="padding:10px 20px;font-size:14px;flex:unset;" onclick="ocultarPanelTitulacion()">Cancelar</button>
+          <button id="tit-btn-generar" class="btn-generate" style="padding:10px 28px;font-size:14px;" disabled onclick="generarPorTitulacion()">Generar</button>
         </div>
       </div>
-
     </div>
-    <button class="btn-generate" onclick="generarHorario()">Generar Horario</button>
   </div>
+
 
 </div>
 
@@ -157,16 +133,6 @@ document.addEventListener("DOMContentLoaded", async () => {
   document.getElementById("contenido-generador").style.display = "flex";
   await Promise.all([loadAulas(), loadAsignaturas()]);
 });
-
-function mostrarSeleccion() {
-  document.getElementById("vista-eleccion").style.display = "none";
-  document.getElementById("vista-seleccion").style.display = "flex";
-}
-
-function volverEleccion() {
-  document.getElementById("vista-seleccion").style.display = "none";
-  document.getElementById("vista-eleccion").style.display = "flex";
-}
 
 function getFranjasPref() {
   const dias = [...document.querySelectorAll(".pref-dias input:checked")].map(cb => parseInt(cb.value));
@@ -188,169 +154,137 @@ function generarTodo() {
   const franjas = getFranjasPref();
   if (!franjas.dias.length) return alert("Selecciona al menos un día.");
 
-  sessionStorage.setItem("generadorData", JSON.stringify({ aulas, asignaturas: asigs, franjas }));
+  sessionStorage.setItem("generadorData", JSON.stringify({ aulas, asignaturas: asigs, franjas, meta: {} }));
   window.location.href = "resultado.html";
 }
 
 // ── Load from DB ──────────────────────────────────
 let aulasData = [];
+let asigData  = [];
 
 async function loadAulas() {
-  const res  = await fetch("/api/v1/classrooms");
-  aulasData  = await res.json();
-  const list = document.getElementById("aulas-list");
-  if (!aulasData.length) { list.innerHTML = `<p class="empty-msg">Sin aulas. Añade en el panel Admin.</p>`; return; }
-
-  // Rellenar zonas dinámicamente
-  const zones = [...new Set(aulasData.map(a => a.zone).filter(Boolean))].sort();
-  const zoneSel = document.getElementById("filter-zone");
-  zones.forEach(z => { const o = document.createElement("option"); o.value = z; o.textContent = z; zoneSel.appendChild(o); });
-
-  renderAulasList();
-  updateTypeFilter();
+  const res = await fetch("/api/v1/classrooms");
+  aulasData = await res.json();
 }
-
-function updateTypeFilter() {
-  const zone    = document.getElementById("filter-zone").value;
-  const typeSel = document.getElementById("filter-type");
-  const current = typeSel.value;
-
-  const visible = aulasData.filter(a => !zone || a.zone === zone);
-  const types   = [...new Set(visible.map(a => a.type).filter(Boolean))].sort();
-
-  typeSel.innerHTML = `<option value="">Todos los tipos</option>`;
-  types.forEach(t => {
-    const o = document.createElement("option");
-    o.value = t; o.textContent = t.charAt(0).toUpperCase() + t.slice(1);
-    typeSel.appendChild(o);
-  });
-  // Mantener selección si sigue siendo válida
-  if (types.includes(current)) typeSel.value = current;
-}
-
-function renderAulasList() {
-  const list = document.getElementById("aulas-list");
-  list.innerHTML = aulasData.map(a => `
-    <label class="check-item" data-zone="${a.zone || ''}" data-type="${a.type}">
-      <input type="checkbox" value="${a.id}" data-capacity="${a.capacity}" data-type="${a.type}" checked>
-      <span>
-        <span class="check-label-main">${a.name}</span>
-        <span class="check-label-sub">${[a.zone, a.capacity + ' plazas', a.type].filter(Boolean).join(' · ')}</span>
-      </span>
-    </label>`).join("");
-}
-
-function filterAulas() {
-  updateTypeFilter();
-  const zone = document.getElementById("filter-zone").value;
-  const type = document.getElementById("filter-type").value;
-  document.querySelectorAll("#aulas-list .check-item").forEach(item => {
-    const matchZone = !zone || item.dataset.zone === zone;
-    const matchType = !type || item.dataset.type === type;
-    item.style.display = (matchZone && matchType) ? "" : "none";
-  });
-}
-
-let asigData = [];
 
 async function loadAsignaturas() {
-  const res  = await fetch("/api/v1/subjects");
-  asigData   = await res.json();
-  const list = document.getElementById("asig-list");
-  if (!asigData.length) { list.innerHTML = `<p class="empty-msg">Sin asignaturas. Añade en el panel Admin.</p>`; return; }
-
-  // Rellenar carreras dinámicamente
-  const degrees = [...new Set(asigData.map(s => s.degree).filter(Boolean))].sort();
-  const degreeSel = document.getElementById("filter-degree");
-  degrees.forEach(d => { const o = document.createElement("option"); o.value = d; o.textContent = d; degreeSel.appendChild(o); });
-
-  updateYearFilter();
-  renderAsigList();
+  const res = await fetch("/api/v1/subjects");
+  asigData  = await res.json();
 }
 
-const semLabel = ["", "1er cuatrimestre", "2do cuatrimestre"];
+// ── Por titulación/curso ──────────────────────────
+// Teleco → años 1-2  |  GIT/GITT/GIEC/GIST → años 3-4
+const DEGREE_YEARS = {
+  "Teleco": [1, 2],
+  "GIT":    [3, 4],
+  "GITT":   [3, 4],
+  "GIEC":   [3, 4],
+  "GIST":   [3, 4],
+};
 
-function updateYearFilter() {
-  const degree  = document.getElementById("filter-degree").value;
-  const yearSel = document.getElementById("filter-year");
-  const current = yearSel.value;
-
-  const visible = asigData.filter(s => !degree || s.degree === degree);
-  const years   = [...new Set(visible.map(s => s.year).filter(Boolean))].sort((a, b) => a - b);
-
-  yearSel.innerHTML = `<option value="">Todos los cursos</option>`;
-  years.forEach(y => { const o = document.createElement("option"); o.value = y; o.textContent = y + "º"; yearSel.appendChild(o); });
-  if (years.map(String).includes(current)) yearSel.value = current;
-
-  updateSemFilter();
+function mostrarPorTitulacion() {
+  // Rellenar select de titulaciones si está vacío
+  const degSel = document.getElementById("tit-degree");
+  if (degSel.options.length === 1) {
+    const degrees = [...new Set(asigData.map(s => s.degree).filter(Boolean))].sort();
+    degrees.forEach(d => { const o = document.createElement("option"); o.value = d; o.textContent = d; degSel.appendChild(o); });
+  }
+  document.getElementById("panel-titulacion").style.display = "block";
+  document.querySelector(".choice-grid").style.display = "none";
 }
 
-function updateSemFilter() {
-  const degree = document.getElementById("filter-degree").value;
-  const year   = document.getElementById("filter-year").value;
-  const semSel = document.getElementById("filter-sem");
-  const current = semSel.value;
-
-  const visible = asigData.filter(s =>
-    (!degree || s.degree === degree) &&
-    (!year   || String(s.year) === year)
-  );
-  const sems = [...new Set(visible.map(s => s.semester).filter(Boolean))].sort((a, b) => a - b);
-
-  semSel.innerHTML = `<option value="">Todos los cuatrimestres</option>`;
-  sems.forEach(s => { const o = document.createElement("option"); o.value = s; o.textContent = semLabel[s] || s + "º cuatrimestre"; semSel.appendChild(o); });
-  if (sems.map(String).includes(current)) semSel.value = current;
+function ocultarPanelTitulacion() {
+  document.getElementById("panel-titulacion").style.display = "none";
+  document.querySelector(".choice-grid").style.display = "grid";
+  document.getElementById("tit-degree").value = "";
+  document.getElementById("tit-year").innerHTML = "<option value=''>-- Curso --</option>";
+  document.getElementById("tit-sem").value = "";
+  document.getElementById("tit-warning").style.display = "none";
+  document.getElementById("tit-info").textContent = "";
+  document.getElementById("tit-btn-generar").disabled = true;
 }
 
-function renderAsigList() {
-  const list = document.getElementById("asig-list");
-  list.innerHTML = asigData.map(s => `
-    <label class="check-item" data-degree="${s.degree || ''}" data-year="${s.year || ''}" data-semester="${s.semester || ''}">
-      <input type="checkbox" value="${s.id}" data-students="${s.students}" data-hours="${s.hours_week}" data-teacher="${s.teacher_names || ''}" checked>
-      <span>
-        <span class="check-label-main">${s.name}</span>
-        <span class="check-label-sub">${s.degree || ''} ${s.year ? s.year+'º' : ''} · ${s.hours_week}h/sem</span>
-      </span>
-    </label>`).join("");
+function onTitDegreeChange() {
+  const degree  = document.getElementById("tit-degree").value;
+  const yearSel = document.getElementById("tit-year");
+  yearSel.innerHTML = "<option value=''>-- Curso --</option>";
+  document.getElementById("tit-sem").value = "";
+  document.getElementById("tit-btn-generar").disabled = true;
+  document.getElementById("tit-info").textContent = "";
+  document.getElementById("tit-warning").style.display = "none";
+
+  if (!degree) return;
+  const validYears = DEGREE_YEARS[degree] || [...new Set(asigData.filter(s => s.degree === degree).map(s => s.year).filter(Boolean))].sort();
+  validYears.forEach(y => { const o = document.createElement("option"); o.value = y; o.textContent = y + "º curso"; yearSel.appendChild(o); });
 }
 
-function filterAsignaturas() {
-  updateYearFilter();
-  const degree = document.getElementById("filter-degree").value;
-  const year   = document.getElementById("filter-year").value;
-  const sem    = document.getElementById("filter-sem").value;
-  document.querySelectorAll("#asig-list .check-item").forEach(item => {
-    const matchDegree = !degree || item.dataset.degree    === degree;
-    const matchYear   = !year   || item.dataset.year      === year;
-    const matchSem    = !sem    || item.dataset.semester   === sem;
-    item.style.display = (matchDegree && matchYear && matchSem) ? "" : "none";
-  });
+function onTitYearChange() {
+  document.getElementById("tit-sem").value = "";
+  document.getElementById("tit-btn-generar").disabled = true;
+  document.getElementById("tit-info").textContent = "";
+  document.getElementById("tit-warning").style.display = "none";
+
+  const degree = document.getElementById("tit-degree").value;
+  const year   = parseInt(document.getElementById("tit-year").value);
+  if (!degree || !year) return;
+
+  const valid = DEGREE_YEARS[degree];
+  if (valid && !valid.includes(year)) {
+    const warn = document.getElementById("tit-warning");
+    warn.textContent = `⚠ ${degree} solo tiene los cursos ${valid.join(" y ")}. Revisa la selección.`;
+    warn.style.display = "block";
+  }
 }
 
-// ── Select all toggle ─────────────────────────────
-function toggleAll(listId) {
-  const boxes = document.querySelectorAll(`#${listId} input[type="checkbox"]`);
-  const allChecked = [...boxes].every(b => b.checked);
-  boxes.forEach(b => b.checked = !allChecked);
+function onTitSemChange() {
+  const degree = document.getElementById("tit-degree").value;
+  const year   = parseInt(document.getElementById("tit-year").value);
+  const sem    = parseInt(document.getElementById("tit-sem").value);
+  const btn    = document.getElementById("tit-btn-generar");
+  const warn   = document.getElementById("tit-warning");
+  const info   = document.getElementById("tit-info");
+
+  btn.disabled = true;
+  warn.style.display = "none";
+  info.textContent = "";
+
+  if (!degree || !year || !sem) return;
+
+  const count = asigData.filter(s => s.degree === degree && s.year === year && s.semester === sem).length;
+  if (!count) {
+    warn.textContent = `No hay asignaturas para ${degree} ${year}º – ${sem}er cuatrimestre en la base de datos.`;
+    warn.style.display = "block";
+    return;
+  }
+
+  info.textContent = `${count} asignaturas encontradas para ${degree} ${year}º – ${sem === 1 ? "1er" : "2do"} cuatrimestre`;
+  btn.disabled = false;
 }
 
-// ── Generar ───────────────────────────────────────
-function generarHorario() {
-  const aulasSeleccionadas = [...document.querySelectorAll("#aulas-list input:checked")]
-    .map(cb => ({ id: parseInt(cb.value), capacity: parseInt(cb.dataset.capacity), type: cb.dataset.type }));
+function generarPorTitulacion() {
+  const degree = document.getElementById("tit-degree").value;
+  const year   = parseInt(document.getElementById("tit-year").value);
+  const sem    = parseInt(document.getElementById("tit-sem").value);
 
-  const asigSeleccionadas = [...document.querySelectorAll("#asig-list input:checked")]
-    .map(cb => ({ id: parseInt(cb.value), students: parseInt(cb.dataset.students), hours: parseInt(cb.dataset.hours), teacher_id: cb.dataset.teacher || null }));
+  const aulas = aulasData.map(a => ({ id: a.id, capacity: a.capacity, type: a.type }));
+  const asigs = asigData
+    .filter(s => s.degree === degree && s.year === year && s.semester === sem)
+    .map(s => ({ id: s.id, students: s.students, hours: s.hours_week, teacher_id: s.teacher_names || null }));
 
-  if (!aulasSeleccionadas.length) return alert("Selecciona al menos un aula.");
-  if (!asigSeleccionadas.length)  return alert("Selecciona al menos una asignatura.");
+  if (!aulas.length)  return alert("No hay aulas disponibles.");
+  if (!asigs.length)  return alert("No hay asignaturas para esta selección.");
 
   const franjas = getFranjasPref();
   if (!franjas.dias.length) return alert("Selecciona al menos un día.");
 
-  sessionStorage.setItem("generadorData", JSON.stringify({ aulas: aulasSeleccionadas, asignaturas: asigSeleccionadas, franjas }));
+  const semLabel = sem === 1 ? "1er cuatri" : "2do cuatri";
+  sessionStorage.setItem("generadorData", JSON.stringify({
+    aulas, asignaturas: asigs, franjas,
+    meta: { degree, year, semester: sem, label: `${degree} – ${year}º – ${semLabel}` }
+  }));
   window.location.href = "resultado.html";
 }
+
 </script>
 
 </body>

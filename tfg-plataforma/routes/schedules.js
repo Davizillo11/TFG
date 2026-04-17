@@ -70,18 +70,29 @@ function isTeacherAvailable(teacherId, dia, startMin, endMin, teacherAvail) {
   );
 }
 
-// ── Lista de tiempos de inicio (orden slot-first: para cada hora, todos los días) ──
-// IMPORTANTE: el orden slot-first evita que el algoritmo rellene
-// todos los slots de un día antes de pasar al siguiente (bug de columnas).
-function generateStartTimes(dias, horaInicio, horaFin) {
+// ── Franja de descanso (14:00–15:00) ──────────────
+const LUNCH_START = 14 * 60; // 840 min
+const LUNCH_END   = 15 * 60; // 900 min
+
+// ── Franjas horarias preferentes (soft) ───────────
+// Los slots dentro de estos rangos se intentan primero.
+const PREF_RANGES = [
+  [10 * 60, 14 * 60], // 10:00–14:00
+  [15 * 60, 19 * 60], // 15:00–19:00
+];
+
+// ── Lista de tiempos de inicio completamente aleatoria ────────────────────────
+// Los slots que solapen 14:00–15:00 se descartan (franja de descanso).
+function generateStartTimes(dias, horaInicio, horaFin, step = SLOT_STEP) {
   const times  = [];
   const finMin = timeToMin(horaFin);
   let m = timeToMin(horaInicio);
-  while (m + SLOT_STEP <= finMin) {
-    for (const dia of dias) {
-      times.push({ dia, startMin: m });
+  while (m + step <= finMin) {
+    // Excluir slots que solapen la franja de descanso
+    if (!(m < LUNCH_END && m + step > LUNCH_START)) {
+      for (const dia of dias) times.push({ dia, startMin: m });
     }
-    m += SLOT_STEP;
+    m += step;
   }
   return times;
 }
@@ -146,24 +157,30 @@ function countConsecBefore(tid, dia, startMin, teacherSessMap) {
 
 // ── Asignación greedy (sin backtracking) ─────────
 // Primera opción válida para cada sesión; no deshace nada.
-// Siempre devuelve algo útil aunque no sea solución completa.
+// Las sesiones de la misma asignatura prefieren slots consecutivos.
 function solveGreedy(allSessions, validAulasBySubject, startTimes, finMin, teacherAvail) {
-  const occupied    = { aulas: new Set(), teachers: new Set(), groups: new Set() };
-  const subjectDays = {};
-  const teacherSessMap = new Map(); // "tid-dia" → [[s,e], ...] ordenado
-  const result      = new Array(allSessions.length).fill(null);
+  const occupied        = { aulas: new Set(), teachers: new Set(), groups: new Set() };
+  const teacherSessMap  = new Map(); // "tid-dia" → [[s,e], ...]
+  const subjectSessions = {};        // sid → [{dia, startMin, endMin}]
+  const result          = new Array(allSessions.length).fill(null);
 
   for (let idx = 0; idx < allSessions.length; idx++) {
     const { subject, dur } = allSessions[idx];
-    const sid = subject.id;
-    if (!subjectDays[sid]) subjectDays[sid] = new Set();
-    const usedDays   = subjectDays[sid];
+    const sid        = subject.id;
+    const placed     = subjectSessions[sid] || [];
     const validAulas = validAulasBySubject[sid];
 
-    outer: for (const { dia, startMin } of startTimes) {
+    // Slots consecutivos (mismo día, justo al terminar la sesión previa) → prioridad
+    const consecutive = startTimes.filter(({ dia, startMin }) =>
+      placed.some(p => p.dia === dia && p.endMin === startMin)
+    );
+    const others = startTimes.filter(({ dia, startMin }) =>
+      !placed.some(p => p.dia === dia && p.endMin === startMin)
+    );
+
+    outer: for (const { dia, startMin } of [...consecutive, ...others]) {
       const endMin = startMin + dur;
       if (endMin > finMin) continue;
-      if (usedDays.has(dia)) continue;
 
       const gk = subject.groupKey ? `${subject.groupKey}-${dia}` : null;
       if (gk && !isSegmentFree([occupied.groups], gk, startMin, endMin)) continue;
@@ -189,7 +206,8 @@ function solveGreedy(allSessions, validAulasBySubject, startTimes, finMin, teach
           teacherSessMap.set(key, list);
         });
         if (gk) occupySegment(occupied.groups, gk, startMin, endMin);
-        usedDays.add(dia);
+        if (!subjectSessions[sid]) subjectSessions[sid] = [];
+        subjectSessions[sid].push({ dia, startMin, endMin });
         result[idx] = { aulaId: aula.id, dia, startMin, dur, endMin };
         break outer;
       }
@@ -201,15 +219,16 @@ function solveGreedy(allSessions, validAulasBySubject, startTimes, finMin, teach
 
 // ── CSP global con backtracking ───────────────────
 // Intenta solución perfecta. Si agota MAX_OPS cae al greedy.
+// Las sesiones de la misma asignatura prefieren slots consecutivos.
 const MAX_OPS = 150_000;
 
 function solveCSP(allSessions, validAulasBySubject, startTimes, finMin, teacherAvail) {
   const n = allSessions.length;
 
-  const occupied       = { aulas: new Set(), teachers: new Set(), groups: new Set() };
-  const subjectDays    = {};
-  const teacherSessMap = new Map();
-  const result         = new Array(n).fill(null);
+  const occupied        = { aulas: new Set(), teachers: new Set(), groups: new Set() };
+  const teacherSessMap  = new Map();
+  const subjectSessions = {}; // sid → [{dia, startMin, endMin}]
+  const result          = new Array(n).fill(null);
   let ops = 0;
   let timedOut = false;
 
@@ -219,15 +238,22 @@ function solveCSP(allSessions, validAulasBySubject, startTimes, finMin, teacherA
 
     const { subject, dur } = allSessions[idx];
     const sid = subject.id;
-    if (!subjectDays[sid]) subjectDays[sid] = new Set();
-    const usedDays   = subjectDays[sid];
     const validAulas = validAulasBySubject[sid];
+    const placed = subjectSessions[sid] || [];
 
-    for (const { dia, startMin } of startTimes) {
+    // Prioritize consecutive slots for same subject, then try all others
+    const consecutive = startTimes.filter(({ dia, startMin }) =>
+      placed.some(p => p.dia === dia && p.endMin === startMin)
+    );
+    const others = startTimes.filter(({ dia, startMin }) =>
+      !placed.some(p => p.dia === dia && p.endMin === startMin)
+    );
+    const orderedSlots = [...consecutive, ...others];
+
+    for (const { dia, startMin } of orderedSlots) {
       if (timedOut) return false;
       const endMin = startMin + dur;
       if (endMin > finMin) continue;
-      if (usedDays.has(dia)) continue;
 
       const gk = subject.groupKey ? `${subject.groupKey}-${dia}` : null;
       if (gk && !isSegmentFree([occupied.groups], gk, startMin, endMin)) continue;
@@ -253,7 +279,8 @@ function solveCSP(allSessions, validAulasBySubject, startTimes, finMin, teacherA
           teacherSessMap.set(key, list);
         });
         if (gk) occupySegment(occupied.groups, gk, startMin, endMin);
-        usedDays.add(dia);
+        if (!subjectSessions[sid]) subjectSessions[sid] = [];
+        subjectSessions[sid].push({ dia, startMin, endMin });
         result[idx] = { aulaId: aula.id, dia, startMin, dur, endMin };
 
         if (bt(idx + 1)) return true;
@@ -267,7 +294,11 @@ function solveCSP(allSessions, validAulasBySubject, startTimes, finMin, teacherA
           if (i >= 0) list.splice(i, 1);
         });
         if (gk) freeSegment(occupied.groups, gk, startMin, endMin);
-        usedDays.delete(dia);
+        const ssList = subjectSessions[sid];
+        if (ssList) {
+          const i = ssList.findIndex(p => p.dia === dia && p.startMin === startMin && p.endMin === endMin);
+          if (i >= 0) ssList.splice(i, 1);
+        }
         result[idx] = null;
       }
     }
@@ -285,7 +316,7 @@ function solveCSP(allSessions, validAulasBySubject, startTimes, finMin, teacherA
 // ── POST /api/v1/schedules/generate ──────────────
 router.post("/generate", requireAuth, async (req, res) => {
   try {
-    const { aulas, asignaturas, franjas } = req.body;
+    const { aulas, asignaturas, franjas, meta = {} } = req.body;
     const { dias, horaInicio, horaFin, duracion } = franjas;
     const finMin = timeToMin(horaFin);
 
@@ -313,11 +344,15 @@ router.post("/generate", requireAuth, async (req, res) => {
     const classroomMeta = Object.fromEntries(classroomRows.map(r => [r.id, r.name]));
     const classroomType = Object.fromEntries(classroomRows.map(r => [r.id, r.type]));
 
-    // Mezcla completamente aleatoria de todos los (día, hora) posibles.
-    // Sin restricciones → cada generación da un horario diferente.
-    // Con restricciones → el MRV sigue garantizando que los profesores con
-    // poca disponibilidad se asignan primero; el resto ocupa los huecos al azar.
-    const startTimes = shuffle(generateStartTimes(dias, horaInicio, horaFin));
+    // Generar y mezclar todos los (día, hora) posibles.
+    // Los slots 14:00–15:00 ya están excluidos (franja de descanso).
+    // Después de mezclar, se reordenan para que los slots dentro de los
+    // rangos preferentes (10–14 h y 15–19 h) se intenten primero; el resto
+    // (mañana temprana, tarde-noche) va al final pero sigue siendo válido.
+    const rawTimes     = shuffle(generateStartTimes(dias, horaInicio, horaFin, duracion));
+    const preferred    = rawTimes.filter(({ startMin }) => PREF_RANGES.some(([s, e]) => startMin >= s && startMin < e));
+    const nonPreferred = rawTimes.filter(({ startMin }) => !PREF_RANGES.some(([s, e]) => startMin >= s && startMin < e));
+    const startTimes   = [...preferred, ...nonPreferred];
 
     // Preparar asignaturas con metadatos
     const subjects = asignaturas.map(s => {
@@ -436,10 +471,18 @@ router.post("/generate", requireAuth, async (req, res) => {
     }
 
     // Guardar en BD
-    const userId = req.session?.userId || null;
+    const userId    = req.session?.userId || null;
+    const metaDeg   = meta.degree   || null;
+    const metaYear  = meta.year     || null;
+    const metaSem   = meta.semester || null;
+    const semStr    = metaSem === 1 ? "1er cuatri" : metaSem === 2 ? "2do cuatri" : null;
+    const nameLabel = meta.label ||
+      (metaDeg && metaYear
+        ? `${metaDeg} – ${metaYear}º${semStr ? " – " + semStr : ""} – ${new Date().toLocaleDateString("es-ES")}`
+        : `Horario ${new Date().toLocaleDateString("es-ES")}`);
     const sched  = await dbRun(
-      "INSERT INTO schedules (name, created_by, status) VALUES (?,?,?)",
-      [`Horario ${new Date().toLocaleDateString("es-ES")}`, userId, "active"]
+      "INSERT INTO schedules (name, created_by, status, degree, year) VALUES (?,?,?,?,?)",
+      [nameLabel, userId, "active", metaDeg, metaYear]
     );
     const scheduleId = sched.lastID;
 
@@ -461,19 +504,26 @@ router.post("/generate", requireAuth, async (req, res) => {
 });
 
 // ── GET /api/v1/schedules ────────────────────────
-// Lista todos los horarios guardados
+// Lista todos los horarios guardados. Acepta ?degree=GIT&year=3 para filtrar.
 router.get("/", requireAuth, async (req, res) => {
   try {
+    const { degree, year } = req.query;
+    const params = [];
+    let where = "";
+    if (degree) { where += (where ? " AND" : " WHERE") + " s.degree=?"; params.push(degree); }
+    if (year)   { where += (where ? " AND" : " WHERE") + " s.year=?";   params.push(parseInt(year)); }
+
     const rows = await dbAll(`
-      SELECT s.id, s.name, s.created_at, s.status,
+      SELECT s.id, s.name, s.created_at, s.status, s.degree, s.year,
              u.username AS created_by,
              COUNT(ss.id) AS session_count
       FROM schedules s
       LEFT JOIN users u ON u.id = s.created_by
       LEFT JOIN schedule_sessions ss ON ss.schedule_id = s.id
+      ${where}
       GROUP BY s.id
       ORDER BY s.created_at DESC
-    `);
+    `, params);
     res.json(rows);
   } catch (err) {
     res.status(500).json({ error: err.message });
