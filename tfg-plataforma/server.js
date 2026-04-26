@@ -29,6 +29,7 @@ app.use("/api/v1/subjects",                    require("./routes/subjects"));
 app.use("/api/v1/users",                       require("./routes/users"));
 app.use("/api/v1/stats",                       require("./routes/stats"));
 app.use("/api/v1/schedules",                   require("./routes/schedules"));
+app.use("/api/v1/excel",                       require("./routes/excel"));
 
 // ── Serve app ─────────────────────────────────────
 app.get("/", (req, res) => {

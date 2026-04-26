@@ -158,11 +158,12 @@ function countConsecBefore(tid, dia, startMin, teacherSessMap) {
 // ── Asignación greedy (sin backtracking) ─────────
 // Primera opción válida para cada sesión; no deshace nada.
 // Las sesiones de la misma asignatura prefieren slots consecutivos.
-function solveGreedy(allSessions, validAulasBySubject, startTimes, finMin, teacherAvail) {
+function solveGreedy(allSessions, validAulasBySubject, startTimes, finMin, teacherAvail, duracion, partialMins) {
   const occupied        = { aulas: new Set(), teachers: new Set(), groups: new Set() };
   const teacherSessMap  = new Map(); // "tid-dia" → [[s,e], ...]
   const subjectSessions = {};        // sid → [{dia, startMin, endMin}]
   const result          = new Array(allSessions.length).fill(null);
+  const isPref = ({ startMin }) => !partialMins.has(startMin);
 
   for (let idx = 0; idx < allSessions.length; idx++) {
     const { subject, dur } = allSessions[idx];
@@ -170,15 +171,14 @@ function solveGreedy(allSessions, validAulasBySubject, startTimes, finMin, teach
     const placed     = subjectSessions[sid] || [];
     const validAulas = validAulasBySubject[sid];
 
-    // Slots consecutivos (mismo día, justo al terminar la sesión previa) → prioridad
-    const consecutive = startTimes.filter(({ dia, startMin }) =>
-      placed.some(p => p.dia === dia && p.endMin === startMin)
-    );
-    const others = startTimes.filter(({ dia, startMin }) =>
-      !placed.some(p => p.dia === dia && p.endMin === startMin)
-    );
+    const mainSlotsPref = startTimes.filter(isPref);
+    const fringeSlots   = startTimes.filter(t => !isPref(t));
+    const afternoonPref = mainSlotsPref.filter(t => t.startMin >= LUNCH_END && !t.isExtreme);
+    const orderedSlots  = dur < duracion
+      ? [...afternoonPref, ...fringeSlots]
+      : mainSlotsPref;
 
-    outer: for (const { dia, startMin } of [...consecutive, ...others]) {
+    outer: for (const { dia, startMin } of orderedSlots) {
       const endMin = startMin + dur;
       if (endMin > finMin) continue;
 
@@ -222,7 +222,7 @@ function solveGreedy(allSessions, validAulasBySubject, startTimes, finMin, teach
 // Las sesiones de la misma asignatura prefieren slots consecutivos.
 const MAX_OPS = 150_000;
 
-function solveCSP(allSessions, validAulasBySubject, startTimes, finMin, teacherAvail) {
+function solveCSP(allSessions, validAulasBySubject, startTimes, finMin, teacherAvail, duracion, partialMins) {
   const n = allSessions.length;
 
   const occupied        = { aulas: new Set(), teachers: new Set(), groups: new Set() };
@@ -231,6 +231,7 @@ function solveCSP(allSessions, validAulasBySubject, startTimes, finMin, teacherA
   const result          = new Array(n).fill(null);
   let ops = 0;
   let timedOut = false;
+  const isPref = ({ startMin }) => !partialMins.has(startMin);
 
   function bt(idx) {
     if (idx === n) return true;
@@ -241,14 +242,12 @@ function solveCSP(allSessions, validAulasBySubject, startTimes, finMin, teacherA
     const validAulas = validAulasBySubject[sid];
     const placed = subjectSessions[sid] || [];
 
-    // Prioritize consecutive slots for same subject, then try all others
-    const consecutive = startTimes.filter(({ dia, startMin }) =>
-      placed.some(p => p.dia === dia && p.endMin === startMin)
-    );
-    const others = startTimes.filter(({ dia, startMin }) =>
-      !placed.some(p => p.dia === dia && p.endMin === startMin)
-    );
-    const orderedSlots = [...consecutive, ...others];
+    const mainSlotsPref = startTimes.filter(isPref);
+    const fringeSlots   = startTimes.filter(t => !isPref(t));
+    const afternoonPref = mainSlotsPref.filter(t => t.startMin >= LUNCH_END && !t.isExtreme);
+    const orderedSlots  = dur < duracion
+      ? [...afternoonPref, ...fringeSlots]
+      : mainSlotsPref;
 
     for (const { dia, startMin } of orderedSlots) {
       if (timedOut) return false;
@@ -310,7 +309,7 @@ function solveCSP(allSessions, validAulasBySubject, startTimes, finMin, teacherA
   if (solved) return { result, perfect: true };
 
   // Fallback: greedy rápido — siempre devuelve algo
-  return { result: solveGreedy(allSessions, validAulasBySubject, startTimes, finMin, teacherAvail), perfect: false };
+  return { result: solveGreedy(allSessions, validAulasBySubject, startTimes, finMin, teacherAvail, duracion, partialMins), perfect: false };
 }
 
 // ── POST /api/v1/schedules/generate ──────────────
@@ -344,15 +343,71 @@ router.post("/generate", requireAuth, async (req, res) => {
     const classroomMeta = Object.fromEntries(classroomRows.map(r => [r.id, r.name]));
     const classroomType = Object.fromEntries(classroomRows.map(r => [r.id, r.type]));
 
-    // Generar y mezclar todos los (día, hora) posibles.
-    // Los slots 14:00–15:00 ya están excluidos (franja de descanso).
-    // Después de mezclar, se reordenan para que los slots dentro de los
-    // rangos preferentes (10–14 h y 15–19 h) se intenten primero; el resto
-    // (mañana temprana, tarde-noche) va al final pero sigue siendo válido.
-    const rawTimes     = shuffle(generateStartTimes(dias, horaInicio, horaFin, duracion));
-    const preferred    = rawTimes.filter(({ startMin }) => PREF_RANGES.some(([s, e]) => startMin >= s && startMin < e));
-    const nonPreferred = rawTimes.filter(({ startMin }) => !PREF_RANGES.some(([s, e]) => startMin >= s && startMin < e));
-    const startTimes   = [...preferred, ...nonPreferred];
+    // Rejilla anclada a los horarios preferentes (10:00 mañana, 15:00 tarde)
+    // con paso = duracion. Garantiza slots no solapados 10-12, 12-14, 15-17, 17-19.
+    // Un slot "fringe" a 60 min antes del primer slot principal acoge las sesiones de 1h.
+    const ANCHORS   = [10 * 60, 15 * 60]; // 10:00 y 15:00
+    const startMin0 = timeToMin(horaInicio);
+    const endMin0   = timeToMin(horaFin);
+
+    const mainSlots = [];
+    for (const anchor of ANCHORS) {
+      for (let m = anchor; m + duracion <= endMin0; m += duracion) {
+        if (m < LUNCH_END && m + duracion > LUNCH_START) break; // solapa comida → parar este bloque
+        if (m < startMin0) continue;                             // antes del inicio del usuario
+        for (const d of dias) mainSlots.push({ dia: d, startMin: m });
+      }
+    }
+
+    // Fringe A: 1h antes del primer main slot (si cae dentro del rango del usuario)
+    const firstMain        = mainSlots.reduce((acc, t) => Math.min(acc, t.startMin), Infinity);
+    const morningFringeMin = isFinite(firstMain) ? firstMain - 60 : startMin0;
+    const morningFringeOK  = morningFringeMin >= startMin0 &&
+                              !(morningFringeMin < LUNCH_END && morningFringeMin + 60 > LUNCH_START);
+
+    // Fringe B: última hora del rango que cabe como 1h pero no como sesión completa
+    // (cubre casos: 10-16 → fringe 15:00-16:00 / 10-18 → fringe 17:00-18:00 / etc.)
+    // Fringe B: solo en horario de tarde (>= LUNCH_END=15:00) para no crear
+    // slots fantasma por la mañana (ej. 13:00 en rango 08-14)
+    let fringeBMin = -1;
+    for (let m = endMin0 - 60; m >= Math.max(startMin0, LUNCH_END); m -= 60) {
+      if (m + duracion > endMin0 && m + 60 <= endMin0 &&
+          !mainSlots.some(t => t.startMin === m)) {
+        fringeBMin = m;
+        break;
+      }
+    }
+    const afternoonFringeOK = fringeBMin >= 0;
+
+    const partialSlots = [
+      ...(morningFringeOK   ? dias.map(d => ({ dia: d, startMin: morningFringeMin })) : []),
+      ...(afternoonFringeOK ? dias.map(d => ({ dia: d, startMin: fringeBMin }))       : []),
+    ];
+    const partialMins = new Set(partialSlots.map(t => t.startMin));
+
+    // Slot extremo de mañana: bloque display completo (ej. 08:00-10:00) usado como último
+    // recurso para sesiones de duración completa cuando los slots principales están llenos.
+    // Solo se añade cuando morningDisplayMin != morningFringeMin (ej. rango 08-14 pero no 09-14).
+    const morningDisplayMin = isFinite(firstMain)
+      ? Math.max(startMin0, firstMain - duracion)
+      : startMin0;
+    const extremeMorningOK  = morningFringeOK &&
+                               morningDisplayMin < morningFringeMin &&
+                               morningDisplayMin + duracion <= endMin0;
+    const extremeSlots = extremeMorningOK
+      ? dias.map(d => ({ dia: d, startMin: morningDisplayMin, isExtreme: true }))
+      : [];
+
+    // Si no hay mainSlots (rango inusual), usar paso duracion desde horaInicio como fallback
+    const allSlots = mainSlots.length > 0
+      ? [...mainSlots, ...extremeSlots, ...partialSlots]
+      : generateStartTimes(dias, horaInicio, horaFin, duracion);
+
+    // Mañana primero, tarde después — dentro de cada bloque se barajan para variedad.
+    // extremeSlots va DESPUÉS de los slots principales para que sea el último recurso.
+    const morningMain  = shuffle(mainSlots.filter(t => t.startMin < LUNCH_START));
+    const afternoonMain= shuffle(mainSlots.filter(t => t.startMin >= LUNCH_END));
+    const startTimes   = [...morningMain, ...afternoonMain, ...shuffle(extremeSlots), ...partialSlots];
 
     // Preparar asignaturas con metadatos
     const subjects = asignaturas.map(s => {
@@ -431,7 +486,7 @@ router.post("/generate", requireAuth, async (req, res) => {
     }
 
     // Ejecutar CSP (con fallback greedy si no converge)
-    const { result, perfect } = solveCSP(allSessions, validAulasBySubject, startTimes, finMin, teacherAvail);
+    const { result, perfect } = solveCSP(allSessions, validAulasBySubject, startTimes, finMin, teacherAvail, duracion, partialMins);
 
     // Recopilar sesiones asignadas y no asignadas
     const sesiones = [];
@@ -481,8 +536,8 @@ router.post("/generate", requireAuth, async (req, res) => {
         ? `${metaDeg} – ${metaYear}º${semStr ? " – " + semStr : ""} – ${new Date().toLocaleDateString("es-ES")}`
         : `Horario ${new Date().toLocaleDateString("es-ES")}`);
     const sched  = await dbRun(
-      "INSERT INTO schedules (name, created_by, status, degree, year) VALUES (?,?,?,?,?)",
-      [nameLabel, userId, "active", metaDeg, metaYear]
+      "INSERT INTO schedules (name, created_by, status, degree, year, semester) VALUES (?,?,?,?,?,?)",
+      [nameLabel, userId, "active", metaDeg, metaYear, metaSem]
     );
     const scheduleId = sched.lastID;
 
@@ -495,7 +550,24 @@ router.post("/generate", requireAuth, async (req, res) => {
     }
 
     const breaks = detectBreaks(availRows, dias, horaInicio, horaFin);
-    res.json({ schedule_id: scheduleId, sesiones, no_asignadas: noAsignadas, breaks, perfect, total_needed: allSessions.length });
+
+    // slotMins: tiempos de inicio de los bloques de DISPLAY (no los internos del scheduler).
+    // El bloque previo a la mañana empieza en max(startMin0, firstMain-duracion) para que
+    // sea exactamente un bloque de 2h y el card de 1h quede en la mitad inferior.
+    const uniqueMainMins  = [...new Set(mainSlots.map(t => t.startMin))].sort((a,b)=>a-b);
+    const displayMinsSet  = new Set(uniqueMainMins);
+    if (morningFringeOK)   displayMinsSet.add(Math.max(startMin0, firstMain - duracion));
+    // fringeBMin solo se añade como fila propia si NO cae dentro del span de un main slot.
+    // Si cae dentro (ej. 18:00 en rango 10-19 con main slot 17:00-19:00), se posiciona
+    // con topPx dentro de esa fila, igual que el fringe de mañana dentro del bloque 08-10.
+    if (afternoonFringeOK) {
+      const fringeWithinMain = mainSlots.some(t => t.startMin <= fringeBMin && t.startMin + duracion > fringeBMin);
+      if (!fringeWithinMain) displayMinsSet.add(fringeBMin);
+    }
+    const slotMins = [...displayMinsSet].sort((a,b)=>a-b);
+    await dbRun("UPDATE schedules SET slot_mins=?, duracion=? WHERE id=?", [JSON.stringify(slotMins), duracion, scheduleId]);
+
+    res.json({ schedule_id: scheduleId, sesiones, no_asignadas: noAsignadas, breaks, perfect, total_needed: allSessions.length, slotMins });
 
   } catch (err) {
     console.error("Error generando horario:", err);
@@ -505,13 +577,14 @@ router.post("/generate", requireAuth, async (req, res) => {
 
 // ── GET /api/v1/schedules ────────────────────────
 // Lista todos los horarios guardados. Acepta ?degree=GIT&year=3 para filtrar.
-router.get("/", requireAuth, async (req, res) => {
+router.get("/", async (req, res) => {
   try {
-    const { degree, year } = req.query;
+    const { degree, year, semester } = req.query;
     const params = [];
     let where = "";
-    if (degree) { where += (where ? " AND" : " WHERE") + " s.degree=?"; params.push(degree); }
-    if (year)   { where += (where ? " AND" : " WHERE") + " s.year=?";   params.push(parseInt(year)); }
+    if (degree)   { where += (where ? " AND" : " WHERE") + " s.degree=?";    params.push(degree); }
+    if (year)     { where += (where ? " AND" : " WHERE") + " s.year=?";      params.push(parseInt(year)); }
+    if (semester) { where += (where ? " AND" : " WHERE") + " s.semester=?";  params.push(parseInt(semester)); }
 
     const rows = await dbAll(`
       SELECT s.id, s.name, s.created_at, s.status, s.degree, s.year,
@@ -532,7 +605,7 @@ router.get("/", requireAuth, async (req, res) => {
 
 // ── GET /api/v1/schedules/:id ─────────────────────
 // Devuelve un horario completo con sus sesiones
-router.get("/:id", requireAuth, async (req, res) => {
+router.get("/:id", async (req, res) => {
   try {
     const { id } = req.params;
     const sched = await dbAll("SELECT * FROM schedules WHERE id=?", [id]);
@@ -551,7 +624,9 @@ router.get("/:id", requireAuth, async (req, res) => {
       ORDER BY ss.day_of_week, ss.slot_start
     `, [id]);
 
-    res.json({ schedule: sched[0], sesiones: sessions });
+    const schedule = sched[0];
+    const slotMins = schedule.slot_mins ? JSON.parse(schedule.slot_mins) : null;
+    res.json({ schedule, sesiones: sessions, slotMins, duracion: schedule.duracion || null });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }

@@ -112,9 +112,14 @@
         <button id="p-submit-btn" class="btn-add" onclick="submitProfesor()">+ Añadir</button>
         <button id="p-cancel-btn" class="btn-add" style="background:#6c757d;display:none" onclick="cancelProfesorEdit()">Cancelar</button>
       </div>
+      <div style="display:flex;gap:8px;justify-content:flex-end;margin-bottom:8px;">
+        <button class="btn-add" onclick="downloadProfesoresExcel()" style="background:#1e7e34;">⬇ Descargar Excel</button>
+        <input type="file" id="excel-upload-input" accept=".xlsx" style="display:none" onchange="uploadProfesoresExcel(this)">
+        <button class="btn-add" onclick="document.getElementById('excel-upload-input').click()" style="background:#0062cc;">⬆ Subir Excel</button>
+      </div>
       <input type="text" id="search-profesores" class="search-input" placeholder="Buscar profesor..." oninput="renderProfesores()">
       <table class="data-table">
-        <thead><tr><th>Nombre</th><th>Departamento</th><th>Email</th><th>Disponibilidad</th><th></th></tr></thead>
+        <thead><tr><th>Nombre</th><th>Departamento</th><th>Email</th><th>Disponibilidad</th><th>Excel</th><th></th></tr></thead>
         <tbody id="tbody-profesores"><tr><td colspan="5" class="empty-msg">Cargando...</td></tr></tbody>
       </table>
     </div>
@@ -183,7 +188,10 @@
 
     <!-- ── HORARIOS ── -->
     <div class="admin-tab-content" id="tab-horarios">
-      <h3 class="admin-section-title">Horarios Generados</h3>
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
+        <h3 class="admin-section-title" style="margin:0">Horarios Generados</h3>
+        <button class="btn-add" style="background:#e06c75;border:none" onclick="deleteAllHorarios()">🗑 Borrar todos</button>
+      </div>
       <table class="data-table" id="horarios-table">
         <thead><tr><th>Nombre</th><th>Sesiones</th><th>Estado</th><th>Creado por</th><th>Fecha</th><th></th></tr></thead>
         <tbody id="tbody-horarios"><tr><td colspan="6" class="empty-msg">Selecciona esta pestaña para cargar…</td></tr></tbody>
@@ -196,16 +204,17 @@
 
 <!-- ── MODAL VISOR HORARIO ── -->
 <div class="modal-overlay" id="sched-view-modal">
-  <div class="modal-card" style="max-width:960px;width:95%;background:#12121e;border:1px solid rgba(255,255,255,0.12);color:#fff;padding:0;">
-    <div class="modal-header" style="background:rgba(255,255,255,0.06);border-bottom:1px solid rgba(255,255,255,0.1);padding:16px 20px;border-radius:16px 16px 0 0;">
-      <h3 id="sched-view-title" style="color:#fff;margin:0;">Horario</h3>
-      <button class="modal-close" onclick="closeAdminViewer()" style="color:rgba(255,255,255,0.6);">✕</button>
+  <div class="modal-card" style="max-width:980px;width:95%;background:#f5f7fa;border:1px solid #d0d5dd;color:#1a1a2e;padding:0;box-shadow:0 8px 40px rgba(0,0,0,0.35);">
+    <div class="modal-header" style="background:#1a1a2e;border-bottom:none;padding:14px 20px;border-radius:16px 16px 0 0;">
+      <h3 id="sched-view-title" style="color:#fff;margin:0;font-size:1rem;">Horario</h3>
+      <button class="modal-close" onclick="closeAdminViewer()" style="color:rgba(255,255,255,0.65);">✕</button>
     </div>
-    <div style="overflow-x:auto;max-height:65vh;overflow-y:auto;padding:4px 0;">
+    <div style="padding:16px 20px;">
       <div id="admin-viewer-grid"></div>
     </div>
-    <div class="modal-actions" style="padding:14px 20px;border-top:1px solid rgba(255,255,255,0.08);">
-      <button class="btn-add" style="background:#6c757d;" onclick="closeAdminViewer()">Cerrar</button>
+    <div class="modal-actions" style="padding:12px 20px;border-top:none;display:flex;gap:10px;background:#1a1a2e;border-radius:0 0 16px 16px;">
+      <button class="btn-add" id="btn-pdf-admin" style="display:none;" onclick="exportAdminPDF()">Exportar PDF</button>
+      <button class="btn-add" style="background:#6c757d;margin-left:auto;" onclick="closeAdminViewer()">Cerrar</button>
     </div>
   </div>
 </div>
@@ -397,6 +406,11 @@ function renderProfesores() {
       <td>${p.department || "—"}</td>
       <td>${p.email || "—"}</td>
       <td><button class="btn-avail" onclick="openAvailModal(${p.id}, '${p.name.replace(/'/g,"\\'")}')">Ver / Editar</button></td>
+      <td style="white-space:nowrap">
+        <button class="btn-edit" style="background:#1e7e34;color:#fff" onclick="downloadProfesorExcel(${p.id})">⬇</button>
+        <input type="file" id="excel-ind-${p.id}" accept=".xlsx" style="display:none" onchange="uploadProfesorExcelInd(${p.id},this)">
+        <button class="btn-edit" style="background:#0062cc;color:#fff" onclick="document.getElementById('excel-ind-${p.id}').click()">⬆</button>
+      </td>
       <td>
         <button class="btn-edit" onclick="editProfesor(${p.id})">✏</button>
         <button class="btn-remove" onclick="deleteProfesor(${p.id})">✕</button>
@@ -598,14 +612,21 @@ async function deleteUsuario(id) {
 
 // ── DISPONIBILIDAD MODAL ──────────────────────────
 const DAYS  = ["Lun", "Mar", "Mié", "Jue", "Vie"];
-// Franjas reales del horario escolar
+// Franjas horarias de 1h (8:00–21:00)
 const SLOTS = [
-  ["08:00","08:55"],
-  ["08:55","09:50"],
-  ["09:50","10:45"],
-  ["11:15","12:10"],
-  ["12:10","13:05"],
-  ["13:05","14:00"],
+  ["08:00","09:00"],
+  ["09:00","10:00"],
+  ["10:00","11:00"],
+  ["11:00","12:00"],
+  ["12:00","13:00"],
+  ["13:00","14:00"],
+  ["14:00","15:00"],
+  ["15:00","16:00"],
+  ["16:00","17:00"],
+  ["17:00","18:00"],
+  ["18:00","19:00"],
+  ["19:00","20:00"],
+  ["20:00","21:00"],
 ];
 let currentTeacherId = null;
 
@@ -675,24 +696,16 @@ function availNone() {
 }
 
 function expandSlots(dbRows) {
+  const toMin = t => t.split(":").reduce((h, m) => h * 60 + +m, 0);
   const set = new Set();
   for (const r of dbRows) {
-    // Coincidencia exacta con una franja canónica
-    const match = SLOTS.find(([s]) => s === r.slot_start);
-    if (match) {
-      set.add(`${r.day_of_week}-${match[0]}`);
-      continue;
+    const rS = toMin(r.slot_start), rE = toMin(r.slot_end);
+    for (const [s, e] of SLOTS) {
+      // Marcar el slot canónico si cae completamente dentro del rango de disponibilidad
+      if (toMin(s) >= rS && toMin(e) <= rE) {
+        set.add(`${r.day_of_week}-${s}`);
+      }
     }
-    // Compatibilidad con registros legacy (horas enteras "09:00" etc.):
-    // buscar la franja cuyo inicio esté más próximo
-    const rMin = r.slot_start.split(":").reduce((h, m) => h * 60 + +m, 0);
-    let best = null, bestDiff = Infinity;
-    for (const [s] of SLOTS) {
-      const sMin = s.split(":").reduce((h, m) => h * 60 + +m, 0);
-      const diff = Math.abs(sMin - rMin);
-      if (diff < bestDiff) { bestDiff = diff; best = s; }
-    }
-    if (best) set.add(`${r.day_of_week}-${best}`);
   }
   return set;
 }
@@ -704,7 +717,15 @@ async function openAvailModal(teacherId, teacherName) {
 
   const res  = await fetch(`/api/v1/teachers/${teacherId}/availability`);
   const rows = await res.json();
-  buildAvailGrid(expandSlots(rows));
+  let marked;
+  if (rows.length === 0) {
+    // Sin datos guardados → marcar todo por defecto
+    marked = new Set();
+    SLOTS.forEach(([s]) => { for (let d = 0; d < 5; d++) marked.add(`${d}-${s}`); });
+  } else {
+    marked = expandSlots(rows);
+  }
+  buildAvailGrid(marked);
 }
 
 function closeAvailModal() {
@@ -748,7 +769,6 @@ document.getElementById("sched-view-modal").addEventListener("click", e => {
 const ADM_DAY_NAMES = ["Lunes","Martes","Miércoles","Jueves","Viernes"];
 const ADM_PALETTE   = ["#4f8ef7","#e06c75","#98c379","#e5c07b","#c678dd","#56b6c2","#61afef","#d19a66","#f78c6c","#a9b1d6"];
 function admTimeToMin(t) { const [h,m] = t.split(":").map(Number); return h*60+m; }
-
 let horariosLoaded = false;
 
 async function loadHorarios() {
@@ -777,7 +797,13 @@ async function loadHorarios() {
     </tr>`).join("");
 }
 
+let _adminSchedData = null;
+let _adminSchedName = null;
+
 async function viewAdminSchedule(id, name) {
+  _adminSchedData = null;
+  _adminSchedName = name;
+  document.getElementById("btn-pdf-admin").style.display = "none";
   document.getElementById("sched-view-title").textContent = name;
   document.getElementById("admin-viewer-grid").innerHTML =
     `<div style="padding:40px;text-align:center;color:rgba(255,255,255,0.35);">Cargando…</div>`;
@@ -790,11 +816,39 @@ async function viewAdminSchedule(id, name) {
       `<div style="padding:40px;text-align:center;color:rgba(255,255,255,0.35);">Sin sesiones.</div>`;
     return;
   }
-  renderAdminTable(data.sesiones);
+  _adminSchedData = data;
+  document.getElementById("btn-pdf-admin").style.display = "";
+  const sched = data.schedule;
+  const html  = buildPrintHTML(data.sesiones, name, data.slotMins, data.duracion, sched?.year, sched?.semester);
+  const iframe = document.createElement("iframe");
+  iframe.scrolling = "no";
+  iframe.style.cssText = "width:100%;border:none;border-radius:6px;display:block;background:#fff;height:0;";
+  const onMsg = e => {
+    if (e.data?.type === 'iframeH' && e.source === iframe.contentWindow) {
+      iframe.style.height = (e.data.h + 2) + 'px';
+      window.removeEventListener('message', onMsg);
+    }
+  };
+  window.addEventListener('message', onMsg);
+  const grid = document.getElementById("admin-viewer-grid");
+  grid.innerHTML = "";
+  grid.appendChild(iframe);
+  iframe.contentDocument.open();
+  iframe.contentDocument.write(html);
+  iframe.contentDocument.close();
 }
 
 function closeAdminViewer() {
   document.getElementById("sched-view-modal").classList.remove("open");
+}
+
+function exportAdminPDF() {
+  if (!_adminSchedData) return;
+  const sched = _adminSchedData.schedule;
+  const win = window.open("", "_blank", "width=1000,height=700");
+  win.document.write(buildPrintHTML(_adminSchedData.sesiones, _adminSchedName, _adminSchedData.slotMins, _adminSchedData.duracion, sched?.year, sched?.semester));
+  win.document.close();
+  win.addEventListener("load", () => { win.focus(); win.print(); });
 }
 
 async function deleteAdminSchedule(id) {
@@ -804,62 +858,130 @@ async function deleteAdminSchedule(id) {
   else { const d = await res.json(); alert(d.error); }
 }
 
-function renderAdminTable(sesiones) {
-  const dias  = [...new Set(sesiones.map(s => s.day))].sort();
-  const slotMap = {};
-  for (const s of sesiones) slotMap[s.start] = s.end;
-  const slots = Object.entries(slotMap).sort((a,b) => admTimeToMin(a[0]) - admTimeToMin(b[0]));
-  const byDaySlot = {};
-  for (const s of sesiones) {
-    if (!byDaySlot[s.day]) byDaySlot[s.day] = {};
-    byDaySlot[s.day][s.start] = s;
-  }
-  const colorMap = {};
-  let ci = 0;
-  for (const s of sesiones) {
-    const k = s.degree || s.subject;
-    if (!(k in colorMap)) colorMap[k] = ADM_PALETTE[ci++ % ADM_PALETTE.length];
-  }
-
-  const header = `<tr>
-    <th style="width:80px;padding:10px 8px;font-size:0.82rem;font-weight:700;color:rgba(255,255,255,0.6);text-align:center;background:rgba(255,255,255,0.07);border-bottom:2px solid rgba(255,255,255,0.12);border-right:2px solid rgba(255,255,255,0.1);"></th>
-    ${dias.map(d => `<th style="padding:10px 8px;font-size:0.82rem;font-weight:700;color:#fff;text-align:center;background:rgba(255,255,255,0.07);border-bottom:2px solid rgba(255,255,255,0.12);border-right:1px solid rgba(255,255,255,0.07);width:auto;">${ADM_DAY_NAMES[d]}</th>`).join("")}
-  </tr>`;
-
-  let rows = "";
-  let prevEnd = null;
-  for (const [slotStart, slotEnd] of slots) {
-    if (prevEnd !== null && prevEnd !== slotStart) {
-      rows += `<tr style="background:rgba(229,192,123,0.08);border-top:1px solid rgba(229,192,123,0.25);border-bottom:1px solid rgba(229,192,123,0.25);">
-        <td style="padding:5px 10px;text-align:right;font-size:0.7rem;color:rgba(229,192,123,0.8);font-weight:700;background:rgba(229,192,123,0.06);border-right:2px solid rgba(229,192,123,0.2);">${prevEnd}<br><span style="opacity:.6">${slotStart}</span></td>
-        <td colspan="${dias.length}" style="text-align:center;font-size:0.72rem;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:rgba(229,192,123,0.75);">Recreo</td>
-      </tr>`;
-    }
-    const cells = dias.map(d => {
-      const s = byDaySlot[d]?.[slotStart];
-      if (!s) return `<td style="padding:4px;height:62px;vertical-align:top;border-right:1px solid rgba(255,255,255,0.05);"></td>`;
-      const color = colorMap[s.degree || s.subject] || ADM_PALETTE[0];
-      return `<td style="padding:4px;height:62px;vertical-align:top;border-right:1px solid rgba(255,255,255,0.05);">
-        <div style="border-radius:7px;padding:7px 9px;border-left:4px solid ${color};background:color-mix(in srgb,${color} 22%,rgba(18,18,28,0.97));height:100%;box-sizing:border-box;display:flex;flex-direction:column;justify-content:center;align-items:center;text-align:center;">
-          <div style="font-size:0.78rem;font-weight:700;color:#fff;line-height:1.3;">${s.subject}</div>
-          <div style="font-size:0.67rem;color:rgba(255,255,255,0.5);margin-top:3px;">${s.classroom||""}</div>
-          ${s.teacher?`<div style="font-size:0.62rem;color:rgba(255,255,255,0.3);margin-top:2px;">${s.teacher}</div>`:""}
-        </div>
-      </td>`;
-    }).join("");
-    rows += `<tr style="border-bottom:1px solid rgba(255,255,255,0.05);">
-      <td style="padding:8px 10px;text-align:right;white-space:nowrap;background:rgba(255,255,255,0.04);border-right:2px solid rgba(255,255,255,0.08);vertical-align:middle;">
-        <span style="display:block;font-size:0.76rem;font-weight:700;color:rgba(255,255,255,0.8);">${slotStart}</span>
-        <span style="display:block;font-size:0.63rem;color:rgba(255,255,255,0.28);margin-top:2px;">${slotEnd}</span>
-      </td>
-      ${cells}
-    </tr>`;
-    prevEnd = slotEnd;
-  }
-
-  document.getElementById("admin-viewer-grid").innerHTML =
-    `<table style="width:100%;border-collapse:collapse;table-layout:fixed;"><thead>${header}</thead><tbody>${rows}</tbody></table>`;
+async function deleteAllHorarios() {
+  const list = await fetch("/api/v1/schedules").then(r => r.json());
+  if (!list.length) { alert("No hay horarios guardados."); return; }
+  if (!confirm(`¿Eliminar los ${list.length} horarios? Esta acción no se puede deshacer.`)) return;
+  await Promise.all(list.map(h => fetch(`/api/v1/schedules/${h.id}`, { method: "DELETE" })));
+  horariosLoaded = false;
+  loadHorarios();
+  loadStats();
 }
+
+function buildPrintHTML(sesiones, title, slotMins, duracion, year, semester) {
+  const DAY_NMS = ["Lunes","Martes","Miércoles","Jueves","Viernes"];
+  function tm(t) { const [h,m] = t.split(":").map(Number); return h*60+m; }
+  const dias = [...new Set(sesiones.map(s => s.day))].sort();
+  const rawBounds = sesiones.flatMap(s => [tm(s.start), tm(s.end)]);
+  const minT = Math.min(...rawBounds), maxT = Math.max(...rawBounds);
+  if (840 >= minT && 840 <= maxT) { rawBounds.push(840); rawBounds.push(900); }
+  const boundaryMins = [...new Set(rawBounds)].sort((a,b)=>a-b);
+  const rowBounds = [];
+  for (let i = 0; i < boundaryMins.length - 1; i++) rowBounds.push([boundaryMins[i], boundaryMins[i+1]]);
+  const pad = n => String(n).padStart(2,"0");
+  const fmt = m => `${pad(Math.floor(m/60))}:${pad(m%60)}`;
+  const covered = new Set();
+  const hdr = `<tr>
+    <th style="width:64px;padding:9px 5px;background:#1e3a6e;color:#fff;border:1px solid #000;font-size:12px;font-weight:700;text-align:center;">HORA</th>
+    ${dias.map(d=>`<th style="padding:9px 6px;font-size:14px;font-weight:700;text-align:center;background:#1e3a6e;color:#fff;border:1px solid #000;text-transform:uppercase;">${DAY_NMS[d]}</th>`).join("")}
+  </tr>`;
+  let rows = "";
+  for (let ri = 0; ri < rowBounds.length; ri++) {
+    const [rStart, rEnd] = rowBounds[ri];
+    const lunchRow = rStart === 840;
+    const cellBg   = lunchRow ? '#ddd' : '#fff';
+    let cells = `<td style="padding:5px 6px;text-align:center;vertical-align:middle;background:#f5f5f5;border:1px solid #000;white-space:nowrap;font-size:12px;">
+      <span style="display:block;font-weight:700;">${fmt(rStart)}</span>
+      <span style="display:block;color:#555;font-size:10px;">${fmt(rEnd)}</span>
+    </td>`;
+    for (const d of dias) {
+      if (covered.has(`${d}-${ri}`)) continue;
+      const sess = sesiones.find(s => s.day === d && tm(s.start) === rStart);
+      if (sess) {
+        const sessEnd = tm(sess.end);
+        let span = 0;
+        for (let j = ri; j < rowBounds.length && rowBounds[j][0] < sessEnd; j++) { span++; covered.add(`${d}-${j}`); }
+        cells += `<td rowspan="${span}" style="padding:5px 6px;text-align:center;vertical-align:middle;border:1px solid #000;background:#fff;">
+          <div style="font-size:13px;font-weight:700;text-transform:uppercase;line-height:1.3;">${sess.subject}</div>
+          ${sess.classroom?`<div style="font-size:11px;font-weight:700;margin-top:2px;">(${sess.classroom})</div>`:""}
+          ${sess.teacher?`<div style="font-size:10px;color:#444;margin-top:2px;">${sess.teacher}</div>`:""}
+        </td>`;
+      } else {
+        cells += `<td style="border:1px solid #000;background:${cellBg};"></td>`;
+      }
+    }
+    rows += `<tr style="height:50px;">${cells}</tr>`;
+  }
+  const now = new Date();
+  const fecha = now.toLocaleDateString("es-ES",{day:"2-digit",month:"long",year:"numeric"});
+  const anyo = now.getFullYear();
+  const curso = `Curso ${anyo}/${anyo+1}`;
+  const cuatriNum = (year && semester) ? (year - 1) * 2 + semester : null;
+  const leftTitle = cuatriNum ? `CUATRIMESTRE ${cuatriNum}º (Curso ${year}º, Semestre ${semester}º)` : title;
+  const rightTitle = year ? `${title.split("–")[0]?.trim() || title} – AÑO ${year}º` : "Universidad de Alcalá";
+  return `<!DOCTYPE html><html lang="es"><head><meta charset="UTF-8"><title>${title}</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+html,body{height:auto;overflow:hidden}
+body{font-family:Arial,Helvetica,sans-serif;background:#fff;color:#000;padding:10px 14px}
+@media print{@page{margin:8mm;size:A4 landscape}body{padding:0}*{-webkit-print-color-adjust:exact;print-color-adjust:exact}}
+</style></head><body onload="parent.postMessage({type:'iframeH',h:document.body.offsetHeight},'*')">
+<table style="width:100%;border:2px solid #000;border-collapse:collapse;margin-bottom:0;">
+  <tr>
+    <td style="padding:9px 14px;border:1px solid #000;font-size:13px;font-weight:700;width:38%;">${leftTitle}</td>
+    <td style="padding:9px 14px;border:1px solid #000;font-size:13px;font-weight:700;text-align:center;width:28%;">${curso}</td>
+    <td style="padding:9px 14px;border:1px solid #000;font-size:13px;font-weight:700;text-align:right;width:34%;">${rightTitle}</td>
+  </tr>
+</table>
+<table style="width:100%;border-collapse:collapse;border:2px solid #000;border-top:none;">
+  <thead>${hdr}</thead><tbody>${rows}</tbody>
+</table>
+<div style="font-size:10px;color:#555;margin-top:8px;margin-bottom:10px;text-align:center;font-style:italic;">Generado el ${fecha} &nbsp;·&nbsp; TFG Plataforma &nbsp;·&nbsp; Universidad de Alcalá</div>
+</body></html>`;
+}
+
+function downloadProfesoresExcel() {
+  window.location.href = "/api/v1/excel/professors";
+}
+
+async function uploadProfesoresExcel(input) {
+  if (!input.files.length) return;
+  const fd = new FormData();
+  fd.append("file", input.files[0]);
+  input.value = "";
+  const res  = await fetch("/api/v1/excel/upload", { method: "POST", body: fd });
+  const data = await res.json();
+  if (res.ok) {
+    const created = data.created || 0;
+    let msg = `Actualizados: ${data.updated} profesor(es).`;
+    if (created) msg += `\nCreados nuevos: ${created}.`;
+    if (data.skipped?.length) msg += `\nSin cambios / sin datos: ${data.skipped.join(', ')}`;
+    alert(msg);
+    loadProfesores();
+  } else {
+    alert("Error: " + data.error);
+  }
+}
+
+function downloadProfesorExcel(id) {
+  window.location.href = `/api/v1/excel/professors/${id}`;
+}
+
+async function uploadProfesorExcelInd(id, input) {
+  if (!input.files.length) return;
+  const fd = new FormData();
+  fd.append("file", input.files[0]);
+  input.value = "";
+  const res  = await fetch(`/api/v1/excel/upload/${id}`, { method: "POST", body: fd });
+  const data = await res.json();
+  if (res.ok) {
+    alert("Profesor actualizado correctamente.");
+    loadProfesores();
+  } else {
+    alert("Error: " + data.error);
+  }
+}
+
 </script>
 
 </body>

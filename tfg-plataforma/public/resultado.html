@@ -113,11 +113,12 @@
     .sc-slot-time .t-start { font-size: 0.8rem; font-weight: 700; color: rgba(255,255,255,0.85); display: block; }
     .sc-slot-time .t-end   { font-size: 0.68rem; color: rgba(255,255,255,0.35); display: block; margin-top: 2px; }
 
-    /* Celda de día */
+    /* Celda de día — altura controlada por el <tr> vía JS (proporcional a duración) */
     .sc-day-cell {
-      padding: 5px; vertical-align: top; height: 72px;
+      padding: 5px; vertical-align: top;
       border-right: 1px solid rgba(255,255,255,0.06);
       transition: background 0.15s;
+      display: table-cell; /* override si hay flex en ancestros */
     }
     .sc-day-cell:last-child { border-right: none; }
     .sc-day-cell.drag-over { background: rgba(255,255,255,0.1) !important; outline: 2px dashed rgba(255,255,255,0.3); outline-offset: -3px; }
@@ -139,6 +140,15 @@
     .sc-card .c-subject { font-size: 0.82rem; font-weight: 700; color: #fff; line-height: 1.3; }
     .sc-card .c-room    { font-size: 0.71rem; color: rgba(255,255,255,0.55); margin-top: 4px; }
     .sc-card .c-teacher { font-size: 0.67rem; color: rgba(255,255,255,0.35); margin-top: 2px; }
+    .sc-toggle-btn {
+      position: absolute; bottom: 4px; right: 6px;
+      background: none; border: none; padding: 0;
+      font-size: 0.78rem; color: rgba(255,255,255,0.25);
+      cursor: pointer; line-height: 1; transition: color .15s;
+      pointer-events: all;
+    }
+    .sc-offsetable { position: relative; outline: 1px dashed rgba(255,255,255,0.12); outline-offset: -2px; }
+    .sc-offsetable:hover .sc-toggle-btn { color: rgba(255,255,255,0.75); }
 
     /* Fila de recreo */
     .sc-break-row td {
@@ -392,9 +402,13 @@ function buildPrintHTML(sesiones, title) {
   }
   function tm(t) { const [h,m] = t.split(":").map(Number); return h*60+m; }
   const dias = [...new Set(sesiones.map(s => s.day))].sort();
-  const slotMap = {};
-  for (const s of sesiones) slotMap[s.start] = s.end;
-  const slots = Object.entries(slotMap).sort((a,b) => tm(a[0])-tm(b[0]));
+
+  // slotMap: start → maxEnd
+  const slotMapP = {};
+  for (const s of sesiones) {
+    if (!slotMapP[s.start] || tm(s.end) > tm(slotMapP[s.start])) slotMapP[s.start] = s.end;
+  }
+  const slots = Object.entries(slotMapP).sort((a,b)=>tm(a[0])-tm(b[0]));
   const byDS = {};
   for (const s of sesiones) { if (!byDS[s.day]) byDS[s.day]={}; byDS[s.day][s.start]=s; }
 
@@ -403,19 +417,21 @@ function buildPrintHTML(sesiones, title) {
     ${dias.map(d=>`<th style="padding:10px 8px;font-size:13px;font-weight:700;text-align:center;background:#1e293b;color:#fff;border:1px solid #334155;">${DAY_NMS[d]}</th>`).join("")}
   </tr>`;
 
-  let rows="", prevEnd=null;
+  let rows="", prevEndP=null;
   for (const [st,se] of slots) {
-    if (prevEnd && prevEnd!==st) {
+    if (prevEndP && tm(st) > tm(prevEndP)) {
       rows+=`<tr style="background:#fef3c7;">
-        <td style="padding:4px 6px;text-align:center;font-size:10px;font-weight:700;color:#92400e;background:#fef9c3;border-right:2px solid #f59e0b;">${prevEnd}<br><span style="opacity:.7">${st}</span></td>
-        <td colspan="${dias.length}" style="text-align:center;font-size:10px;font-weight:700;letter-spacing:.07em;text-transform:uppercase;color:#92400e;border-top:1px solid #f59e0b;border-bottom:1px solid #f59e0b;">☕ Recreo</td>
+        <td style="padding:4px 6px;text-align:center;font-size:10px;font-weight:700;color:#92400e;background:#fef9c3;border-right:2px solid #f59e0b;">${prevEndP}<br><span style="opacity:.7">${st}</span></td>
+        <td colspan="${dias.length}" style="text-align:center;font-size:10px;font-weight:700;letter-spacing:.07em;text-transform:uppercase;color:#92400e;border-top:1px solid #f59e0b;border-bottom:1px solid #f59e0b;">Descanso</td>
       </tr>`;
     }
+    const durM = tm(se)-tm(st);
+    const rh = Math.max(44, durM*1.1);
     const cells = dias.map(d=>{
       const s=byDS[d]?.[st];
-      if(!s) return `<td style="padding:4px;height:64px;border-right:1px solid #e2e8f0;"></td>`;
+      if(!s) return `<td style="padding:4px;border-right:1px solid #e2e8f0;"></td>`;
       const c=colorMap[s.degree||s.subject]||COLORS[0];
-      return `<td style="padding:4px;height:64px;vertical-align:middle;border-right:1px solid #e2e8f0;">
+      return `<td style="padding:4px;vertical-align:middle;border-right:1px solid #e2e8f0;">
         <div style="border-radius:6px;padding:7px 8px;border-left:4px solid ${c.b};background:${c.bg};height:100%;box-sizing:border-box;display:flex;flex-direction:column;justify-content:center;align-items:center;text-align:center;">
           <div style="font-size:12px;font-weight:700;color:#0f172a;line-height:1.3;">${s.subject}</div>
           <div style="font-size:10px;color:#475569;margin-top:3px;">${s.classroom||""}</div>
@@ -423,13 +439,13 @@ function buildPrintHTML(sesiones, title) {
         </div>
       </td>`;
     }).join("");
-    rows+=`<tr style="border-bottom:1px solid #e2e8f0;">
+    rows+=`<tr style="height:${rh}px;border-bottom:1px solid #e2e8f0;">
       <td style="padding:8px 6px;text-align:center;vertical-align:middle;background:#f8fafc;border-right:2px solid #cbd5e1;">
         <span style="display:block;font-size:12px;font-weight:700;color:#1e293b;">${st}</span>
         <span style="display:block;font-size:10px;color:#94a3b8;margin-top:2px;">${se}</span>
       </td>${cells}
     </tr>`;
-    prevEnd=se;
+    if (!prevEndP || tm(se) > tm(prevEndP)) prevEndP = se;
   }
 
   const legend = Object.entries(colorMap).map(([k,c])=>
@@ -466,6 +482,7 @@ let currentSessions = [];
 let currentScheduleId = null;
 let savedFranjas = null;
 let savedBreaks  = [];
+let currentSlotMins = [];
 let dragIdx      = null;
 let hasUnsaved   = false;
 
@@ -516,18 +533,47 @@ function renderStats(sesiones, noAsig, payload, totalNeeded) {
 }
 
 // ── Render table ──────────────────────────────────
-function renderTable(sesiones, franjas, colorMap, breaks = []) {
-  const { dias } = franjas;
+function renderTable(sesiones, franjas, colorMap, breaks = [], slotMins = []) {
+  const { dias, duracion, horaFin } = franjas;
+  const endMin0 = timeToMin(horaFin);
 
-  const slotMap = {};
-  for (const s of sesiones) slotMap[s.start] = s.end;
-  const slots = Object.entries(slotMap).sort((a, b) => timeToMin(a[0]) - timeToMin(b[0]));
+  if (!sesiones.length && !slotMins.length) {
+    document.getElementById("schedule-grid").innerHTML = "";
+    return;
+  }
 
-  // Map: día → start → {session, idx}
-  const byDaySlot = {};
+  // Index: day → array of {s, idx} (allows sessions offset within display rows)
+  const byDay = {};
   sesiones.forEach((s, idx) => {
-    if (!byDaySlot[s.day]) byDaySlot[s.day] = {};
-    byDaySlot[s.day][s.start] = { s, idx };
+    if (!byDay[s.day]) byDay[s.day] = [];
+    byDay[s.day].push({ s, idx });
+  });
+
+  // Merge display slots (from backend slotMins) with any session start times not covered.
+  // Exclude session mins that fall strictly inside an existing slotMins row — those are
+  // positioned via topPx offset within their parent row, not as separate rows.
+  const sessionMins  = [...new Set(sesiones.map(s => timeToMin(s.start)))];
+  const filteredSessionMins = sessionMins.filter(sm =>
+    !slotMins.some(rowStart => sm > rowStart && sm < rowStart + duracion)
+  );
+  const allStartMins = [...new Set([...slotMins, ...filteredSessionMins])].sort((a,b) => a-b);
+
+  // Compute end time for each display slot.
+  // For slotMins rows: always use the next slotMin / +duracion boundary so the row
+  // keeps its full height even when a short session sits inside it at topPx offset.
+  // For session-only rows (not in slotMins): use the session end as the row height.
+  const slots = allStartMins.map((sm, i) => {
+    const nextSm  = allStartMins[i + 1];
+    const slotDur = Math.min(duracion, endMin0 - sm);
+    const endSm   = nextSm && nextSm - sm <= duracion ? nextSm : sm + slotDur;
+    if (!slotMins.includes(sm)) {
+      // Session-only row: use session end to determine row height
+      const sessEnd = sesiones
+        .filter(s => timeToMin(s.start) === sm)
+        .reduce((mx, s) => Math.max(mx, timeToMin(s.end)), -1);
+      if (sessEnd > 0) return [minToTime(sm), minToTime(sessEnd)];
+    }
+    return [minToTime(sm), minToTime(Math.min(endSm, endMin0))];
   });
 
   const header = `<tr>
@@ -539,33 +585,66 @@ function renderTable(sesiones, franjas, colorMap, breaks = []) {
   let prevEnd = null;
 
   for (const [slotStart, slotEnd] of slots) {
-    if (prevEnd !== null && prevEnd !== slotStart) {
-      const br = breaks.find(b => b.start === prevEnd || b.end === slotStart);
-      const label = br ? `${br.start} – ${br.end}` : `${prevEnd} – ${slotStart}`;
+    // Descanso: solo para gaps reales (p.ej. 14:00-15:00 de comida)
+    if (prevEnd !== null && timeToMin(slotStart) > timeToMin(prevEnd)) {
       rows += `<tr class="sc-break-row">
         <td class="sc-slot-time">
           <span class="t-start">${prevEnd}</span>
           <span class="t-end">${slotStart}</span>
         </td>
-        <td colspan="${dias.length}"><span class="sc-break-label">Recreo</span></td>
+        <td colspan="${dias.length}"><span class="sc-break-label">Descanso</span></td>
       </tr>`;
     }
 
+    const rowStartMin = timeToMin(slotStart);
+    const rowEndMin   = timeToMin(slotEnd);
+    const durMin      = rowEndMin - rowStartMin;
+    const rowH        = Math.max(52, durMin * 1.2);
+
     const cells = dias.map(d => {
-      const entry = byDaySlot[d]?.[slotStart];
-      if (!entry) return `<td class="sc-day-cell" data-day="${d}" data-start="${slotStart}"></td>`;
-      const { s, idx } = entry;
-      const color = colorMap[s.degree || s.subject] || PALETTE[0];
-      return `<td class="sc-day-cell" data-day="${d}" data-start="${slotStart}">
-        <div class="sc-card" style="--sc:${color}" draggable="true" data-idx="${idx}">
+      // Find sessions for this day whose start falls within [rowStart, rowEnd)
+      const entries = (byDay[d] || []).filter(({ s }) => {
+        const sm = timeToMin(s.start);
+        return sm >= rowStartMin && sm < rowEndMin;
+      });
+
+      if (!entries.length) {
+        return `<td class="sc-day-cell" data-day="${d}" data-start="${slotStart}"></td>`;
+      }
+      const { s, idx } = entries[0];
+      const color    = colorMap[s.degree || s.subject] || PALETTE[0];
+      const sessMin  = timeToMin(s.start);
+      const sessDur  = timeToMin(s.end) - sessMin;
+      const topPx    = Math.round(((sessMin - rowStartMin) / durMin) * rowH);
+      const ch       = Math.max(32, Math.round((sessDur / durMin) * rowH) - 8);
+
+      // Toggle button appears for any short session inside a full-size row.
+      const isOffsetable = sessDur < durMin;
+      const maxTopPx     = isOffsetable ? Math.round(((durMin - sessDur) / durMin) * rowH) : 0;
+      const fringeStart  = isOffsetable ? minToTime(rowStartMin + durMin - sessDur) : s.start;
+      const fringeEnd    = isOffsetable ? minToTime(rowEndMin)                       : s.end;
+      const topStartTime = minToTime(rowStartMin);
+      const topEndTime   = minToTime(rowStartMin + sessDur);
+      // Afternoon fringe: prefer top of block (adjacent to preceding sessions).
+      // Morning fringe:   prefer bottom of block (adjacent to following sessions).
+      const afternoonFringe = isOffsetable && sessMin >= 15 * 60 && topPx > 0 && s.forceTopHalf !== false;
+      const renderTopPx     = afternoonFringe ? 0 : topPx;
+      // flipped=1 → card at top; flipped=0 → card at bottom
+      const flippedNow      = isOffsetable && renderTopPx === 0 ? "1" : "0";
+      return `<td class="sc-day-cell" data-day="${d}" data-start="${s.start}" style="padding:0;vertical-align:top">
+        ${renderTopPx > 0 ? `<div class="sc-offset-spacer" style="height:${renderTopPx}px"></div>` : ""}
+        <div class="sc-card${isOffsetable ? ' sc-offsetable' : ''}" style="--sc:${color};height:${ch}px;margin:0 5px"
+          draggable="true" data-idx="${idx}"
+          ${isOffsetable ? `data-offset="${maxTopPx}" data-flipped="${flippedNow}" data-orig-start="${fringeStart}" data-orig-end="${fringeEnd}" data-top-start="${topStartTime}" data-top-end="${topEndTime}"` : ""}>
           <div class="c-subject">${s.subject}</div>
           <div class="c-room">${s.classroom}</div>
           ${s.teacher ? `<div class="c-teacher">${s.teacher}</div>` : ""}
+          ${isOffsetable ? `<button class="sc-toggle-btn" draggable="false" title="Mover arriba/abajo" onmousedown="event.stopPropagation()" onclick="toggleOffsetCard(this,event)">⇅</button>` : ""}
         </div>
       </td>`;
     }).join("");
 
-    rows += `<tr>
+    rows += `<tr style="height:${rowH}px">
       <td class="sc-slot-time">
         <span class="t-start">${slotStart}</span>
         <span class="t-end">${slotEnd}</span>
@@ -573,7 +652,7 @@ function renderTable(sesiones, franjas, colorMap, breaks = []) {
       ${cells}
     </tr>`;
 
-    prevEnd = slotEnd;
+    if (!prevEnd || timeToMin(slotEnd) > timeToMin(prevEnd)) prevEnd = slotEnd;
   }
 
   document.getElementById("schedule-grid").innerHTML =
@@ -583,6 +662,38 @@ function renderTable(sesiones, franjas, colorMap, breaks = []) {
 }
 
 // ── Drag & Drop ───────────────────────────────────
+function toggleOffsetCard(btn, e) {
+  e.stopPropagation();
+  const card    = btn.closest(".sc-card");
+  const td      = card.closest("td");
+  const flipped = card.dataset.flipped === "1";
+  const idx     = parseInt(card.dataset.idx);
+  const offset  = parseInt(card.dataset.offset);
+
+  // Spacer may not exist if the card was rendered at the top (topPx=0)
+  let spacer = td.querySelector(".sc-offset-spacer");
+  if (!spacer) {
+    spacer = document.createElement("div");
+    spacer.className = "sc-offset-spacer";
+    spacer.style.height = "0px";
+    td.insertBefore(spacer, card);
+  }
+
+  if (!flipped) {
+    spacer.style.height = "0px";
+    card.dataset.flipped = "1";
+    currentSessions[idx] = { ...currentSessions[idx], start: card.dataset.topStart, end: card.dataset.topEnd, forceTopHalf: true };
+    td.dataset.start = card.dataset.topStart;
+  } else {
+    spacer.style.height = `${offset}px`;
+    card.dataset.flipped = "0";
+    currentSessions[idx] = { ...currentSessions[idx], start: card.dataset.origStart, end: card.dataset.origEnd, forceTopHalf: false };
+    td.dataset.start = card.dataset.origStart;
+  }
+  hasUnsaved = true;
+  document.getElementById("btn-save-changes").style.display = "";
+}
+
 function attachDragDrop() {
   document.querySelectorAll(".sc-card[data-idx]").forEach(card => {
     card.addEventListener("dragstart", e => {
@@ -595,6 +706,7 @@ function attachDragDrop() {
       card.classList.remove("dragging");
       dragIdx = null;
     });
+
   });
 
   document.querySelectorAll(".sc-day-cell[data-day]").forEach(cell => {
@@ -614,19 +726,67 @@ function attachDragDrop() {
 
       if (src.day === targetDay && src.start === targetStart) return;
 
-      const dur = timeToMin(src.end) - timeToMin(src.start);
-      const newEnd = minToTime(timeToMin(targetStart) + dur);
+      const dur     = timeToMin(src.end) - timeToMin(src.start);
+      const duracion = savedFranjas ? savedFranjas.duracion : dur;
+      const endMin0  = timeToMin(savedFranjas ? savedFranjas.horaFin : "22:00");
 
-      // Find any session already in the target cell
-      const targetIdx = currentSessions.findIndex(s => s.day === targetDay && s.start === targetStart);
+      // Returns true if a session of `d` minutes starting at `startMin` spills
+      // into the next display row or past the end of the day.
+      const overflows = (startMin, d) => {
+        if (startMin + d > endMin0) return true;
+        return currentSlotMins.some(sm => sm > startMin && startMin + d > sm);
+      };
+
+      // Was the dragged short session at the top of its source row (flipped up)?
+      const srcMin      = timeToMin(src.start);
+      const srcRowStart = [...currentSlotMins].reverse().find(sm => sm <= srcMin) ?? srcMin;
+      const srcAtTop    = dur < duracion && srcMin === srcRowStart;
+
+      // Snap a session to the correct position within its destination row:
+      // - Full-size (2h): always use the row start
+      // - Short (1h): fringe (bottom) by default; top if the source was at the top
+      const snapToRow = (startMin, d, atTop = false) => {
+        const rowStart = [...currentSlotMins].reverse().find(sm => sm <= startMin) ?? startMin;
+        const rowIdx   = currentSlotMins.indexOf(rowStart);
+        const nextRow  = currentSlotMins[rowIdx + 1];
+        // Cap by endMin0 so 1h fringe rows at day-end aren't mistaken for 2h rows
+        const rowEnd   = nextRow ? Math.min(nextRow, rowStart + duracion) : Math.min(rowStart + duracion, endMin0);
+        const rowDur   = rowEnd - rowStart;
+        if (d >= duracion) return rowStart;
+        if (rowDur >= duracion) return atTop ? rowStart : rowStart + rowDur - d;
+        return rowStart; // 1h-only row: place at row start
+      };
+
+      const actualStartMin = snapToRow(timeToMin(targetStart), dur, srcAtTop);
+      const actualStart    = minToTime(actualStartMin);
+
+      // Block if the dragged session would overflow its destination row.
+      if (overflows(actualStartMin, dur)) { dragIdx = null; return; }
+
+      const newEnd = minToTime(actualStartMin + dur);
+
+      // Find any session occupying the target row. Use exact row boundaries (capped by next
+      // slotMin and endMin0) to avoid catching sessions in adjacent rows.
+      const targetRowStart = [...currentSlotMins].reverse().find(sm => sm <= timeToMin(targetStart)) ?? timeToMin(targetStart);
+      const targetRowIdxSl = currentSlotMins.indexOf(targetRowStart);
+      const targetNextSl   = targetRowIdxSl >= 0 ? currentSlotMins[targetRowIdxSl + 1] : undefined;
+      const targetRowEnd   = targetNextSl !== undefined
+        ? Math.min(targetNextSl, targetRowStart + duracion)
+        : Math.min(targetRowStart + duracion, endMin0);
+      const targetIdx = currentSessions.findIndex(s => {
+        const sm = timeToMin(s.start);
+        return s.day === targetDay && sm >= targetRowStart && sm < targetRowEnd;
+      });
 
       if (targetIdx >= 0) {
-        // Swap: move target session to source position
         const tgt    = currentSessions[targetIdx];
         const tgtDur = timeToMin(tgt.end) - timeToMin(tgt.start);
-        currentSessions[targetIdx] = { ...tgt, day: src.day, start: src.start, end: minToTime(timeToMin(src.start) + tgtDur) };
+        // Place the displaced session at the correct fringe/row-start of the source row.
+        const swapStartMin = snapToRow(timeToMin(src.start), tgtDur);
+        if (overflows(swapStartMin, tgtDur)) { dragIdx = null; return; }
+        currentSessions[targetIdx] = { ...tgt, day: src.day, start: minToTime(swapStartMin), end: minToTime(swapStartMin + tgtDur) };
       }
-      currentSessions[dragIdx] = { ...src, day: targetDay, start: targetStart, end: newEnd };
+      currentSessions[dragIdx] = { ...src, day: targetDay, start: actualStart, end: newEnd, forceTopHalf: srcAtTop };
 
       dragIdx = null;
       hasUnsaved = true;
@@ -634,7 +794,7 @@ function attachDragDrop() {
 
       const cm = buildColorMap(currentSessions);
       renderLegend(cm);
-      renderTable(currentSessions, savedFranjas, cm, savedBreaks);
+      renderTable(currentSessions, savedFranjas, cm, savedBreaks, currentSlotMins);
     });
   });
 }
@@ -730,8 +890,9 @@ document.addEventListener("DOMContentLoaded", async () => {
       </div>`;
   } else {
     const colorMap = buildColorMap(data.sesiones);
+    currentSlotMins = data.slotMins || [];
     renderLegend(colorMap);
-    renderTable(data.sesiones, payload.franjas, colorMap, savedBreaks);
+    renderTable(data.sesiones, payload.franjas, colorMap, savedBreaks, currentSlotMins);
   }
 });
 </script>

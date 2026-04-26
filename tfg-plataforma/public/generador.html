@@ -58,17 +58,51 @@
       <div class="time-inputs">
         <div class="ti-group">
           <label>Hora inicio</label>
-          <input type="time" id="pref-inicio" value="10:00">
+          <div class="ctp" id="ctp-inicio">
+            <button type="button" class="ctp-btn" onclick="ctpToggle('ctp-inicio')">
+              <span class="ctp-val">10:00</span>
+              <svg width="10" height="6" viewBox="0 0 10 6"><path d="M1 1l4 4 4-4" stroke="currentColor" stroke-width="1.6" fill="none" stroke-linecap="round"/></svg>
+            </button>
+            <div class="ctp-list">
+              <div class="ctp-opt" data-v="07:00">07:00</div><div class="ctp-opt" data-v="08:00">08:00</div>
+              <div class="ctp-opt" data-v="09:00">09:00</div><div class="ctp-opt ctp-active" data-v="10:00">10:00</div>
+              <div class="ctp-opt" data-v="11:00">11:00</div><div class="ctp-opt" data-v="12:00">12:00</div>
+              <div class="ctp-opt" data-v="13:00">13:00</div>
+              <div style="grid-column:1/-1;height:1px;background:rgba(255,255,255,0.12);margin:2px 0;"></div>
+              <div class="ctp-opt" data-v="14:00">14:00</div><div class="ctp-opt" data-v="15:00">15:00</div>
+              <div class="ctp-opt" data-v="16:00">16:00</div><div class="ctp-opt" data-v="17:00">17:00</div>
+              <div class="ctp-opt" data-v="18:00">18:00</div><div class="ctp-opt" data-v="19:00">19:00</div>
+              <div class="ctp-opt" data-v="20:00">20:00</div>
+            </div>
+            <input type="hidden" id="pref-inicio" value="10:00">
+          </div>
         </div>
         <div class="ti-group">
           <label>Hora fin</label>
-          <input type="time" id="pref-fin" value="14:00">
+          <div class="ctp" id="ctp-fin">
+            <button type="button" class="ctp-btn" onclick="ctpToggle('ctp-fin')">
+              <span class="ctp-val">14:00</span>
+              <svg width="10" height="6" viewBox="0 0 10 6"><path d="M1 1l4 4 4-4" stroke="currentColor" stroke-width="1.6" fill="none" stroke-linecap="round"/></svg>
+            </button>
+            <div class="ctp-list">
+              <div class="ctp-opt" data-v="08:00">08:00</div><div class="ctp-opt" data-v="09:00">09:00</div>
+              <div class="ctp-opt" data-v="10:00">10:00</div><div class="ctp-opt" data-v="11:00">11:00</div>
+              <div class="ctp-opt" data-v="12:00">12:00</div><div class="ctp-opt" data-v="13:00">13:00</div>
+              <div class="ctp-opt ctp-active" data-v="14:00">14:00</div>
+              <div style="grid-column:1/-1;height:1px;background:rgba(255,255,255,0.12);margin:2px 0;"></div>
+              <div class="ctp-opt" data-v="15:00">15:00</div><div class="ctp-opt" data-v="16:00">16:00</div>
+              <div class="ctp-opt" data-v="17:00">17:00</div><div class="ctp-opt" data-v="18:00">18:00</div>
+              <div class="ctp-opt" data-v="19:00">19:00</div><div class="ctp-opt" data-v="20:00">20:00</div>
+              <div class="ctp-opt" data-v="21:00">21:00</div>
+            </div>
+            <input type="hidden" id="pref-fin" value="14:00">
+          </div>
         </div>
         <div class="ti-group">
           <label>Duración sesión</label>
-          <select id="pref-duracion">
+          <select id="pref-duracion" class="time-select">
             <option value="60">1 hora</option>
-<option value="120" selected>2 horas</option>
+            <option value="120" selected>2 horas</option>
           </select>
         </div>
       </div>
@@ -105,7 +139,9 @@
           </select>
         </div>
         <p id="tit-warning" style="color:#e8a838;font-size:13px;text-align:center;display:none;margin-bottom:8px;"></p>
-        <p id="tit-info" style="color:rgba(255,255,255,0.65);font-size:13px;text-align:center;margin-bottom:12px;"></p>
+        <p id="tit-info" style="color:rgba(255,255,255,0.65);font-size:13px;text-align:center;margin-bottom:8px;"></p>
+        <!-- Lista de asignaturas seleccionables -->
+        <div id="tit-subjects-list" style="display:none;width:100%;max-height:220px;overflow-y:auto;background:rgba(0,0,0,0.25);border-radius:8px;padding:8px 10px;margin-bottom:12px;box-sizing:border-box;"></div>
         <div style="display:flex;gap:10px;justify-content:center;">
           <button class="choice-card" style="padding:10px 20px;font-size:14px;flex:unset;" onclick="ocultarPanelTitulacion()">Cancelar</button>
           <button id="tit-btn-generar" class="btn-generate" style="padding:10px 28px;font-size:14px;" disabled onclick="generarPorTitulacion()">Generar</button>
@@ -202,6 +238,9 @@ function ocultarPanelTitulacion() {
   document.getElementById("tit-warning").style.display = "none";
   document.getElementById("tit-info").textContent = "";
   document.getElementById("tit-btn-generar").disabled = true;
+  const sl = document.getElementById("tit-subjects-list");
+  sl.style.display = "none";
+  sl.innerHTML = "";
 }
 
 function onTitDegreeChange() {
@@ -250,15 +289,39 @@ function onTitSemChange() {
 
   if (!degree || !year || !sem) return;
 
-  const count = asigData.filter(s => s.degree === degree && s.year === year && s.semester === sem).length;
-  if (!count) {
-    warn.textContent = `No hay asignaturas para ${degree} ${year}º – ${sem}er cuatrimestre en la base de datos.`;
+  const matching = asigData.filter(s => s.degree === degree && s.year === year && s.semester === sem);
+  if (!matching.length) {
+    warn.textContent = `No hay asignaturas para ${degree} ${year}º - ${sem}er cuatrimestre en la base de datos.`;
     warn.style.display = "block";
+    const sl = document.getElementById("tit-subjects-list");
+    sl.style.display = "none"; sl.innerHTML = "";
     return;
   }
 
-  info.textContent = `${count} asignaturas encontradas para ${degree} ${year}º – ${sem === 1 ? "1er" : "2do"} cuatrimestre`;
+  info.textContent = `${matching.length} asignaturas encontradas para ${degree} ${year}º - ${sem === 1 ? "1er" : "2do"} cuatrimestre`;
+
+  // Renderizar lista de checkboxes
+  const sl = document.getElementById("tit-subjects-list");
+  sl.style.display = "block";
+  sl.innerHTML = `
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;border-bottom:1px solid rgba(255,255,255,0.1);padding-bottom:6px;">
+      <span style="font-size:11px;color:rgba(255,255,255,0.5);font-weight:600;text-transform:uppercase;letter-spacing:.5px;">Asignaturas a incluir</span>
+      <button onclick="toggleAllTit()" style="font-size:11px;background:none;border:none;color:rgba(255,255,255,0.6);cursor:pointer;text-decoration:underline;padding:0;">Sel./Desel. todo</button>
+    </div>
+    ${matching.map(s => `
+      <label style="display:flex;align-items:center;gap:8px;padding:5px 2px;cursor:pointer;border-radius:4px;">
+        <input type="checkbox" class="tit-asig-cb" value="${s.id}" checked style="cursor:pointer;accent-color:#7c5ce8;">
+        <span style="font-size:13px;color:rgba(255,255,255,0.9);flex:1;">${s.name}</span>
+        <span style="font-size:11px;color:rgba(255,255,255,0.35);">${s.hours_week}h/sem</span>
+      </label>`).join("")}`;
+
   btn.disabled = false;
+}
+
+function toggleAllTit() {
+  const boxes = document.querySelectorAll(".tit-asig-cb");
+  const allChecked = [...boxes].every(b => b.checked);
+  boxes.forEach(b => b.checked = !allChecked);
 }
 
 function generarPorTitulacion() {
@@ -267,8 +330,11 @@ function generarPorTitulacion() {
   const sem    = parseInt(document.getElementById("tit-sem").value);
 
   const aulas = aulasData.map(a => ({ id: a.id, capacity: a.capacity, type: a.type }));
+
+  // Usar solo las asignaturas marcadas en los checkboxes
+  const checkedIds = new Set([...document.querySelectorAll(".tit-asig-cb:checked")].map(cb => parseInt(cb.value)));
   const asigs = asigData
-    .filter(s => s.degree === degree && s.year === year && s.semester === sem)
+    .filter(s => checkedIds.has(s.id))
     .map(s => ({ id: s.id, students: s.students, hours: s.hours_week, teacher_id: s.teacher_names || null }));
 
   if (!aulas.length)  return alert("No hay aulas disponibles.");
@@ -280,10 +346,45 @@ function generarPorTitulacion() {
   const semLabel = sem === 1 ? "1er cuatri" : "2do cuatri";
   sessionStorage.setItem("generadorData", JSON.stringify({
     aulas, asignaturas: asigs, franjas,
-    meta: { degree, year, semester: sem, label: `${degree} – ${year}º – ${semLabel}` }
+    meta: { degree, year, semester: sem, label: `${degree} - ${year}º - ${semLabel}` }
   }));
   window.location.href = "resultado.html";
 }
+
+// ── Custom time picker ────────────────────────────
+function ctpToggle(id) {
+  const ctp = document.getElementById(id);
+  const isOpen = ctp.classList.contains("ctp-open");
+  document.querySelectorAll(".ctp").forEach(c => c.classList.remove("ctp-open"));
+  if (!isOpen) {
+    ctp.classList.add("ctp-open");
+    const btn  = ctp.querySelector(".ctp-btn");
+    const list = ctp.querySelector(".ctp-list");
+    const r    = btn.getBoundingClientRect();
+    const lw   = 328;
+    const vw   = document.documentElement.clientWidth;
+    let left   = r.left;
+    if (left + lw > vw - 8) left = vw - lw - 8;
+    list.style.top  = (r.bottom + 8) + "px";
+    list.style.left = left + "px";
+  }
+}
+
+document.addEventListener("click", e => {
+  if (!e.target.closest(".ctp")) document.querySelectorAll(".ctp").forEach(c => c.classList.remove("ctp-open"));
+});
+
+document.querySelectorAll(".ctp-opt").forEach(opt => {
+  opt.addEventListener("click", () => {
+    const ctp   = opt.closest(".ctp");
+    const val   = opt.dataset.v;
+    ctp.querySelector(".ctp-val").textContent = val;
+    ctp.querySelector("input[type=hidden]").value = val;
+    ctp.querySelectorAll(".ctp-opt").forEach(o => o.classList.remove("ctp-active"));
+    opt.classList.add("ctp-active");
+    ctp.classList.remove("ctp-open");
+  });
+});
 
 </script>
 
