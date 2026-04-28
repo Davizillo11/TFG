@@ -60,6 +60,7 @@
       <button class="admin-tab-btn"        onclick="switchTab('asignaturas')">Asignaturas</button>
       <button class="admin-tab-btn"        onclick="switchTab('usuarios')">Usuarios</button>
       <button class="admin-tab-btn"        onclick="switchTab('horarios');loadHorarios()">Horarios</button>
+      <button class="admin-tab-btn"        onclick="switchTab('vistas');initVistas()">Vistas</button>
     </div>
 
     <!-- ── AULAS ── -->
@@ -187,6 +188,34 @@
         <thead><tr><th>Usuario</th><th>Rol</th><th>Creado</th><th></th></tr></thead>
         <tbody id="tbody-usuarios"><tr><td colspan="4" class="empty-msg">Cargando...</td></tr></tbody>
       </table>
+    </div>
+
+    <!-- ── VISTAS ── -->
+    <div class="admin-tab-content" id="tab-vistas">
+      <h3 class="admin-section-title">Vistas de horario</h3>
+
+      <!-- Controles -->
+      <div style="display:flex;align-items:center;gap:16px;margin-bottom:18px;flex-wrap:wrap;">
+        <!-- Toggle -->
+        <div style="display:flex;border:2px solid #00b4d8;border-radius:8px;overflow:hidden;flex-shrink:0;">
+          <button id="vista-toggle-teacher" onclick="setVistaMode('teacher')"
+            style="padding:9px 22px;font-size:13px;font-weight:600;border:none;cursor:pointer;transition:0.15s;">
+            Profesores
+          </button>
+          <button id="vista-toggle-classroom" onclick="setVistaMode('classroom')"
+            style="padding:9px 22px;font-size:13px;font-weight:600;border:none;cursor:pointer;transition:0.15s;">
+            Aulas
+          </button>
+        </div>
+        <!-- Selector -->
+        <select id="vista-selector" onchange="loadVistaData()"
+          style="flex:1;min-width:220px;padding:9px 12px;border-radius:6px;border:2px solid #00b4d8;background:#fff;color:#0d1b2a;font-size:13px;">
+          <option value="">Selecciona un profesor…</option>
+        </select>
+      </div>
+
+      <!-- Tabla resultado -->
+      <div id="vista-result-table"></div>
     </div>
 
     <!-- ── HORARIOS ── -->
@@ -998,6 +1027,96 @@ async function uploadProfesorExcelInd(id, input) {
   } else {
     alert("Error: " + data.error);
   }
+}
+
+// ── VISTAS ────────────────────────────────────────
+let _vistasReady = false;
+let _vistaMode   = 'teacher'; // 'teacher' | 'classroom'
+
+function initVistas() {
+  if (_vistasReady) return;
+  _vistasReady = true;
+  setVistaMode('teacher');
+}
+
+function setVistaMode(mode) {
+  _vistaMode = mode;
+  const sel = document.getElementById("vista-selector");
+  sel.innerHTML = mode === 'teacher'
+    ? '<option value="">Selecciona un profesor…</option>'
+    : '<option value="">Selecciona un aula…</option>';
+  (mode === 'teacher' ? profesores : aulas).forEach(item => {
+    const label = mode === 'teacher' ? item.name : `${item.name} (${item.type})`;
+    sel.add(new Option(label, item.id));
+  });
+  const applyToggle = (id, active) => {
+    const btn = document.getElementById(id);
+    btn.style.background = active ? '#00b4d8' : '#fff';
+    btn.style.color      = active ? '#fff'    : '#00b4d8';
+  };
+  applyToggle('vista-toggle-teacher',   mode === 'teacher');
+  applyToggle('vista-toggle-classroom', mode === 'classroom');
+  document.getElementById("vista-result-table").innerHTML = "";
+}
+
+async function loadVistaData() {
+  const id  = document.getElementById("vista-selector").value;
+  const el  = document.getElementById("vista-result-table");
+  if (!id) { el.innerHTML = ""; return; }
+  el.innerHTML = '<p style="color:#888;font-size:13px;">Cargando…</p>';
+  const url  = _vistaMode === 'teacher'
+    ? `/api/v1/teachers/${id}/sessions`
+    : `/api/v1/classrooms/${id}/sessions`;
+  const rows = await fetch(url).then(r => r.json());
+  el.innerHTML = buildSessionsTable(rows, _vistaMode);
+}
+
+const DAYS_LONG = ["Lunes","Martes","Miércoles","Jueves","Viernes"];
+const DAY_COLORS = ["#f0f9ff","#f7f9f0","#fff8f0","#f5f0ff","#f0fff5"];
+
+function buildSessionsTable(rows, type) {
+  if (!rows.length) return '<p style="color:#888;font-size:13px;">Sin sesiones asignadas.</p>';
+
+  const byDay = {};
+  rows.forEach(r => {
+    if (!byDay[r.day_of_week]) byDay[r.day_of_week] = [];
+    byDay[r.day_of_week].push(r);
+  });
+
+  let html = `<table class="data-table" style="font-size:12.5px;border-collapse:collapse;width:100%;">
+    <thead><tr>
+      <th style="width:100px;">Día</th>
+      <th style="width:120px;">Hora</th>
+      <th>Asignatura</th>
+      <th style="width:140px;">Titulación</th>
+      <th style="width:48px;text-align:center;">Gr.</th>
+      <th>${type === 'teacher' ? 'Aula' : 'Profesor'}</th>
+    </tr></thead><tbody>`;
+
+  [0,1,2,3,4].forEach(d => {
+    const dayRows = byDay[d];
+    if (!dayRows) return;
+    const bg = DAY_COLORS[d];
+    dayRows.forEach((r, i) => {
+      const isFirst = i === 0;
+      const isLast  = i === dayRows.length - 1;
+      const borderT = isFirst  ? '2px solid #d0e8f0' : '1px solid #eee';
+      const borderB = isLast   ? '2px solid #d0e8f0' : 'none';
+      html += `<tr style="background:${bg};">
+        <td style="font-weight:700;color:#0077a8;border-top:${borderT};border-bottom:${borderB};padding:7px 10px;">
+          ${isFirst ? DAYS_LONG[d] : ''}
+        </td>
+        <td style="white-space:nowrap;border-top:${borderT};border-bottom:${borderB};padding:7px 10px;">${r.slot_start}–${r.slot_end}</td>
+        <td style="border-top:${borderT};border-bottom:${borderB};padding:7px 10px;">${r.subject}</td>
+        <td style="font-size:11px;border-top:${borderT};border-bottom:${borderB};padding:7px 10px;">${r.degree} ${r.year}º C${r.semester}</td>
+        <td style="text-align:center;font-weight:700;border-top:${borderT};border-bottom:${borderB};padding:7px 10px;">${r.group_letter || '—'}</td>
+        <td style="font-size:12px;border-top:${borderT};border-bottom:${borderB};padding:7px 10px;">${type === 'teacher' ? r.classroom : (r.teacher || '—')}</td>
+      </tr>`;
+    });
+  });
+
+  html += '</tbody></table>';
+  return html;
 }
 
 </script>

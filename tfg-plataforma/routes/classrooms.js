@@ -51,4 +51,23 @@ router.delete("/:id", requireAdmin, (req, res) => {
   });
 });
 
+// GET /:id/sessions — todas las sesiones asignadas a esta aula
+router.get("/:id/sessions", requireAuth, (req, res) => {
+  db.all(`
+    SELECT ss.day_of_week, ss.slot_start, ss.slot_end,
+           s.name  AS subject,
+           sc.degree, sc.year, sc.semester, sc.group_letter,
+           t.name  AS teacher
+    FROM schedule_sessions ss
+    JOIN schedules  sc ON sc.id = ss.schedule_id
+    JOIN subjects    s ON  s.id = ss.subject_id
+    LEFT JOIN teachers t ON  t.id = ss.teacher_id
+    WHERE ss.classroom_id = ?
+    ORDER BY ss.day_of_week, ss.slot_start, sc.degree, sc.year, sc.semester
+  `, [req.params.id], (err, rows) => {
+    if (err) return res.status(500).json({ error: err.message });
+    res.json(rows);
+  });
+});
+
 module.exports = router;

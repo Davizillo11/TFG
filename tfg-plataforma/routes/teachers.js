@@ -51,4 +51,23 @@ router.delete("/:id", requireAdmin, (req, res) => {
   });
 });
 
+// GET /:id/sessions — todas las sesiones asignadas a este profesor
+router.get("/:id/sessions", requireAuth, (req, res) => {
+  db.all(`
+    SELECT ss.day_of_week, ss.slot_start, ss.slot_end,
+           s.name  AS subject,
+           sc.degree, sc.year, sc.semester, sc.group_letter,
+           c.name  AS classroom
+    FROM schedule_sessions ss
+    JOIN schedules  sc ON sc.id = ss.schedule_id
+    JOIN subjects    s ON  s.id = ss.subject_id
+    JOIN classrooms  c ON  c.id = ss.classroom_id
+    WHERE ss.teacher_id = ?
+    ORDER BY ss.day_of_week, ss.slot_start, sc.degree, sc.year, sc.semester
+  `, [req.params.id], (err, rows) => {
+    if (err) return res.status(500).json({ error: err.message });
+    res.json(rows);
+  });
+});
+
 module.exports = router;
