@@ -8,7 +8,7 @@ const router = express.Router();
 // GET all (with all teacher names via GROUP_CONCAT)
 router.get("/", requireAuth, (req, res) => {
   db.all(`
-    SELECT s.*, GROUP_CONCAT(t.name, ', ') AS teacher_names
+    SELECT s.*, GROUP_CONCAT(t.name, ', ') AS teacher_names, MIN(st.teacher_id) AS teacher_id
     FROM subjects s
     LEFT JOIN subject_teachers st ON s.id = st.subject_id
     LEFT JOIN teachers t ON st.teacher_id = t.id
@@ -24,11 +24,12 @@ router.get("/", requireAuth, (req, res) => {
 router.post("/", requireAdmin, (req, res) => {
   const { name, code, degree, year, semester, students, hours_week, teacher_id } = req.body;
   if (!name) return res.status(400).json({ error: "Nombre requerido" });
+  const bilingual = req.body.bilingual ? 1 : 0;
 
   db.run(
-    "INSERT INTO subjects (name, code, degree, year, semester, students, hours_week) VALUES (?,?,?,?,?,?,?)",
+    "INSERT INTO subjects (name, code, degree, year, semester, students, hours_week, bilingual) VALUES (?,?,?,?,?,?,?,?)",
     [name, code || null, degree || null, year || null, semester || null,
-     students || null, hours_week || 4],
+     students || null, hours_week || 4, bilingual],
     function (err) {
       if (err) return res.status(500).json({ error: err.message });
       const subjectId = this.lastID;
@@ -38,7 +39,7 @@ router.post("/", requireAdmin, (req, res) => {
           [subjectId, teacher_id], () => {});
       }
 
-      res.json({ id: subjectId, name, code, degree, year, semester, students, hours_week });
+      res.json({ id: subjectId, name, code, degree, year, semester, students, hours_week, bilingual });
     }
   );
 });
@@ -46,9 +47,10 @@ router.post("/", requireAdmin, (req, res) => {
 // PUT update
 router.put("/:id", requireAdmin, (req, res) => {
   const { name, code, degree, year, semester, students, hours_week, teacher_id } = req.body;
+  const bilingual = req.body.bilingual ? 1 : 0;
   db.run(
-    "UPDATE subjects SET name=?, code=?, degree=?, year=?, semester=?, students=?, hours_week=? WHERE id=?",
-    [name, code, degree, year, semester, students, hours_week, req.params.id],
+    "UPDATE subjects SET name=?, code=?, degree=?, year=?, semester=?, students=?, hours_week=?, bilingual=? WHERE id=?",
+    [name, code, degree, year, semester, students, hours_week, bilingual, req.params.id],
     function (err) {
       if (err) return res.status(500).json({ error: err.message });
       if (this.changes === 0) return res.status(404).json({ error: "No encontrado" });

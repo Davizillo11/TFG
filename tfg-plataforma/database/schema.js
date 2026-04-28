@@ -76,6 +76,8 @@ db.serialize(() => {
   db.run("ALTER TABLE schedules ADD COLUMN slot_mins TEXT", () => {});
   db.run("ALTER TABLE schedules ADD COLUMN duracion INTEGER", () => {});
   db.run("ALTER TABLE schedules ADD COLUMN semester INTEGER", () => {});
+  db.run("ALTER TABLE subjects ADD COLUMN bilingual INTEGER DEFAULT 0", () => {});
+  db.run("ALTER TABLE schedules ADD COLUMN group_letter TEXT", () => {});
 
   // Schedule sessions
   db.run(`CREATE TABLE IF NOT EXISTS schedule_sessions (

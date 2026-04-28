@@ -60,12 +60,12 @@
           <label>Hora inicio</label>
           <div class="ctp" id="ctp-inicio">
             <button type="button" class="ctp-btn" onclick="ctpToggle('ctp-inicio')">
-              <span class="ctp-val">10:00</span>
+              <span class="ctp-val">08:00</span>
               <svg width="10" height="6" viewBox="0 0 10 6"><path d="M1 1l4 4 4-4" stroke="currentColor" stroke-width="1.6" fill="none" stroke-linecap="round"/></svg>
             </button>
             <div class="ctp-list">
-              <div class="ctp-opt" data-v="07:00">07:00</div><div class="ctp-opt" data-v="08:00">08:00</div>
-              <div class="ctp-opt" data-v="09:00">09:00</div><div class="ctp-opt ctp-active" data-v="10:00">10:00</div>
+              <div class="ctp-opt" data-v="07:00">07:00</div><div class="ctp-opt ctp-active" data-v="08:00">08:00</div>
+              <div class="ctp-opt" data-v="09:00">09:00</div><div class="ctp-opt" data-v="10:00">10:00</div>
               <div class="ctp-opt" data-v="11:00">11:00</div><div class="ctp-opt" data-v="12:00">12:00</div>
               <div class="ctp-opt" data-v="13:00">13:00</div>
               <div style="grid-column:1/-1;height:1px;background:rgba(255,255,255,0.12);margin:2px 0;"></div>
@@ -74,7 +74,7 @@
               <div class="ctp-opt" data-v="18:00">18:00</div><div class="ctp-opt" data-v="19:00">19:00</div>
               <div class="ctp-opt" data-v="20:00">20:00</div>
             </div>
-            <input type="hidden" id="pref-inicio" value="10:00">
+            <input type="hidden" id="pref-inicio" value="08:00">
           </div>
         </div>
         <div class="ti-group">
@@ -127,21 +127,30 @@
         <h3 style="text-align:center;margin-bottom:16px;">Selecciona titulación, curso y cuatrimestre</h3>
         <div style="display:flex;gap:12px;flex-wrap:wrap;justify-content:center;margin-bottom:12px;">
           <select id="tit-degree" onchange="onTitDegreeChange()" style="min-width:160px;padding:8px;border-radius:6px;border:1px solid #ccc;">
-            <option value="">-- Titulación --</option>
+            <option value="" disabled selected>Titulación</option>
+            <option value="Teleco">Teleco</option>
+            <option value="GIT">GIT</option>
+            <option value="GITT">GITT</option>
+            <option value="GIEC">GIEC</option>
+            <option value="GIST">GIST</option>
           </select>
           <select id="tit-year" onchange="onTitYearChange()" style="min-width:120px;padding:8px;border-radius:6px;border:1px solid #ccc;">
-            <option value="">-- Curso --</option>
+            <option value="" disabled selected>Curso</option>
           </select>
           <select id="tit-sem" onchange="onTitSemChange()" style="min-width:150px;padding:8px;border-radius:6px;border:1px solid #ccc;">
-            <option value="">-- Cuatrimestre --</option>
+            <option value="" disabled selected>Cuatrimestre</option>
             <option value="1">1er cuatrimestre</option>
             <option value="2">2do cuatrimestre</option>
           </select>
+          <select id="tit-grupo" onchange="onGrupoChange()" style="display:none;min-width:110px;padding:8px;border-radius:6px;border:1px solid #ccc;"></select>
         </div>
+        <p id="aviso-transversal" style="display:none;background:rgba(255,193,7,0.15);color:#e8a838;font-size:12px;text-align:center;padding:5px 10px;border-radius:6px;margin-bottom:6px;">
+          ⚠ Los viernes se reservan automáticamente para la asignatura Transversal (1er curso).
+        </p>
         <p id="tit-warning" style="color:#e8a838;font-size:13px;text-align:center;display:none;margin-bottom:8px;"></p>
         <p id="tit-info" style="color:rgba(255,255,255,0.65);font-size:13px;text-align:center;margin-bottom:8px;"></p>
         <!-- Lista de asignaturas seleccionables -->
-        <div id="tit-subjects-list" style="display:none;width:100%;max-height:220px;overflow-y:auto;background:rgba(0,0,0,0.25);border-radius:8px;padding:8px 10px;margin-bottom:12px;box-sizing:border-box;"></div>
+        <div id="tit-subjects-list" style="display:none;width:100%;max-height:220px;overflow-y:auto;background:rgba(0,0,0,0.25);border-radius:8px;padding:8px 10px;margin-bottom:12px;box-sizing:border-box;flex-direction:column;"></div>
         <div style="display:flex;gap:10px;justify-content:center;">
           <button class="choice-card" style="padding:10px 20px;font-size:14px;flex:unset;" onclick="ocultarPanelTitulacion()">Cancelar</button>
           <button id="tit-btn-generar" class="btn-generate" style="padding:10px 28px;font-size:14px;" disabled onclick="generarPorTitulacion()">Generar</button>
@@ -150,6 +159,21 @@
     </div>
   </div>
 
+  <!-- PANEL GENERAR TODO -->
+  <div id="panel-todo" style="display:none;width:100%;max-width:600px;flex:1;flex-direction:column;gap:16px;align-items:center;">
+    <div class="gen-section" style="width:100%;">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;">
+        <h3 id="todo-title" style="margin:0;">Generando todos los horarios...</h3>
+        <button id="todo-back-btn" onclick="ocultarPanelTodo()" style="display:none;padding:6px 14px;border-radius:6px;border:1px solid rgba(255,255,255,0.3);cursor:pointer;background:rgba(255,255,255,0.08);color:white;font-size:13px;">← Volver</button>
+      </div>
+      <div style="background:rgba(255,255,255,0.12);border-radius:6px;height:8px;margin-bottom:10px;overflow:hidden;">
+        <div id="todo-progress-bar" style="height:100%;background:#4ade80;border-radius:6px;width:0%;transition:width 0.3s;"></div>
+      </div>
+      <div id="todo-status" style="font-size:13px;color:rgba(255,255,255,0.6);margin-bottom:14px;text-align:center;">Preparando...</div>
+      <div id="todo-log" style="max-height:340px;overflow-y:auto;display:flex;flex-direction:column;gap:3px;font-size:12.5px;font-family:monospace;"></div>
+      <div id="todo-summary" style="display:none;margin-top:14px;padding:12px 16px;background:rgba(255,255,255,0.08);border-radius:8px;text-align:center;font-size:14px;line-height:1.8;"></div>
+    </div>
+  </div>
 
 </div>
 
@@ -180,18 +204,119 @@ function getFranjasPref() {
   };
 }
 
-function generarTodo() {
+function ocultarPanelTodo() {
+  document.getElementById("panel-todo").style.display = "none";
+  document.getElementById("vista-eleccion").style.display = "flex";
+}
+
+function addTodoLog(container, label, type, detail) {
+  const div = document.createElement("div");
+  const icon  = type === 'ok' ? '✓' : type === 'skip' ? '–' : '✗';
+  const color = type === 'ok' ? '#4ade80' : type === 'skip' ? 'rgba(255,255,255,0.3)' : '#f87171';
+  div.style.cssText = `display:flex;gap:10px;align-items:baseline;color:${color};padding:1px 0;`;
+  div.innerHTML = `<span style="flex-shrink:0;font-weight:700;width:12px;">${icon}</span><span style="flex:1;">${label}</span><span style="opacity:0.65;">${detail}</span>`;
+  container.appendChild(div);
+  container.scrollTop = container.scrollHeight;
+}
+
+async function generarTodo() {
   const aulas = aulasData.map(a => ({ id: a.id, capacity: a.capacity, type: a.type }));
-  const asigs = asigData.map(s => ({ id: s.id, students: s.students, hours: s.hours_week, teacher_id: s.teacher_names || null }));
+  if (!aulas.length)   return alert("No hay aulas disponibles.");
+  if (!asigData.length) return alert("No hay asignaturas disponibles.");
 
-  if (!aulas.length)  return alert("No hay aulas disponibles.");
-  if (!asigs.length)  return alert("No hay asignaturas disponibles.");
+  const duracion = parseInt(document.getElementById("pref-duracion").value) || 120;
+  const dias     = [0, 1, 2, 3, 4]; // Lun–Vie siempre
 
-  const franjas = getFranjasPref();
-  if (!franjas.dias.length) return alert("Selecciona al menos un día.");
+  // Orden: grupos de mañana primero (para que la diversidad funcione), tarde/bilingüe al final
+  const combos = [];
+  for (const sem of [1, 2]) {
+    for (const g of ['A','B','C','D','E','F'])
+      combos.push({ degree: 'Teleco', year: 1, sem, group: g });
+    for (const g of ['A','B','C','D','E'])
+      combos.push({ degree: 'Teleco', year: 2, sem, group: g });
+  }
+  for (const degree of ['GIT','GITT','GIEC','GIST'])
+    for (const year of [3, 4])
+      for (const sem of [1, 2])
+        combos.push({ degree, year, sem, group: null });
 
-  sessionStorage.setItem("generadorData", JSON.stringify({ aulas, asignaturas: asigs, franjas, meta: {} }));
-  window.location.href = "resultado.html";
+  // Mostrar panel
+  document.getElementById("vista-eleccion").style.display = "none";
+  const panel = document.getElementById("panel-todo");
+  panel.style.display = "flex";
+  document.getElementById("todo-title").textContent = "Generando todos los horarios...";
+  document.getElementById("todo-back-btn").style.display = "none";
+  document.getElementById("todo-log").innerHTML = "";
+  document.getElementById("todo-summary").style.display = "none";
+  document.getElementById("todo-progress-bar").style.width = "0%";
+
+  const logEl    = document.getElementById("todo-log");
+  const statusEl = document.getElementById("todo-status");
+  const barEl    = document.getElementById("todo-progress-bar");
+
+  let ok = 0, skipped = 0, failed = 0;
+
+  for (let i = 0; i < combos.length; i++) {
+    const { degree, year, sem, group } = combos[i];
+    const label = `${degree} ${year}º C${sem}${group ? ' Gr.'+group : ''}`;
+    statusEl.textContent = `Generando ${label}... (${i+1}/${combos.length})`;
+    barEl.style.width = `${Math.round(i / combos.length * 100)}%`;
+
+    let asigs = asigData.filter(s => s.degree === degree && s.year === year && s.semester === sem);
+    if (group === 'E') asigs = asigs.filter(s => s.bilingual);
+
+    if (!asigs.length) {
+      skipped++;
+      addTodoLog(logEl, label, 'skip', 'sin asignaturas');
+      continue;
+    }
+
+    const isTarde    = (year === 1 && group === 'F') || (year === 2 && group === 'D');
+    const horaInicio = isTarde ? "15:00" : "08:00";
+    const horaFin    = isTarde ? "21:00" : "14:00";
+    const semLabel   = sem === 1 ? "1er cuatri" : "2do cuatri";
+    const meta = {
+      degree, year, semester: sem, group_letter: group,
+      label: `${degree} - ${year}º - ${semLabel}${group ? ' - Gr. '+group : ''}`
+    };
+    const payload = {
+      aulas,
+      asignaturas: asigs.map(s => ({ id: s.id, students: s.students, hours: s.hours_week, teacher_id: s.teacher_names || null })),
+      franjas: { dias, horaInicio, horaFin, duracion },
+      meta,
+    };
+
+    try {
+      const resp = await fetch("/api/v1/schedules/generate", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      });
+      const data = await resp.json();
+      if (!resp.ok) throw new Error(data.error || `HTTP ${resp.status}`);
+      const total = data.total_needed ?? data.sesiones?.length ?? 0;
+      const asig  = data.sesiones?.length ?? 0;
+      const pct   = total ? Math.round(asig / total * 100) : 100;
+      ok++;
+      addTodoLog(logEl, label, 'ok', `${asig}/${total} sesiones (${pct}%)`);
+    } catch (err) {
+      failed++;
+      addTodoLog(logEl, label, 'err', err.message);
+    }
+  }
+
+  barEl.style.width = "100%";
+  statusEl.textContent = "Completado";
+  document.getElementById("todo-title").textContent = "Generación completada";
+  document.getElementById("todo-back-btn").style.display = "";
+  const sumEl = document.getElementById("todo-summary");
+  sumEl.style.display = "block";
+  sumEl.innerHTML = `
+    <span style="color:#4ade80;font-weight:700;">${ok}</span> generados &nbsp;·&nbsp;
+    <span style="color:rgba(255,255,255,0.5);">${skipped}</span> omitidos &nbsp;·&nbsp;
+    <span style="color:${failed ? '#f87171' : 'inherit'};font-weight:${failed ? '700' : 'normal'};">${failed}</span> errores
+    <br><small style="color:rgba(255,255,255,0.4);display:block;margin-top:6px;">Revisa los horarios en Admin o en la página de Horarios.</small>
+  `;
 }
 
 // ── Load from DB ──────────────────────────────────
@@ -219,12 +344,6 @@ const DEGREE_YEARS = {
 };
 
 function mostrarPorTitulacion() {
-  // Rellenar select de titulaciones si está vacío
-  const degSel = document.getElementById("tit-degree");
-  if (degSel.options.length === 1) {
-    const degrees = [...new Set(asigData.map(s => s.degree).filter(Boolean))].sort();
-    degrees.forEach(d => { const o = document.createElement("option"); o.value = d; o.textContent = d; degSel.appendChild(o); });
-  }
   document.getElementById("panel-titulacion").style.display = "block";
   document.querySelector(".choice-grid").style.display = "none";
 }
@@ -233,7 +352,7 @@ function ocultarPanelTitulacion() {
   document.getElementById("panel-titulacion").style.display = "none";
   document.querySelector(".choice-grid").style.display = "grid";
   document.getElementById("tit-degree").value = "";
-  document.getElementById("tit-year").innerHTML = "<option value=''>-- Curso --</option>";
+  document.getElementById("tit-year").innerHTML = "<option value='' disabled selected>Curso</option>";
   document.getElementById("tit-sem").value = "";
   document.getElementById("tit-warning").style.display = "none";
   document.getElementById("tit-info").textContent = "";
@@ -246,7 +365,7 @@ function ocultarPanelTitulacion() {
 function onTitDegreeChange() {
   const degree  = document.getElementById("tit-degree").value;
   const yearSel = document.getElementById("tit-year");
-  yearSel.innerHTML = "<option value=''>-- Curso --</option>";
+  yearSel.innerHTML = "<option value='' disabled selected>Curso</option>";
   document.getElementById("tit-sem").value = "";
   document.getElementById("tit-btn-generar").disabled = true;
   document.getElementById("tit-info").textContent = "";
@@ -265,6 +384,9 @@ function onTitYearChange() {
 
   const degree = document.getElementById("tit-degree").value;
   const year   = parseInt(document.getElementById("tit-year").value);
+
+  updateGrupoSelector(year);
+
   if (!degree || !year) return;
 
   const valid = DEGREE_YEARS[degree];
@@ -273,6 +395,55 @@ function onTitYearChange() {
     warn.textContent = `⚠ ${degree} solo tiene los cursos ${valid.join(" y ")}. Revisa la selección.`;
     warn.style.display = "block";
   }
+}
+
+function updateGrupoSelector(year) {
+  const sel   = document.getElementById("tit-grupo");
+  const aviso = document.getElementById("aviso-transversal");
+  if (year === 1) {
+    sel.innerHTML = ["A","B","C","D","E","F"].map(g => `<option value="${g}">${g}</option>`).join("");
+    sel.style.display = "";
+    aviso.style.display = "";
+  } else if (year === 2) {
+    sel.innerHTML = ["A","B","C","D","E"].map(g => `<option value="${g}">${g}</option>`).join("");
+    sel.style.display = "";
+    aviso.style.display = "none";
+  } else {
+    sel.innerHTML = "";
+    sel.style.display = "none";
+    aviso.style.display = "none";
+  }
+  onGrupoChange();
+}
+
+function ctpSetValue(ctpId, val) {
+  const ctp = document.getElementById(ctpId);
+  if (!ctp) return;
+  ctp.querySelector(".ctp-val").textContent = val;
+  ctp.querySelector("input[type=hidden]").value = val;
+  ctp.querySelectorAll(".ctp-opt").forEach(o => {
+    o.classList.toggle("ctp-active", o.dataset.v === val);
+  });
+}
+
+function onGrupoChange() {
+  const year  = parseInt(document.getElementById("tit-year").value) || 0;
+  const grupo = document.getElementById("tit-grupo").value;
+
+  // Auto-tarde para grupo F (1º) o D (2º); mañana para el resto
+  const isTarde = (year === 1 && grupo === 'F') || (year === 2 && grupo === 'D');
+  if (isTarde) {
+    ctpSetValue("ctp-inicio", "15:00");
+    ctpSetValue("ctp-fin",    "21:00");
+  } else if (grupo) {
+    ctpSetValue("ctp-inicio", "08:00");
+    ctpSetValue("ctp-fin",    "14:00");
+  }
+
+  // Filtrar asignaturas para grupo E (solo bilingüe)
+  document.querySelectorAll(".tit-asig-row").forEach(row => {
+    row.style.display = (grupo === 'E' && row.dataset.bilingual !== "1") ? "none" : "";
+  });
 }
 
 function onTitSemChange() {
@@ -302,20 +473,21 @@ function onTitSemChange() {
 
   // Renderizar lista de checkboxes
   const sl = document.getElementById("tit-subjects-list");
-  sl.style.display = "block";
+  sl.style.display = "flex";
   sl.innerHTML = `
     <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;border-bottom:1px solid rgba(255,255,255,0.1);padding-bottom:6px;">
       <span style="font-size:11px;color:rgba(255,255,255,0.5);font-weight:600;text-transform:uppercase;letter-spacing:.5px;">Asignaturas a incluir</span>
       <button onclick="toggleAllTit()" style="font-size:11px;background:none;border:none;color:rgba(255,255,255,0.6);cursor:pointer;text-decoration:underline;padding:0;">Sel./Desel. todo</button>
     </div>
     ${matching.map(s => `
-      <label style="display:flex;align-items:center;gap:8px;padding:5px 2px;cursor:pointer;border-radius:4px;">
+      <label class="tit-asig-row" data-bilingual="${s.bilingual||0}" style="display:flex;align-items:center;gap:8px;padding:5px 2px;cursor:pointer;border-radius:4px;width:100%;box-sizing:border-box;">
         <input type="checkbox" class="tit-asig-cb" value="${s.id}" checked style="cursor:pointer;accent-color:#7c5ce8;">
-        <span style="font-size:13px;color:rgba(255,255,255,0.9);flex:1;">${s.name}</span>
+        <span style="font-size:13px;color:rgba(255,255,255,0.9);flex:1;">${s.name}${s.bilingual ? " 🌐" : ""}</span>
         <span style="font-size:11px;color:rgba(255,255,255,0.35);">${s.hours_week}h/sem</span>
       </label>`).join("")}`;
 
   btn.disabled = false;
+  onGrupoChange();
 }
 
 function toggleAllTit() {
@@ -343,10 +515,14 @@ function generarPorTitulacion() {
   const franjas = getFranjasPref();
   if (!franjas.dias.length) return alert("Selecciona al menos un día.");
 
-  const semLabel = sem === 1 ? "1er cuatri" : "2do cuatri";
+  const semLabel   = sem === 1 ? "1er cuatri" : "2do cuatri";
+  const grupoSel   = document.getElementById("tit-grupo");
+  const groupLetter = (grupoSel && grupoSel.style.display !== "none") ? grupoSel.value || null : null;
+  const groupLabel  = groupLetter ? ` - Gr. ${groupLetter}` : "";
   sessionStorage.setItem("generadorData", JSON.stringify({
     aulas, asignaturas: asigs, franjas,
-    meta: { degree, year, semester: sem, label: `${degree} - ${year}º - ${semLabel}` }
+    meta: { degree, year, semester: sem, group_letter: groupLetter,
+            label: `${degree} - ${year}º - ${semLabel}${groupLabel}` }
   }));
   window.location.href = "resultado.html";
 }

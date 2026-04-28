@@ -127,19 +127,22 @@
     <!-- ── ASIGNATURAS ── -->
     <div class="admin-tab-content" id="tab-asignaturas">
       <h3 class="admin-section-title">Asignaturas</h3>
-      <div class="gen-form" style="margin-bottom:10px;flex-wrap:wrap;">
-        <input  type="text"   id="s-name"     placeholder="Nombre">
-        <input  type="text"   id="s-code"     placeholder="Código">
-        <input  type="text"   id="s-degree"   placeholder="Titulación" list="degree-suggestions">
-        <input  type="number" id="s-year"     placeholder="Curso" min="1" max="4">
-        <select id="s-semester">
+      <div class="gen-form" style="margin-bottom:10px;flex-wrap:nowrap;">
+        <input  type="text"   id="s-name"     placeholder="Nombre"       style="min-width:120px;flex:2">
+        <input  type="text"   id="s-code"     placeholder="Código"       style="min-width:80px;flex:1">
+        <input  type="text"   id="s-degree"   placeholder="Titulación"   style="min-width:90px;flex:1" list="degree-suggestions">
+        <input  type="number" id="s-year"     placeholder="Curso"        style="min-width:65px;flex:0 0 65px" min="1" max="4">
+        <select id="s-semester"               style="min-width:120px;flex:1">
           <option value="">Cuatrimestre</option>
           <option value="1">1er cuatri</option>
           <option value="2">2do cuatri</option>
         </select>
-        <input  type="number" id="s-students" placeholder="Alumnos" min="1">
-        <input  type="number" id="s-hours"    placeholder="Horas/sem" min="1" max="20" value="4">
-        <select id="s-teacher"><option value="">Profesor</option></select>
+        <input  type="number" id="s-students" placeholder="Alumnos"      style="min-width:72px;flex:0 0 72px" min="1">
+        <input  type="number" id="s-hours"    placeholder="H/sem"        style="min-width:60px;flex:0 0 60px" min="1" max="20" value="4">
+        <select id="s-teacher"                style="min-width:150px;flex:1.5"><option value="">Profesor</option></select>
+        <label style="display:inline-flex;align-items:center;gap:5px;font-size:0.83rem;cursor:pointer;white-space:nowrap;padding:0 8px;border:1px solid #ccc;border-radius:6px;background:#fff;flex:0 0 auto;align-self:stretch;width:fit-content;">
+          Bilingüe <input type="checkbox" id="s-bilingual" style="cursor:pointer;margin:0;width:13px;height:13px;flex-shrink:0;">
+        </label>
         <datalist id="degree-suggestions"></datalist>
         <button id="s-submit-btn" class="btn-add" onclick="submitAsignatura()">+ Añadir</button>
         <button id="s-cancel-btn" class="btn-add" style="background:#6c757d;display:none" onclick="cancelAsignaturaEdit()">Cancelar</button>
@@ -163,8 +166,8 @@
         </select>
       </div>
       <table class="data-table">
-        <thead><tr><th>Nombre</th><th>Código</th><th>Titulación</th><th>Curso</th><th>Alumnos</th><th>H/sem</th><th>Profesor</th><th></th></tr></thead>
-        <tbody id="tbody-asignaturas"><tr><td colspan="8" class="empty-msg">Cargando...</td></tr></tbody>
+        <thead><tr><th>Nombre</th><th>Código</th><th>Titulación</th><th>Curso</th><th>Alumnos</th><th>H/sem</th><th>Bil.</th><th>Profesor</th><th></th></tr></thead>
+        <tbody id="tbody-asignaturas"><tr><td colspan="9" class="empty-msg">Cargando...</td></tr></tbody>
       </table>
     </div>
 
@@ -193,8 +196,8 @@
         <button class="btn-add" style="background:#e06c75;border:none" onclick="deleteAllHorarios()">🗑 Borrar todos</button>
       </div>
       <table class="data-table" id="horarios-table">
-        <thead><tr><th>Nombre</th><th>Sesiones</th><th>Estado</th><th>Creado por</th><th>Fecha</th><th></th></tr></thead>
-        <tbody id="tbody-horarios"><tr><td colspan="6" class="empty-msg">Selecciona esta pestaña para cargar…</td></tr></tbody>
+        <thead><tr><th>Nombre</th><th>Grupo</th><th>Sesiones</th><th>Estado</th><th>Creado por</th><th>Fecha</th><th></th></tr></thead>
+        <tbody id="tbody-horarios"><tr><td colspan="7" class="empty-msg">Selecciona esta pestaña para cargar…</td></tr></tbody>
       </table>
 
     </div>
@@ -499,7 +502,7 @@ function renderAsignaturas() {
     if (sem && String(s.semester) !== sem) return false;
     return true;
   });
-  if (!list.length) { tbody.innerHTML = `<tr><td colspan="8" class="empty-msg">Sin asignaturas</td></tr>`; return; }
+  if (!list.length) { tbody.innerHTML = `<tr><td colspan="9" class="empty-msg">Sin asignaturas</td></tr>`; return; }
   tbody.innerHTML = list.map(s => `
     <tr>
       <td>${s.name}</td>
@@ -508,6 +511,7 @@ function renderAsignaturas() {
       <td>${s.year || "—"}</td>
       <td>${s.students || "—"}</td>
       <td>${s.hours_week}</td>
+      <td style="text-align:center">${s.bilingual ? "🌐" : "—"}</td>
       <td>${s.teacher_names || "—"}</td>
       <td>
         <button class="btn-edit" onclick="editAsignatura(${s.id})">✏</button>
@@ -526,7 +530,9 @@ function editAsignatura(id) {
   document.getElementById("s-year").value     = s.year || "";
   document.getElementById("s-semester").value = s.semester || "";
   document.getElementById("s-students").value = s.students || "";
-  document.getElementById("s-hours").value    = s.hours_week;
+  document.getElementById("s-hours").value        = s.hours_week;
+  document.getElementById("s-bilingual").checked  = !!s.bilingual;
+  document.getElementById("s-teacher").value      = s.teacher_id || "";
   document.getElementById("s-submit-btn").textContent = "Guardar";
   document.getElementById("s-cancel-btn").style.display = "";
   document.getElementById("s-name").focus();
@@ -535,8 +541,9 @@ function editAsignatura(id) {
 function cancelAsignaturaEdit() {
   asigEditId = null;
   ["s-name","s-code","s-degree","s-year","s-students"].forEach(id => document.getElementById(id).value = "");
-  document.getElementById("s-semester").value = "";
-  document.getElementById("s-hours").value = "4";
+  document.getElementById("s-semester").value  = "";
+  document.getElementById("s-hours").value     = "4";
+  document.getElementById("s-bilingual").checked = false;
   document.getElementById("s-submit-btn").textContent = "+ Añadir";
   document.getElementById("s-cancel-btn").style.display = "none";
 }
@@ -556,7 +563,9 @@ async function submitAsignatura() {
   const method = asigEditId ? "PUT" : "POST";
   const res = await fetch(url, {
     method, headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ name, code, degree, year, semester: semester || null, students, hours_week, teacher_id: teacher_id || null })
+    body: JSON.stringify({ name, code, degree, year, semester: semester || null, students, hours_week,
+      bilingual: document.getElementById("s-bilingual").checked ? 1 : 0,
+      teacher_id: teacher_id || null })
   });
   if (res.ok) { cancelAsignaturaEdit(); await loadAsignaturas(); }
   else { const d = await res.json(); alert(d.error); }
@@ -780,12 +789,13 @@ async function loadHorarios() {
   const tbody = document.getElementById("tbody-horarios");
 
   if (!list.length) {
-    tbody.innerHTML = `<tr><td colspan="6" class="empty-msg">No hay horarios generados.</td></tr>`;
+    tbody.innerHTML = `<tr><td colspan="7" class="empty-msg">No hay horarios generados.</td></tr>`;
     return;
   }
   tbody.innerHTML = list.map(s => `
     <tr>
       <td style="font-weight:600;">${s.name || "Horario #" + s.id}</td>
+      <td style="text-align:center;font-weight:700;">${s.group_letter || "—"}</td>
       <td>${s.session_count}</td>
       <td><span style="display:inline-block;padding:2px 9px;border-radius:20px;font-size:0.72rem;font-weight:700;background:${s.status==="active"?"rgba(152,195,121,0.2)":"rgba(255,255,255,0.07)"};color:${s.status==="active"?"#98c379":"rgba(255,255,255,0.4)"}">${s.status}</span></td>
       <td>${s.created_by || "—"}</td>
@@ -871,13 +881,14 @@ async function deleteAllHorarios() {
 function buildPrintHTML(sesiones, title, slotMins, duracion, year, semester) {
   const DAY_NMS = ["Lunes","Martes","Miércoles","Jueves","Viernes"];
   function tm(t) { const [h,m] = t.split(":").map(Number); return h*60+m; }
-  const dias = [...new Set(sesiones.map(s => s.day))].sort();
-  const rawBounds = sesiones.flatMap(s => [tm(s.start), tm(s.end)]);
-  const minT = Math.min(...rawBounds), maxT = Math.max(...rawBounds);
-  if (840 >= minT && 840 <= maxT) { rawBounds.push(840); rawBounds.push(900); }
-  const boundaryMins = [...new Set(rawBounds)].sort((a,b)=>a-b);
+  // Always show all 5 days; 2h base grid + session boundaries so 1h fringe slots fit exactly
+  const dias = [0, 1, 2, 3, 4];
+  const FIXED_BOUNDS = [8*60, 10*60, 12*60, 14*60, 15*60, 17*60, 19*60];
+  const sessBounds = sesiones.flatMap(s => [tm(s.start), tm(s.end)]);
+  const allBounds = [...new Set([...FIXED_BOUNDS, ...sessBounds])]
+    .filter(b => b >= 8*60 && b <= 19*60).sort((a,b) => a-b);
   const rowBounds = [];
-  for (let i = 0; i < boundaryMins.length - 1; i++) rowBounds.push([boundaryMins[i], boundaryMins[i+1]]);
+  for (let i = 0; i < allBounds.length - 1; i++) rowBounds.push([allBounds[i], allBounds[i+1]]);
   const pad = n => String(n).padStart(2,"0");
   const fmt = m => `${pad(Math.floor(m/60))}:${pad(m%60)}`;
   const covered = new Set();
@@ -896,7 +907,7 @@ function buildPrintHTML(sesiones, title, slotMins, duracion, year, semester) {
     </td>`;
     for (const d of dias) {
       if (covered.has(`${d}-${ri}`)) continue;
-      const sess = sesiones.find(s => s.day === d && tm(s.start) === rStart);
+      const sess = sesiones.find(s => s.day === d && tm(s.start) >= rStart && tm(s.start) < rEnd);
       if (sess) {
         const sessEnd = tm(sess.end);
         let span = 0;
@@ -910,15 +921,22 @@ function buildPrintHTML(sesiones, title, slotMins, duracion, year, semester) {
         cells += `<td style="border:1px solid #000;background:${cellBg};"></td>`;
       }
     }
-    rows += `<tr style="height:50px;">${cells}</tr>`;
+    rows += `<tr style="height:${Math.round((rEnd-rStart)/60*45)}px;">${cells}</tr>`;
   }
   const now = new Date();
   const fecha = now.toLocaleDateString("es-ES",{day:"2-digit",month:"long",year:"numeric"});
   const anyo = now.getFullYear();
   const curso = `Curso ${anyo}/${anyo+1}`;
   const cuatriNum = (year && semester) ? (year - 1) * 2 + semester : null;
-  const leftTitle = cuatriNum ? `CUATRIMESTRE ${cuatriNum}º (Curso ${year}º, Semestre ${semester}º)` : title;
-  const rightTitle = year ? `${title.split("–")[0]?.trim() || title} – AÑO ${year}º` : "Universidad de Alcalá";
+  const semStr    = semester === 1 ? "1er" : semester === 2 ? "2º" : null;
+  const yearStr   = year === 1 ? "1er" : `${year}º`;
+  const leftTitle = cuatriNum ? `CUATRIMESTRE ${cuatriNum}º (Curso ${year}º, Cuatrimestre ${semester}º)` : title;
+  const degree    = title.split(/\s*[–\-]\s*/)[0]?.trim() || title;
+  const groupMatch = title.match(/Gr\.\s*([A-F])/);
+  const groupStr  = groupMatch ? ` – Gr. ${groupMatch[1]}` : "";
+  const rightTitle = (year && semester)
+    ? `${degree} – ${yearStr} Año – ${semStr} Cuatrimestre${groupStr}`
+    : year ? `${degree} – ${yearStr} Año` : "Universidad de Alcalá";
   return `<!DOCTYPE html><html lang="es"><head><meta charset="UTF-8"><title>${title}</title>
 <style>
 *{margin:0;padding:0;box-sizing:border-box}
