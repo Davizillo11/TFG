@@ -252,10 +252,10 @@ function buildPrintHTML(sesiones, title, slotMins, duracion, year, semester) {
   function tm(t) { const [h,m] = t.split(":").map(Number); return h*60+m; }
   // Always show all 5 days; 2h base grid + session boundaries so 1h fringe slots fit exactly
   const dias = [0, 1, 2, 3, 4];
-  const FIXED_BOUNDS = [8*60, 10*60, 12*60, 14*60, 15*60, 17*60, 19*60];
+  const FIXED_BOUNDS = [8*60, 10*60, 12*60, 14*60, 15*60, 17*60, 19*60, 21*60];
   const sessBounds = sesiones.flatMap(s => [tm(s.start), tm(s.end)]);
   const allBounds = [...new Set([...FIXED_BOUNDS, ...sessBounds])]
-    .filter(b => b >= 8*60 && b <= 19*60).sort((a,b) => a-b);
+    .filter(b => b >= 8*60 && b <= 21*60).sort((a,b) => a-b);
   const rowBounds = [];
   for (let i = 0; i < allBounds.length - 1; i++) rowBounds.push([allBounds[i], allBounds[i+1]]);
 

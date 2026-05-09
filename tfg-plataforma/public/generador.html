@@ -81,21 +81,21 @@
           <label>Hora fin</label>
           <div class="ctp" id="ctp-fin">
             <button type="button" class="ctp-btn" onclick="ctpToggle('ctp-fin')">
-              <span class="ctp-val">14:00</span>
+              <span class="ctp-val">21:00</span>
               <svg width="10" height="6" viewBox="0 0 10 6"><path d="M1 1l4 4 4-4" stroke="currentColor" stroke-width="1.6" fill="none" stroke-linecap="round"/></svg>
             </button>
             <div class="ctp-list">
               <div class="ctp-opt" data-v="08:00">08:00</div><div class="ctp-opt" data-v="09:00">09:00</div>
               <div class="ctp-opt" data-v="10:00">10:00</div><div class="ctp-opt" data-v="11:00">11:00</div>
               <div class="ctp-opt" data-v="12:00">12:00</div><div class="ctp-opt" data-v="13:00">13:00</div>
-              <div class="ctp-opt ctp-active" data-v="14:00">14:00</div>
+              <div class="ctp-opt" data-v="14:00">14:00</div>
               <div style="grid-column:1/-1;height:1px;background:rgba(255,255,255,0.12);margin:2px 0;"></div>
               <div class="ctp-opt" data-v="15:00">15:00</div><div class="ctp-opt" data-v="16:00">16:00</div>
               <div class="ctp-opt" data-v="17:00">17:00</div><div class="ctp-opt" data-v="18:00">18:00</div>
               <div class="ctp-opt" data-v="19:00">19:00</div><div class="ctp-opt" data-v="20:00">20:00</div>
-              <div class="ctp-opt" data-v="21:00">21:00</div>
+              <div class="ctp-opt ctp-active" data-v="21:00">21:00</div>
             </div>
-            <input type="hidden" id="pref-fin" value="14:00">
+            <input type="hidden" id="pref-fin" value="21:00">
           </div>
         </div>
         <div class="ti-group">
@@ -219,6 +219,33 @@ function addTodoLog(container, label, type, detail) {
   container.scrollTop = container.scrollHeight;
 }
 
+// Cuenta solo las sesiones de duración completa (2h) — las de 1h van a fringe, no a main slots.
+function countMainSessions(asigs, dur) {
+  return asigs.reduce((sum, s) => {
+    let rem = (s.hours_week || 4) * 60, n = 0;
+    while (rem >= dur) { n++; rem -= dur; }
+    return sum + n;
+  }, 0);
+}
+
+// Elige el mínimo horaFin tal que los main slots de la semana cubran las sesiones necesarias.
+// Orden de extensión: 14 → 17 → 19 → 21.
+function pickHoraFin(needed, dur) {
+  const LUNCH_S = 14 * 60, LUNCH_E = 15 * 60;
+  function mainSlots(endMin) {
+    let c = 0;
+    for (const anchor of [10 * 60, 15 * 60])
+      for (let m = anchor; m + dur <= endMin; m += dur) {
+        if (m < LUNCH_E && m + dur > LUNCH_S) break;
+        c++;
+      }
+    return c * 5; // 5 días
+  }
+  for (const fin of ["14:00", "17:00", "19:00", "21:00"])
+    if (needed <= mainSlots(parseInt(fin) * 60)) return fin;
+  return "21:00";
+}
+
 async function generarTodo() {
   const aulas = aulasData.map(a => ({ id: a.id, capacity: a.capacity, type: a.type }));
   if (!aulas.length)   return alert("No hay aulas disponibles.");
@@ -271,9 +298,10 @@ async function generarTodo() {
       continue;
     }
 
+    // Grupos de tarde: año 1 grupo F / año 2 grupo D → siempre 15:00–21:00
     const isTarde    = (year === 1 && group === 'F') || (year === 2 && group === 'D');
     const horaInicio = isTarde ? "15:00" : "08:00";
-    const horaFin    = isTarde ? "21:00" : "14:00";
+    const horaFin    = isTarde ? "21:00" : pickHoraFin(countMainSessions(asigs, duracion), duracion);
     const semLabel   = sem === 1 ? "1er cuatri" : "2do cuatri";
     const meta = {
       degree, year, semester: sem, group_letter: group,
@@ -430,14 +458,13 @@ function onGrupoChange() {
   const year  = parseInt(document.getElementById("tit-year").value) || 0;
   const grupo = document.getElementById("tit-grupo").value;
 
-  // Auto-tarde para grupo F (1º) o D (2º); mañana para el resto
   const isTarde = (year === 1 && grupo === 'F') || (year === 2 && grupo === 'D');
   if (isTarde) {
     ctpSetValue("ctp-inicio", "15:00");
     ctpSetValue("ctp-fin",    "21:00");
   } else if (grupo) {
     ctpSetValue("ctp-inicio", "08:00");
-    ctpSetValue("ctp-fin",    "14:00");
+    ctpSetValue("ctp-fin",    "21:00");
   }
 
   // Filtrar asignaturas para grupo E (solo bilingüe)

@@ -5,10 +5,12 @@ const requireAdmin = require("../middleware/adminOnly");
 
 const router = express.Router();
 
-// GET all (with all teacher names via GROUP_CONCAT)
+// GET all
 router.get("/", requireAuth, (req, res) => {
   db.all(`
-    SELECT s.*, GROUP_CONCAT(t.name, ', ') AS teacher_names, MIN(st.teacher_id) AS teacher_id
+    SELECT s.*,
+           GROUP_CONCAT(t.name,       ', ') AS teacher_names,
+           GROUP_CONCAT(st.teacher_id, ',') AS teacher_ids_str
     FROM subjects s
     LEFT JOIN subject_teachers st ON s.id = st.subject_id
     LEFT JOIN teachers t ON st.teacher_id = t.id
@@ -22,9 +24,10 @@ router.get("/", requireAuth, (req, res) => {
 
 // POST create
 router.post("/", requireAdmin, (req, res) => {
-  const { name, code, degree, year, semester, students, hours_week, teacher_id } = req.body;
+  const { name, code, degree, year, semester, students, hours_week, teacher_ids } = req.body;
   if (!name) return res.status(400).json({ error: "Nombre requerido" });
   const bilingual = req.body.bilingual ? 1 : 0;
+  const ids = Array.isArray(teacher_ids) ? teacher_ids.filter(Boolean) : [];
 
   db.run(
     "INSERT INTO subjects (name, code, degree, year, semester, students, hours_week, bilingual) VALUES (?,?,?,?,?,?,?,?)",
@@ -33,12 +36,9 @@ router.post("/", requireAdmin, (req, res) => {
     function (err) {
       if (err) return res.status(500).json({ error: err.message });
       const subjectId = this.lastID;
-
-      if (teacher_id) {
-        db.run("INSERT INTO subject_teachers (subject_id, teacher_id) VALUES (?,?)",
-          [subjectId, teacher_id], () => {});
+      for (const tid of ids) {
+        db.run("INSERT INTO subject_teachers (subject_id, teacher_id) VALUES (?,?)", [subjectId, tid], () => {});
       }
-
       res.json({ id: subjectId, name, code, degree, year, semester, students, hours_week, bilingual });
     }
   );
@@ -46,7 +46,7 @@ router.post("/", requireAdmin, (req, res) => {
 
 // PUT update
 router.put("/:id", requireAdmin, (req, res) => {
-  const { name, code, degree, year, semester, students, hours_week, teacher_id } = req.body;
+  const { name, code, degree, year, semester, students, hours_week, teacher_ids } = req.body;
   const bilingual = req.body.bilingual ? 1 : 0;
   db.run(
     "UPDATE subjects SET name=?, code=?, degree=?, year=?, semester=?, students=?, hours_week=?, bilingual=? WHERE id=?",
@@ -55,11 +55,11 @@ router.put("/:id", requireAdmin, (req, res) => {
       if (err) return res.status(500).json({ error: err.message });
       if (this.changes === 0) return res.status(404).json({ error: "No encontrado" });
 
-      if (teacher_id !== undefined) {
+      if (teacher_ids !== undefined) {
+        const ids = Array.isArray(teacher_ids) ? teacher_ids.filter(Boolean) : [];
         db.run("DELETE FROM subject_teachers WHERE subject_id=?", [req.params.id], () => {
-          if (teacher_id) {
-            db.run("INSERT INTO subject_teachers (subject_id, teacher_id) VALUES (?,?)",
-              [req.params.id, teacher_id], () => {});
+          for (const tid of ids) {
+            db.run("INSERT INTO subject_teachers (subject_id, teacher_id) VALUES (?,?)", [req.params.id, tid], () => {});
           }
         });
       }

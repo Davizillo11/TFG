@@ -60,14 +60,17 @@ function freeSegment(set, key, startMin, endMin) {
 }
 
 // ── Disponibilidad del profesor ───────────────────
+// teacherAvail es un mapa pre-fusionado: { [tid]: { [day]: [[startMin,endMin],…] } }
+// Si un profesor no tiene entrada → completamente disponible (sin restricciones en BD).
+// Si tiene entradas pero no en ese día → NO disponible ese día.
+// Los intervalos ya están fusionados (adyacentes 10-11+11-12 → 10-12) para soportar
+// el formato de franjas de 1h que usa el UI.
 function isTeacherAvailable(teacherId, dia, startMin, endMin, teacherAvail) {
-  const avail = teacherAvail[teacherId];
-  if (!avail || avail.length === 0) return true;
-  return avail.some(a =>
-    a.day === dia &&
-    timeToMin(a.start) <= startMin &&
-    timeToMin(a.end)   >= endMin
-  );
+  const dayMap = teacherAvail[teacherId];
+  if (!dayMap) return true;                      // sin restricciones → siempre disponible
+  const intervals = dayMap[dia];
+  if (!intervals || !intervals.length) return false; // tiene restricciones pero no hoy
+  return intervals.some(([s, e]) => s <= startMin && e >= endMin);
 }
 
 // ── Franja de descanso (14:00–15:00) ──────────────
@@ -76,9 +79,9 @@ const LUNCH_END   = 15 * 60; // 900 min
 
 // ── Franjas horarias preferentes (soft) ───────────
 // Los slots dentro de estos rangos se intentan primero.
+// Solo mañana como preferente. Tarde (15+) es fallback (late), extremo (08-10) va antes que tarde.
 const PREF_RANGES = [
   [10 * 60, 14 * 60], // 10:00–14:00
-  [15 * 60, 19 * 60], // 15:00–19:00
 ];
 
 // ── Lista de tiempos de inicio completamente aleatoria ────────────────────────
@@ -159,39 +162,170 @@ function countConsecBefore(tid, dia, startMin, teacherSessMap) {
 // Slots dentro de PREF_RANGES (10-14 / 15-19) tienen prioridad sobre slots fuera (19+)
 const isPreferredTime = (t) => PREF_RANGES.some(([s, e]) => t.startMin >= s && t.startMin < e);
 
-function getOrderedSlots(startTimes, subject, dur, duracion, partialMins, avoidDays) {
+function getOrderedSlots(startTimes, subject, dur, duracion, partialMins, avoidDays, placedDays = new Set()) {
   const isPref  = ({ startMin }) => !partialMins.has(startMin);
   const avoided = avoidDays[subject.id] || new Set();
   const av      = t => avoided.has(t.dia);
+  const used    = t => placedDays.has(t.dia);
   const mainPref = startTimes.filter(isPref);
   const fringe   = startTimes.filter(t => !isPref(t));
 
-  // avoidDays es tiebreaker DENTRO de cada franja — nunca un slot tardío
-  // debe ganar a un preferido solo porque el preferido está en día evitado.
   if (dur < duracion) {
-    const early = mainPref.filter(t => t.startMin >= LUNCH_END && isPreferredTime(t) && !t.isExtreme);
-    const late  = mainPref.filter(t => t.startMin >= LUNCH_END && !isPreferredTime(t) && !t.isExtreme);
+    // Sesiones de 1h: fringe de mañana (09:00) → tarde main → fringe de tarde
+    const late          = mainPref.filter(t => t.startMin >= LUNCH_END && !t.isExtreme);
+    const fringe_morn   = fringe.filter(t => t.startMin <  LUNCH_START);
+    const fringe_after  = fringe.filter(t => t.startMin >= LUNCH_END);
     return [
-      ...early.filter(t => !av(t)), ...early.filter(av),
-      ...late.filter(t => !av(t)),  ...late.filter(av),
-      ...fringe,
+      ...fringe_morn,
+      ...late.filter(t => !av(t) && !used(t)), ...late.filter(t => !av(t) && used(t)),
+      ...late.filter(t =>  av(t) && !used(t)), ...late.filter(t =>  av(t) && used(t)),
+      ...fringe_after,
     ];
   } else {
-    const pref  = mainPref.filter(t => isPreferredTime(t) && !t.isExtreme);
-    const late  = mainPref.filter(t => !isPreferredTime(t) && !t.isExtreme);
-    const extr  = mainPref.filter(t => t.isExtreme);
+    // Transversal: MUST be on Friday → sort main slots before extreme, earlier times first.
+    // Ensures sessions land at 10:00+12:00 (morning) or 15:00+17:00 (tarde), not 08:00.
+    if (subject.transversal) {
+      return [...mainPref].sort((a, b) => {
+        if (!!a.isExtreme !== !!b.isExtreme) return a.isExtreme ? 1 : -1;
+        return a.startMin !== b.startMin ? a.startMin - b.startMin : a.dia - b.dia;
+      });
+    }
+
+    // Sesiones de duración completa:
+    // Prioridad: mañana(10-14) → extremo(08-10) → tarde(15+)
+    // Dentro de cada bloque: no-evitado+día-nuevo primero, luego mismo-día, luego evitado.
+    const pref = mainPref.filter(t => isPreferredTime(t) && !t.isExtreme); // 10–14
+    const extr = mainPref.filter(t => t.isExtreme);                        // 08–10
+    const late = mainPref.filter(t => !isPreferredTime(t) && !t.isExtreme); // 15+
     return [
-      ...pref.filter(t => !av(t)), ...pref.filter(av),
-      ...late.filter(t => !av(t)), ...late.filter(av),
-      ...extr.filter(t => !av(t)), ...extr.filter(av),
+      ...pref.filter(t => !av(t) && !used(t)),
+      ...pref.filter(t => !av(t) &&  used(t)),
+      ...pref.filter(t =>  av(t) && !used(t)),
+      ...pref.filter(t =>  av(t) &&  used(t)),
+      ...extr.filter(t => !used(t)),
+      ...extr.filter(t =>  used(t)),
+      ...late.filter(t => !av(t) && !used(t)),
+      ...late.filter(t => !av(t) &&  used(t)),
+      ...late.filter(t =>  av(t) && !used(t)),
+      ...late.filter(t =>  av(t) &&  used(t)),
     ];
+  }
+}
+
+// ── Rescate post-solver: mueve sesiones en slot extremo (08:00) a slots preferentes ──
+// Ejecutar después del solver. Intenta reubicar sesiones colocadas antes de las 10:00
+// en slots 10:00-14:00 si hay disponibilidad. Si no encuentra slot mejor, deja el original.
+function rescueExtremeSlots(result, allSessions, occupied, teacherSessMap, subjectSessions,
+    startTimes, finMin, duracion, partialMins, avoidDays,
+    preOccTeachers, preOccClassrooms, teacherAvail, validAulasBySubject) {
+  const PREF_MIN = 10 * 60;
+  const PREF_MAX = 14 * 60;
+
+  for (let idx = 0; idx < result.length; idx++) {
+    const assignment = result[idx];
+    if (!assignment || assignment.startMin >= PREF_MIN) continue;
+
+    const { subject, dur } = allSessions[idx];
+    const sid = subject.id;
+    const { dia, startMin, endMin, aulaId, teacherId } = assignment;
+
+    // Liberar temporalmente el slot extremo
+    const ak = `${aulaId}-${dia}`;
+    freeSegment(occupied.aulas, ak, startMin, endMin);
+    if (teacherId !== null) {
+      freeSegment(occupied.teachers, `${teacherId}-${dia}`, startMin, endMin);
+      const list = teacherSessMap.get(`${teacherId}-${dia}`) || [];
+      const li = list.findIndex(([s, e]) => s === startMin && e === endMin);
+      if (li >= 0) list.splice(li, 1);
+    }
+    const gk = subject.groupKey ? `${subject.groupKey}-${dia}` : null;
+    if (gk) freeSegment(occupied.groups, gk, startMin, endMin);
+    const ssList = subjectSessions[sid];
+    if (ssList) {
+      const si = ssList.findIndex(p => p.dia === dia && p.startMin === startMin);
+      if (si >= 0) ssList.splice(si, 1);
+    }
+
+    // Ordenar los slots preferentes: no-evitado + día-nuevo primero, estable por startMin
+    const avoided = avoidDays[sid] || new Set();
+    const currentPlaced = new Set((subjectSessions[sid] || []).map(s => s.dia));
+    const prefSlots = startTimes
+      .filter(t => !t.isExtreme && t.startMin >= PREF_MIN && t.startMin < PREF_MAX && t.startMin + dur <= finMin)
+      .slice()
+      .sort((a, b) => {
+        const aAv = avoided.has(a.dia) ? 1 : 0, bAv = avoided.has(b.dia) ? 1 : 0;
+        if (aAv !== bAv) return aAv - bAv;
+        const aU = currentPlaced.has(a.dia) ? 1 : 0, bU = currentPlaced.has(b.dia) ? 1 : 0;
+        if (aU !== bU) return aU - bU;
+        return a.startMin !== b.startMin ? a.startMin - b.startMin : a.dia - b.dia;
+      });
+
+    let relocated = false;
+    outer: for (const { dia: nd, startMin: ns } of prefSlots) {
+      const ne = ns + dur;
+      if (subject.year === 1 && subject.semester === 1) {
+        if (subject.transversal && nd !== 4) continue;
+        if (!subject.transversal && nd === 4 && subject.groupLetter !== 'E') continue;
+      }
+      const newGk = subject.groupKey ? `${subject.groupKey}-${nd}` : null;
+      if (newGk && !isSegmentFree([occupied.groups], newGk, ns, ne)) continue;
+
+      for (const aula of validAulasBySubject[sid]) {
+        const nak = `${aula.id}-${nd}`;
+        if (!isSegmentFree([occupied.aulas, preOccClassrooms], nak, ns, ne)) continue;
+
+        let newTid = null;
+        if (subject.teacherIds.length > 0) {
+          for (const tid of subject.teacherIds) {
+            if (!isTeacherAvailable(tid, nd, ns, ne, teacherAvail)) continue;
+            if (!isSegmentFree([occupied.teachers, preOccTeachers], `${tid}-${nd}`, ns, ne)) continue;
+            if (countConsecBefore(tid, nd, ns, teacherSessMap) >= MAX_CONSECUTIVE) continue;
+            newTid = tid;
+            break;
+          }
+          if (newTid === null) continue;
+        }
+
+        occupySegment(occupied.aulas, nak, ns, ne);
+        if (newTid !== null) {
+          occupySegment(occupied.teachers, `${newTid}-${nd}`, ns, ne);
+          const key = `${newTid}-${nd}`;
+          const list = teacherSessMap.get(key) || [];
+          list.push([ns, ne]);
+          list.sort((a, b) => a[0] - b[0]);
+          teacherSessMap.set(key, list);
+        }
+        if (newGk) occupySegment(occupied.groups, newGk, ns, ne);
+        if (!subjectSessions[sid]) subjectSessions[sid] = [];
+        subjectSessions[sid].push({ dia: nd, startMin: ns, endMin: ne });
+        result[idx] = { aulaId: aula.id, dia: nd, startMin: ns, dur, endMin: ne, teacherId: newTid };
+        relocated = true;
+        break outer;
+      }
+    }
+
+    if (!relocated) {
+      // Restaurar el slot extremo original
+      occupySegment(occupied.aulas, ak, startMin, endMin);
+      if (teacherId !== null) {
+        occupySegment(occupied.teachers, `${teacherId}-${dia}`, startMin, endMin);
+        const key = `${teacherId}-${dia}`;
+        const list = teacherSessMap.get(key) || [];
+        list.push([startMin, endMin]);
+        list.sort((a, b) => a[0] - b[0]);
+        teacherSessMap.set(key, list);
+      }
+      if (gk) occupySegment(occupied.groups, gk, startMin, endMin);
+      if (!subjectSessions[sid]) subjectSessions[sid] = [];
+      subjectSessions[sid].push({ dia, startMin, endMin });
+    }
   }
 }
 
 // ── Asignación greedy (sin backtracking) ─────────
 // Primera opción válida para cada sesión; no deshace nada.
 // Las sesiones de la misma asignatura prefieren slots consecutivos.
-function solveGreedy(allSessions, validAulasBySubject, startTimes, finMin, teacherAvail, duracion, partialMins, avoidDays = {}) {
+function solveGreedy(allSessions, validAulasBySubject, startTimes, finMin, teacherAvail, duracion, partialMins, avoidDays = {}, preOccTeachers = new Set(), preOccClassrooms = new Set()) {
   const occupied        = { aulas: new Set(), teachers: new Set(), groups: new Set() };
   const teacherSessMap  = new Map(); // "tid-dia" → [[s,e], ...]
   const subjectSessions = {};        // sid → [{dia, startMin, endMin}]
@@ -204,16 +338,20 @@ function solveGreedy(allSessions, validAulasBySubject, startTimes, finMin, teach
     const placed     = subjectSessions[sid] || [];
     const validAulas = validAulasBySubject[sid];
 
-    const orderedSlots = getOrderedSlots(startTimes, subject, dur, duracion, partialMins, avoidDays);
+    const placedDays = subject.transversal
+      ? new Set()
+      : new Set((subjectSessions[sid] || []).map(s => s.dia));
+    const orderedSlots = getOrderedSlots(startTimes, subject, dur, duracion, partialMins, avoidDays, placedDays);
 
     outer: for (const { dia, startMin } of orderedSlots) {
       const endMin = startMin + dur;
       if (endMin > finMin) continue;
 
       // Constraint viernes: solo 1er curso, 1er cuatrimestre
+      // Grupo E (bilingüe) puede usar viernes para asignaturas no-transversales; el resto no.
       if (subject.year === 1 && subject.semester === 1) {
         if (subject.transversal && dia !== 4) continue;
-        if (!subject.transversal && dia === 4) continue;
+        if (!subject.transversal && dia === 4 && subject.groupLetter !== 'E') continue;
       }
 
       const gk = subject.groupKey ? `${subject.groupKey}-${dia}` : null;
@@ -221,32 +359,43 @@ function solveGreedy(allSessions, validAulasBySubject, startTimes, finMin, teach
 
       for (const aula of validAulas) {
         const ak = `${aula.id}-${dia}`;
-        if (!isSegmentFree([occupied.aulas], ak, startMin, endMin)) continue;
-        let ok = true;
-        for (const tid of subject.teacherIds) {
-          if (!isTeacherAvailable(tid, dia, startMin, endMin, teacherAvail)) { ok = false; break; }
-          if (!isSegmentFree([occupied.teachers], `${tid}-${dia}`, startMin, endMin)) { ok = false; break; }
-          if (countConsecBefore(tid, dia, startMin, teacherSessMap) >= MAX_CONSECUTIVE) { ok = false; break; }
+        if (!isSegmentFree([occupied.aulas, preOccClassrooms], ak, startMin, endMin)) continue;
+
+        // Pick ONE available teacher from the pool (any = valid)
+        let selectedTid = null;
+        if (subject.teacherIds.length > 0) {
+          for (const tid of subject.teacherIds) {
+            if (!isTeacherAvailable(tid, dia, startMin, endMin, teacherAvail)) continue;
+            if (!isSegmentFree([occupied.teachers, preOccTeachers], `${tid}-${dia}`, startMin, endMin)) continue;
+            if (countConsecBefore(tid, dia, startMin, teacherSessMap) >= MAX_CONSECUTIVE) continue;
+            selectedTid = tid;
+            break;
+          }
+          if (selectedTid === null) continue;
         }
-        if (!ok) continue;
 
         occupySegment(occupied.aulas, ak, startMin, endMin);
-        subject.teacherIds.forEach(tid => {
-          occupySegment(occupied.teachers, `${tid}-${dia}`, startMin, endMin);
-          const key = `${tid}-${dia}`;
+        if (selectedTid !== null) {
+          occupySegment(occupied.teachers, `${selectedTid}-${dia}`, startMin, endMin);
+          const key = `${selectedTid}-${dia}`;
           const list = teacherSessMap.get(key) || [];
           list.push([startMin, endMin]);
           list.sort((a, b) => a[0] - b[0]);
           teacherSessMap.set(key, list);
-        });
+        }
         if (gk) occupySegment(occupied.groups, gk, startMin, endMin);
         if (!subjectSessions[sid]) subjectSessions[sid] = [];
         subjectSessions[sid].push({ dia, startMin, endMin });
-        result[idx] = { aulaId: aula.id, dia, startMin, dur, endMin };
+        result[idx] = { aulaId: aula.id, dia, startMin, dur, endMin, teacherId: selectedTid };
         break outer;
       }
     }
   }
+
+  // Rescate: mover sesiones en slot extremo (08:00) a slots preferentes si es posible.
+  rescueExtremeSlots(result, allSessions, occupied, teacherSessMap, subjectSessions,
+    startTimes, finMin, duracion, partialMins, avoidDays,
+    preOccTeachers, preOccClassrooms, teacherAvail, validAulasBySubject);
 
   return result;
 }
@@ -256,7 +405,7 @@ function solveGreedy(allSessions, validAulasBySubject, startTimes, finMin, teach
 // Las sesiones de la misma asignatura prefieren slots consecutivos.
 const MAX_OPS = 150_000;
 
-function solveCSP(allSessions, validAulasBySubject, startTimes, finMin, teacherAvail, duracion, partialMins, avoidDays = {}) {
+function solveCSP(allSessions, validAulasBySubject, startTimes, finMin, teacherAvail, duracion, partialMins, avoidDays = {}, preOccTeachers = new Set(), preOccClassrooms = new Set()) {
   const n = allSessions.length;
 
   const occupied        = { aulas: new Set(), teachers: new Set(), groups: new Set() };
@@ -276,7 +425,10 @@ function solveCSP(allSessions, validAulasBySubject, startTimes, finMin, teacherA
     const validAulas = validAulasBySubject[sid];
     const placed = subjectSessions[sid] || [];
 
-    const orderedSlots = getOrderedSlots(startTimes, subject, dur, duracion, partialMins, avoidDays);
+    const placedDays = subject.transversal
+      ? new Set()
+      : new Set((subjectSessions[sid] || []).map(s => s.dia));
+    const orderedSlots = getOrderedSlots(startTimes, subject, dur, duracion, partialMins, avoidDays, placedDays);
 
     for (const { dia, startMin } of orderedSlots) {
       if (timedOut) return false;
@@ -284,9 +436,10 @@ function solveCSP(allSessions, validAulasBySubject, startTimes, finMin, teacherA
       if (endMin > finMin) continue;
 
       // Constraint viernes: solo 1er curso, 1er cuatrimestre
+      // Grupo E (bilingüe) puede usar viernes para asignaturas no-transversales; el resto no.
       if (subject.year === 1 && subject.semester === 1) {
         if (subject.transversal && dia !== 4) continue;
-        if (!subject.transversal && dia === 4) continue;
+        if (!subject.transversal && dia === 4 && subject.groupLetter !== 'E') continue;
       }
 
       const gk = subject.groupKey ? `${subject.groupKey}-${dia}` : null;
@@ -294,46 +447,50 @@ function solveCSP(allSessions, validAulasBySubject, startTimes, finMin, teacherA
 
       for (const aula of validAulas) {
         const ak = `${aula.id}-${dia}`;
-        if (!isSegmentFree([occupied.aulas], ak, startMin, endMin)) continue;
-        let ok = true;
-        for (const tid of subject.teacherIds) {
-          if (!isTeacherAvailable(tid, dia, startMin, endMin, teacherAvail)) { ok = false; break; }
-          if (!isSegmentFree([occupied.teachers], `${tid}-${dia}`, startMin, endMin)) { ok = false; break; }
-          if (countConsecBefore(tid, dia, startMin, teacherSessMap) >= MAX_CONSECUTIVE) { ok = false; break; }
+        if (!isSegmentFree([occupied.aulas, preOccClassrooms], ak, startMin, endMin)) continue;
+
+        // Build teacher candidates: any available teacher from the pool (null = no teacher needed)
+        const teacherCandidates = subject.teacherIds.length === 0
+          ? [null]
+          : subject.teacherIds.filter(tid =>
+              isTeacherAvailable(tid, dia, startMin, endMin, teacherAvail) &&
+              isSegmentFree([occupied.teachers, preOccTeachers], `${tid}-${dia}`, startMin, endMin) &&
+              countConsecBefore(tid, dia, startMin, teacherSessMap) < MAX_CONSECUTIVE
+            );
+
+        for (const selectedTid of teacherCandidates) {
+          occupySegment(occupied.aulas, ak, startMin, endMin);
+          if (selectedTid !== null) {
+            occupySegment(occupied.teachers, `${selectedTid}-${dia}`, startMin, endMin);
+            const key = `${selectedTid}-${dia}`;
+            const list = teacherSessMap.get(key) || [];
+            list.push([startMin, endMin]);
+            list.sort((a, b) => a[0] - b[0]);
+            teacherSessMap.set(key, list);
+          }
+          if (gk) occupySegment(occupied.groups, gk, startMin, endMin);
+          if (!subjectSessions[sid]) subjectSessions[sid] = [];
+          subjectSessions[sid].push({ dia, startMin, endMin });
+          result[idx] = { aulaId: aula.id, dia, startMin, dur, endMin, teacherId: selectedTid };
+
+          if (bt(idx + 1)) return true;
+
+          freeSegment(occupied.aulas, ak, startMin, endMin);
+          if (selectedTid !== null) {
+            freeSegment(occupied.teachers, `${selectedTid}-${dia}`, startMin, endMin);
+            const key = `${selectedTid}-${dia}`;
+            const list = teacherSessMap.get(key) || [];
+            const i = list.findIndex(([s, e]) => s === startMin && e === endMin);
+            if (i >= 0) list.splice(i, 1);
+          }
+          if (gk) freeSegment(occupied.groups, gk, startMin, endMin);
+          const ssList = subjectSessions[sid];
+          if (ssList) {
+            const i = ssList.findIndex(p => p.dia === dia && p.startMin === startMin && p.endMin === endMin);
+            if (i >= 0) ssList.splice(i, 1);
+          }
+          result[idx] = null;
         }
-        if (!ok) continue;
-
-        occupySegment(occupied.aulas, ak, startMin, endMin);
-        subject.teacherIds.forEach(tid => {
-          occupySegment(occupied.teachers, `${tid}-${dia}`, startMin, endMin);
-          const key = `${tid}-${dia}`;
-          const list = teacherSessMap.get(key) || [];
-          list.push([startMin, endMin]);
-          list.sort((a, b) => a[0] - b[0]);
-          teacherSessMap.set(key, list);
-        });
-        if (gk) occupySegment(occupied.groups, gk, startMin, endMin);
-        if (!subjectSessions[sid]) subjectSessions[sid] = [];
-        subjectSessions[sid].push({ dia, startMin, endMin });
-        result[idx] = { aulaId: aula.id, dia, startMin, dur, endMin };
-
-        if (bt(idx + 1)) return true;
-
-        freeSegment(occupied.aulas, ak, startMin, endMin);
-        subject.teacherIds.forEach(tid => {
-          freeSegment(occupied.teachers, `${tid}-${dia}`, startMin, endMin);
-          const key = `${tid}-${dia}`;
-          const list = teacherSessMap.get(key) || [];
-          const i = list.findIndex(([s, e]) => s === startMin && e === endMin);
-          if (i >= 0) list.splice(i, 1);
-        });
-        if (gk) freeSegment(occupied.groups, gk, startMin, endMin);
-        const ssList = subjectSessions[sid];
-        if (ssList) {
-          const i = ssList.findIndex(p => p.dia === dia && p.startMin === startMin && p.endMin === endMin);
-          if (i >= 0) ssList.splice(i, 1);
-        }
-        result[idx] = null;
       }
     }
 
@@ -341,10 +498,17 @@ function solveCSP(allSessions, validAulasBySubject, startTimes, finMin, teacherA
   }
 
   const solved = bt(0);
-  if (solved) return { result, perfect: true };
+  if (solved) {
+    // Rescate post-CSP: aunque el CSP tuvo éxito, puede haber usado slots extremos
+    // por orden de exploración. Intenta moverlos a slots preferentes.
+    rescueExtremeSlots(result, allSessions, occupied, teacherSessMap, subjectSessions,
+      startTimes, finMin, duracion, partialMins, avoidDays,
+      preOccTeachers, preOccClassrooms, teacherAvail, validAulasBySubject);
+    return { result, perfect: true };
+  }
 
-  // Fallback: greedy rápido — siempre devuelve algo
-  return { result: solveGreedy(allSessions, validAulasBySubject, startTimes, finMin, teacherAvail, duracion, partialMins, avoidDays), perfect: false };
+  // Fallback: greedy rápido — siempre devuelve algo (el greedy ya incluye su propio rescate)
+  return { result: solveGreedy(allSessions, validAulasBySubject, startTimes, finMin, teacherAvail, duracion, partialMins, avoidDays, preOccTeachers, preOccClassrooms), perfect: false };
 }
 
 // ── POST /api/v1/schedules/generate ──────────────
@@ -365,11 +529,29 @@ router.post("/generate", requireAuth, async (req, res) => {
       dbAll("SELECT id, name, type FROM classrooms"),
     ]);
 
-    // Mapas de búsqueda
-    const teacherAvail = {};
+    // Mapa de disponibilidad pre-fusionado: { [tid]: { [day]: [[startMin,endMin],…] } }
+    // Fusiona franjas adyacentes (ej. 10-11 + 11-12 → 10-12) una sola vez aquí para que
+    // isTeacherAvailable sea O(k) en vez de hacer sort+merge en cada llamada del CSP.
+    const teacherAvailRaw = {};
     for (const r of availRows) {
-      (teacherAvail[r.teacher_id] = teacherAvail[r.teacher_id] || [])
-        .push({ day: r.day_of_week, start: r.slot_start, end: r.slot_end });
+      if (!teacherAvailRaw[r.teacher_id]) teacherAvailRaw[r.teacher_id] = {};
+      const d = teacherAvailRaw[r.teacher_id];
+      if (!d[r.day_of_week]) d[r.day_of_week] = [];
+      d[r.day_of_week].push([timeToMin(r.slot_start), timeToMin(r.slot_end)]);
+    }
+    const teacherAvail = {};
+    for (const [tid, byDay] of Object.entries(teacherAvailRaw)) {
+      teacherAvail[+tid] = {};
+      for (const [day, intervals] of Object.entries(byDay)) {
+        intervals.sort((a, b) => a[0] - b[0]);
+        const merged = [intervals[0].slice()];
+        for (let i = 1; i < intervals.length; i++) {
+          const last = merged[merged.length - 1];
+          if (intervals[i][0] <= last[1]) last[1] = Math.max(last[1], intervals[i][1]);
+          else merged.push(intervals[i].slice());
+        }
+        teacherAvail[tid][+day] = merged;  // +day converts string key → number to match dia param
+      }
     }
     const subjectTeachersMap = {};
     for (const r of stRows) {
@@ -451,10 +633,11 @@ router.post("/generate", requireAuth, async (req, res) => {
       const subMeta  = subjectMeta[s.id] || {};
       const degree   = subMeta.degree || "";
       const year     = subMeta.year   ?? null;
-      const roomType = subMeta.room_type || null;
+      const roomType    = subMeta.room_type || null;
+      const isTransversal = (subMeta.name || "").trim().toLowerCase().startsWith("transversal");
       return {
         ...s,
-        teacherIds:       subjectTeachersMap[s.id] || [],
+        teacherIds:       isTransversal ? [] : (subjectTeachersMap[s.id] || []),
         sessionDurations: getSessionDurations(s.hours, duracion),
         name:             subMeta.name || `Asignatura ${s.id}`,
         degree,
@@ -462,7 +645,8 @@ router.post("/generate", requireAuth, async (req, res) => {
         roomType,
         semester:    subMeta.semester ?? null,
         bilingual:   subMeta.bilingual   || 0,
-        transversal: (subMeta.name || "").trim().toLowerCase().startsWith("transversal"),
+        transversal: isTransversal,
+        groupLetter: meta.group_letter || null,
         groupKey: degree && year != null ? `${degree}|${year}` : null,
       };
     });
@@ -486,68 +670,22 @@ router.post("/generate", requireAuth, async (req, res) => {
       );
     }
 
-    // Calcular número de slots válidos por asignatura (heurística MRV)
-    const validSlots = {};
-    for (const s of subjects) {
-      const dur = s.sessionDurations[0] || duracion;
-      let count = 0;
-      for (const { dia, startMin } of startTimes) {
-        if (startMin + dur > finMin) continue;
-        if (s.teacherIds.every(tid => isTeacherAvailable(tid, dia, startMin, startMin + dur, teacherAvail)))
-          count++;
-      }
-      validSlots[s.id] = count;
-    }
-
-    // Construir lista plana de sesiones: una entrada por sesión individual
-    // Ordenar las asignaturas más restringidas primero (MRV), luego
-    // intercalar las sesiones de distintas asignaturas en round-robin
-    // para evitar que una asignatura monopolice los primeros días.
-    const subjSorted = [...subjects].sort((a, b) => {
-      if (validSlots[a.id] !== validSlots[b.id]) return validSlots[a.id] - validSlots[b.id];
-      if (b.sessionDurations.length !== a.sessionDurations.length) return b.sessionDurations.length - a.sessionDurations.length;
-      return b.students - a.students;
-    });
-
-    // Orden: todas las sesiones de la asignatura más restringida primero,
-    // luego todas las de la siguiente, etc. (MRV por asignatura completa).
-    // Esto evita que otras disciplinas roben los slots únicos de profesores
-    // con disponibilidad muy limitada antes de que esa asignatura los reserve.
-    const allSessions = [];
-    for (const s of subjSorted) {
-      if (s.sessionDurations.length > 0 && validAulasBySubject[s.id].length > 0) {
-        for (const dur of s.sessionDurations) {
-          allSessions.push({ subject: s, dur });
-        }
-      }
-    }
-    // Sesiones completas (dur===duracion) primero; fringe (1h) al final.
-    // Preserva el orden relativo de las asignaturas dentro de cada grupo (stable sort).
-    allSessions.sort((a, b) => (a.dur < duracion ? 1 : 0) - (b.dur < duracion ? 1 : 0));
-
-    // Asignaturas sin aula o sin sesiones (no entran en CSP)
-    const noAsignadas = [];
-    for (const s of subjects) {
-      if (s.hours > 0 && (s.sessionDurations.length === 0 || validAulasBySubject[s.id].length === 0)) {
-        noAsignadas.push(s.name);
-      }
-    }
-
-    // Diversidad de días para grupo de tarde (F en 1º, D en 2º)
-    // Diversidad entre grupos de mañana: A-B-C-D (1º) o A-B-C (2º).
-    // E (bilingüe) y F/D (tarde) no participan — horario o alumnado distinto.
-    const MORNING_GROUPS = meta.year === 1 ? ['A','B','C','D']
+    // Diversidad de días entre grupos de mañana: A-E (1º) o A-C (2º).
+    // Grupo E incluido para que sus asignaturas bilingües eviten los días ya usados por A-D.
+    const MORNING_GROUPS = meta.year === 1 ? ['A','B','C','D','E']
                          : meta.year === 2 ? ['A','B','C']
                          : [];
     const isMorningGroup = MORNING_GROUPS.includes(meta.group_letter);
     let avoidDays = {};
     if (isMorningGroup && meta.degree && meta.year != null && meta.semester != null) {
       const placeholders = MORNING_GROUPS.filter(g => g !== meta.group_letter).map(() => '?').join(',');
+      // Solo el horario más reciente por grupo (simétrico con preOcc).
+      // Usar todos los históricos infla el threshold y marca todos los días como "evitados".
       const prevSchedules = await dbAll(`
-        SELECT id FROM schedules
+        SELECT MAX(id) AS id FROM schedules
         WHERE degree=? AND year=? AND semester=?
           AND group_letter IN (${placeholders})
-        ORDER BY id ASC
+        GROUP BY group_letter
       `, [meta.degree, meta.year, meta.semester, ...MORNING_GROUPS.filter(g => g !== meta.group_letter)]);
 
       if (prevSchedules.length) {
@@ -567,8 +705,91 @@ router.post("/generate", requireAuth, async (req, res) => {
       }
     }
 
+    // Pre-ocupar slots ya asignados a otros grupos del mismo cuatrimestre.
+    // Construido ANTES del MRV para que el conteo de slots refleje la ocupación real.
+    const preOccTeachers   = new Set();
+    const preOccClassrooms = new Set();
+    if (meta.group_letter != null && meta.degree && meta.year != null && meta.semester != null) {
+      const crossRows = await dbAll(`
+        SELECT ss.teacher_id, ss.classroom_id, ss.day_of_week, ss.slot_start, ss.slot_end
+        FROM schedule_sessions ss
+        JOIN schedules sc ON sc.id = ss.schedule_id
+        WHERE sc.degree   = ?
+          AND sc.year     = ?
+          AND sc.semester = ?
+          AND sc.group_letter IS NOT NULL
+          AND sc.group_letter != ?
+          AND sc.id IN (
+            SELECT MAX(sc2.id) FROM schedules sc2
+            WHERE sc2.degree   = ?
+              AND sc2.year     = ?
+              AND sc2.semester = ?
+              AND sc2.group_letter IS NOT NULL
+              AND sc2.group_letter != ?
+            GROUP BY sc2.group_letter
+          )
+      `, [meta.degree, meta.year, meta.semester, meta.group_letter,
+          meta.degree, meta.year, meta.semester, meta.group_letter]);
+
+      for (const r of crossRows) {
+        const sMin = timeToMin(r.slot_start);
+        const eMin = timeToMin(r.slot_end);
+        if (r.teacher_id)   occupySegment(preOccTeachers,   `${r.teacher_id}-${r.day_of_week}`,   sMin, eMin);
+        if (r.classroom_id) occupySegment(preOccClassrooms, `${r.classroom_id}-${r.day_of_week}`, sMin, eMin);
+      }
+    }
+
+    // Calcular número de slots válidos por asignatura (heurística MRV).
+    // Incluye preOcc para que asignaturas con profesor ya muy ocupado entre grupos
+    // se consideren más restringidas y se prioricen antes que las demás.
+    const validSlots = {};
+    for (const s of subjects) {
+      const checkDur = Math.max(...s.sessionDurations, duracion);
+      let count = 0;
+      for (const { dia, startMin } of startTimes) {
+        if (startMin + checkDur > finMin) continue;
+        const teacherOK = s.teacherIds.length === 0 || s.teacherIds.some(tid =>
+          isTeacherAvailable(tid, dia, startMin, startMin + checkDur, teacherAvail) &&
+          isSegmentFree([preOccTeachers], `${tid}-${dia}`, startMin, startMin + checkDur)
+        );
+        if (teacherOK) count++;
+      }
+      validSlots[s.id] = s.sessionDurations.length > 0 ? count / s.sessionDurations.length : count;
+    }
+
+    // Construir lista plana de sesiones: una entrada por sesión individual
+    // Ordenar las asignaturas más restringidas primero (MRV), luego
+    // intercalar las sesiones de distintas asignaturas en round-robin.
+    const subjSorted = [...subjects].sort((a, b) => {
+      if (validSlots[a.id] !== validSlots[b.id]) return validSlots[a.id] - validSlots[b.id];
+      if (b.sessionDurations.length !== a.sessionDurations.length) return b.sessionDurations.length - a.sessionDurations.length;
+      return b.students - a.students;
+    });
+
+    // Round-robin: primera sesión de cada asignatura (MRV order), luego segunda, etc.
+    const eligibleSubjs = subjSorted.filter(s => s.sessionDurations.length > 0 && validAulasBySubject[s.id].length > 0);
+    const maxRounds = Math.max(0, ...eligibleSubjs.map(s => s.sessionDurations.length));
+    const allSessions = [];
+    for (let round = 0; round < maxRounds; round++) {
+      for (const s of eligibleSubjs) {
+        if (s.sessionDurations[round] !== undefined) {
+          allSessions.push({ subject: s, dur: s.sessionDurations[round] });
+        }
+      }
+    }
+    // Sesiones completas primero; fringe (1h) al final (stable dentro de cada round).
+    allSessions.sort((a, b) => (a.dur < duracion ? 1 : 0) - (b.dur < duracion ? 1 : 0));
+
+    // Asignaturas sin aula o sin sesiones (no entran en CSP)
+    const noAsignadas = [];
+    for (const s of subjects) {
+      if (s.hours > 0 && (s.sessionDurations.length === 0 || validAulasBySubject[s.id].length === 0)) {
+        noAsignadas.push(s.name);
+      }
+    }
+
     // Ejecutar CSP (con fallback greedy si no converge)
-    const { result, perfect } = solveCSP(allSessions, validAulasBySubject, startTimes, finMin, teacherAvail, duracion, partialMins, avoidDays);
+    const { result, perfect } = solveCSP(allSessions, validAulasBySubject, startTimes, finMin, teacherAvail, duracion, partialMins, avoidDays, preOccTeachers, preOccClassrooms);
 
     // Recopilar sesiones asignadas y no asignadas
     const sesiones = [];
@@ -589,8 +810,8 @@ router.post("/generate", requireAuth, async (req, res) => {
           degree:       subject.degree,
           classroom_id: a.aulaId,
           classroom:    classroomMeta[a.aulaId] || `Aula ${a.aulaId}`,
-          teacher_ids:  subject.teacherIds,
-          teacher:      subject.teacherIds.map(tid => teacherMeta[tid] || `Prof ${tid}`).join(", "),
+          teacher_ids:  a.teacherId != null ? [a.teacherId] : [],
+          teacher:      a.teacherId != null ? (teacherMeta[a.teacherId] || `Prof ${a.teacherId}`) : "",
           day:          a.dia,
           start:        minToTime(a.startMin),
           end:          minToTime(a.endMin),
@@ -684,6 +905,63 @@ router.get("/", async (req, res) => {
       ORDER BY s.created_at DESC
     `, params);
     res.json(rows);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// ── GET /api/v1/schedules/conflicts ──────────────
+// Detecta solapamientos de profesor o aula entre grupos del mismo cuatrimestre.
+router.get("/conflicts", requireAuth, async (req, res) => {
+  try {
+    const { degree, year, semester } = req.query;
+    if (!degree || !year || !semester)
+      return res.status(400).json({ error: "degree, year y semester son obligatorios" });
+
+    const teacherConflicts = await dbAll(`
+      SELECT t.name AS entity,
+             a.day_of_week, a.slot_start, a.slot_end,
+             sca.group_letter AS group_a, sa.name AS subject_a,
+             scb.group_letter AS group_b, sb.name AS subject_b
+      FROM   schedule_sessions a
+      JOIN   schedule_sessions b
+             ON  a.teacher_id   = b.teacher_id
+             AND a.day_of_week  = b.day_of_week
+             AND a.id < b.id
+             AND a.slot_start   < b.slot_end
+             AND a.slot_end     > b.slot_start
+      JOIN   schedules sca ON sca.id = a.schedule_id
+      JOIN   schedules scb ON scb.id = b.schedule_id
+      JOIN   subjects  sa  ON  sa.id = a.subject_id
+      JOIN   subjects  sb  ON  sb.id = b.subject_id
+      JOIN   teachers  t   ON   t.id = a.teacher_id
+      WHERE  sca.degree=? AND sca.year=? AND sca.semester=?
+        AND  scb.degree=? AND scb.year=? AND scb.semester=?
+        AND  a.teacher_id IS NOT NULL
+    `, [degree, year, semester, degree, year, semester]);
+
+    const classroomConflicts = await dbAll(`
+      SELECT c.name AS entity,
+             a.day_of_week, a.slot_start, a.slot_end,
+             sca.group_letter AS group_a, sa.name AS subject_a,
+             scb.group_letter AS group_b, sb.name AS subject_b
+      FROM   schedule_sessions a
+      JOIN   schedule_sessions b
+             ON  a.classroom_id = b.classroom_id
+             AND a.day_of_week  = b.day_of_week
+             AND a.id < b.id
+             AND a.slot_start   < b.slot_end
+             AND a.slot_end     > b.slot_start
+      JOIN   schedules sca ON sca.id = a.schedule_id
+      JOIN   schedules scb ON scb.id = b.schedule_id
+      JOIN   subjects  sa  ON  sa.id = a.subject_id
+      JOIN   subjects  sb  ON  sb.id = b.subject_id
+      JOIN   classrooms c  ON   c.id = a.classroom_id
+      WHERE  sca.degree=? AND sca.year=? AND sca.semester=?
+        AND  scb.degree=? AND scb.year=? AND scb.semester=?
+    `, [degree, year, semester, degree, year, semester]);
+
+    res.json({ teachers: teacherConflicts, classrooms: classroomConflicts });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
