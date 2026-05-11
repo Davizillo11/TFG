@@ -160,7 +160,7 @@
   </div>
 
   <!-- PANEL GENERAR TODO -->
-  <div id="panel-todo" style="display:none;width:100%;max-width:600px;flex:1;flex-direction:column;gap:16px;align-items:center;">
+  <div id="panel-todo" style="display:none;width:100%;max-width:600px;flex:1;flex-direction:column;gap:16px;align-items:center;justify-content:center;">
     <div class="gen-section" style="width:100%;">
       <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;">
         <h3 id="todo-title" style="margin:0;">Generando todos los horarios...</h3>
@@ -187,9 +187,11 @@
 <script src="js/auth.js"></script>
 <script>
 
+let currentUser = null;
+
 document.addEventListener("DOMContentLoaded", async () => {
-  const user = await Auth.init({ requireAuth: true });
-  if (!user) return;
+  currentUser = await Auth.init({ requireAuth: true });
+  if (!currentUser) return;
   document.getElementById("contenido-generador").style.display = "flex";
   await Promise.all([loadAulas(), loadAsignaturas()]);
 });
@@ -340,10 +342,13 @@ async function generarTodo() {
   const sumEl = document.getElementById("todo-summary");
   sumEl.style.display = "block";
   sumEl.innerHTML = `
-    <span style="color:#4ade80;font-weight:700;">${ok}</span> generados &nbsp;·&nbsp;
-    <span style="color:rgba(255,255,255,0.5);">${skipped}</span> omitidos &nbsp;·&nbsp;
-    <span style="color:${failed ? '#f87171' : 'inherit'};font-weight:${failed ? '700' : 'normal'};">${failed}</span> errores
-    <br><small style="color:rgba(255,255,255,0.4);display:block;margin-top:6px;">Revisa los horarios en Admin o en la página de Horarios.</small>
+    <span style="color:#16a34a;font-weight:700;">${ok}</span> generados &nbsp;·&nbsp;
+    <span style="color:#888;">${skipped}</span> omitidos &nbsp;·&nbsp;
+    <span style="color:${failed ? '#dc2626' : '#333'};font-weight:${failed ? '700' : 'normal'};">${failed}</span> errores
+    <div style="margin-top:16px;">
+      <a href="horarios.html" style="display:inline-block;padding:8px 20px;background:#16a34a;color:#fff;font-weight:700;border-radius:8px;text-decoration:none;font-size:14px;margin:0 5px;">Ver horarios</a>
+      ${currentUser?.role === 'admin' ? `<a href="admin.html" style="display:inline-block;padding:8px 20px;background:#e8ecf0;color:#333;font-weight:600;border-radius:8px;text-decoration:none;font-size:14px;border:1px solid #ccc;margin:0 5px;">Ir a Admin</a>` : ''}
+    </div>
   `;
 }
 

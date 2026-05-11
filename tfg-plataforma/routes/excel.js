@@ -63,7 +63,7 @@ async function fetchAvailMap(teacherIds) {
   return map;
 }
 
-// ── GET /api/v1/excel/professors — todos los profesores ──
+// descarga el Excel con todos los profesores y su disponibilidad
 router.get("/professors", requireAuth, async (req, res) => {
   try {
     const teachers = await dbAll(`
@@ -84,7 +84,7 @@ router.get("/professors", requireAuth, async (req, res) => {
   }
 });
 
-// ── GET /api/v1/excel/professors/:id — un profesor ──
+// descarga el Excel de un profesor concreto
 router.get("/professors/:id", requireAuth, async (req, res) => {
   try {
     const teacher = await dbGet(`
@@ -109,7 +109,7 @@ router.get("/professors/:id", requireAuth, async (req, res) => {
   }
 });
 
-// Aplica los datos de una fila Excel a un teacher existente
+// aplica los datos de una fila Excel a un profesor existente
 async function applyRowToTeacher(tid, row) {
   const nombre = (row["Nombre"] || "").trim();
   if (nombre) {
@@ -161,8 +161,7 @@ async function applyRowToTeacher(tid, row) {
   }
 }
 
-// ── POST /api/v1/excel/upload — subida global ──
-// Actualiza si nombre/email coincide; crea nuevo profesor si no existe.
+// importación global: actualiza si el nombre coincide, crea si no existe
 router.post("/upload", requireAdmin, upload.single("file"), async (req, res) => {
   if (!req.file) return res.status(400).json({ error: "No se recibió fichero" });
 
@@ -212,7 +211,7 @@ router.post("/upload", requireAdmin, upload.single("file"), async (req, res) => 
   }
 });
 
-// ── POST /api/v1/excel/upload/:id — subida individual ──
+// importación individual: sobreescribe disponibilidad de un profesor concreto
 router.post("/upload/:id", requireAdmin, upload.single("file"), async (req, res) => {
   if (!req.file) return res.status(400).json({ error: "No se recibió fichero" });
 
