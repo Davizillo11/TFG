@@ -385,86 +385,102 @@ function minToTime(min) {
 }
 
 // ── PDF Export ────────────────────────────────────
-function buildPrintHTML(sesiones, title) {
+function buildPrintHTML(sesiones, title, year, semester, groupLetter = '') {
   const DAY_NMS = ["Lunes","Martes","Miércoles","Jueves","Viernes"];
-  const COLORS = [
-    {b:"#2563eb",bg:"#dbeafe"},{b:"#dc2626",bg:"#fee2e2"},
-    {b:"#16a34a",bg:"#dcfce7"},{b:"#d97706",bg:"#fef3c7"},
-    {b:"#7c3aed",bg:"#ede9fe"},{b:"#0891b2",bg:"#cffafe"},
-    {b:"#0284c7",bg:"#e0f2fe"},{b:"#c2410c",bg:"#ffedd5"},
-    {b:"#9333ea",bg:"#f3e8ff"},{b:"#475569",bg:"#f1f5f9"},
-  ];
-  const colorMap = {};
-  let ci = 0;
-  for (const s of sesiones) {
-    const k = s.degree || s.subject;
-    if (!(k in colorMap)) colorMap[k] = COLORS[ci++ % COLORS.length];
-  }
   function tm(t) { const [h,m] = t.split(":").map(Number); return h*60+m; }
+  const pad = n => String(n).padStart(2,"0");
+  const fmt = m => `${Math.floor(m/60)}:${pad(m%60)}`; // sin ceros a la izquierda en la hora
+
   const dias = [...new Set(sesiones.map(s => s.day))].sort();
+  const ROW_PX = 50;
 
-  // slotMap: start → maxEnd
-  const slotMapP = {};
-  for (const s of sesiones) {
-    if (!slotMapP[s.start] || tm(s.end) > tm(slotMapP[s.start])) slotMapP[s.start] = s.end;
-  }
-  const slots = Object.entries(slotMapP).sort((a,b)=>tm(a[0])-tm(b[0]));
-  const byDS = {};
-  for (const s of sesiones) { if (!byDS[s.day]) byDS[s.day]={}; byDS[s.day][s.start]=s; }
+  // 1-hour grid augmented with session boundaries
+  const base = [];
+  for (let h = 8; h <= 21; h++) base.push(h * 60);
+  const sessBounds = sesiones.flatMap(s => [tm(s.start), tm(s.end)]);
+  const allBounds = [...new Set([...base, ...sessBounds])]
+    .filter(b => b >= 8*60 && b <= 21*60).sort((a,b) => a-b);
+  const rowBounds = [];
+  for (let i = 0; i < allBounds.length - 1; i++) rowBounds.push([allBounds[i], allBounds[i+1]]);
 
+  const covered = new Set();
   const hdr = `<tr>
-    <th style="width:72px;padding:10px 6px;background:#0f172a;color:#94a3b8;border:1px solid #334155;font-size:11px;"></th>
-    ${dias.map(d=>`<th style="padding:10px 8px;font-size:13px;font-weight:700;text-align:center;background:#1e293b;color:#fff;border:1px solid #334155;">${DAY_NMS[d]}</th>`).join("")}
+    <th style="width:68px;padding:7px 4px;background:#1e3a6e;color:#fff;border:1px solid #000;font-size:11px;font-weight:700;text-align:center;">HORA</th>
+    ${dias.map(d=>`<th style="padding:7px 6px;font-size:12px;font-weight:700;text-align:center;background:#1e3a6e;color:#fff;border:1px solid #000;text-transform:uppercase;letter-spacing:.06em;">${DAY_NMS[d]}</th>`).join("")}
   </tr>`;
 
-  let rows="", prevEndP=null;
-  for (const [st,se] of slots) {
-    if (prevEndP && tm(st) > tm(prevEndP)) {
-      rows+=`<tr style="background:#fef3c7;">
-        <td style="padding:4px 6px;text-align:center;font-size:10px;font-weight:700;color:#92400e;background:#fef9c3;border-right:2px solid #f59e0b;">${prevEndP}<br><span style="opacity:.7">${st}</span></td>
-        <td colspan="${dias.length}" style="text-align:center;font-size:10px;font-weight:700;letter-spacing:.07em;text-transform:uppercase;color:#92400e;border-top:1px solid #f59e0b;border-bottom:1px solid #f59e0b;">Descanso</td>
-      </tr>`;
+  let rows = "";
+  for (let ri = 0; ri < rowBounds.length; ri++) {
+    const [rStart, rEnd] = rowBounds[ri];
+    const rowH = Math.max(32, Math.round((rEnd - rStart) / 60 * ROW_PX));
+    const isLunch = rStart === 14*60;
+    const lbl = `${fmt(rStart)}/${fmt(rEnd - 5)}`;
+
+    let cells = `<td style="padding:2px 4px;text-align:center;vertical-align:middle;background:#f0f4f8;border:1px solid #000;white-space:nowrap;font-size:10px;font-weight:700;color:#1e3a6e;">${lbl}</td>`;
+
+    for (const d of dias) {
+      if (covered.has(`${d}-${ri}`)) continue;
+      if (isLunch) { cells += `<td style="border:1px solid #000;background:#e8e8e8;"></td>`; continue; }
+
+      const sessArr = sesiones.filter(s => s.day === d && tm(s.start) >= rStart && tm(s.start) < rEnd);
+      if (sessArr.length) {
+        const maxEnd = Math.max(...sessArr.map(s => tm(s.end)));
+        let span = 0;
+        for (let j = ri; j < rowBounds.length && rowBounds[j][0] < maxEnd; j++) {
+          span++;
+          covered.add(`${d}-${j}`);
+        }
+        const inner = sessArr.map((sess, idx) => {
+          const isTheory = sess.subgroup == null;
+          const grpTag = year && groupLetter
+            ? `${year}${groupLetter}${isTheory ? '' : (sess.subgroup || '')}`
+            : '';
+          const grp  = grpTag ? ` - ${grpTag}` : '';
+          const room = sess.classroom || '';
+          if (isTheory) {
+            return `<div style="font-size:11px;font-weight:700;text-transform:uppercase;color:#1e3a6e;line-height:1.5;${idx>0?'margin-top:6px;':''}">${sess.subject}${grp}${room?`<br><b>(${room})</b>`:''}
+            </div>`;
+          } else {
+            return `<div style="font-size:10px;font-weight:500;color:#333;line-height:1.5;${idx>0?'margin-top:5px;':''}">${sess.subject}${grp}${room?`  (${room})`:''}
+            </div>`;
+          }
+        }).join("");
+        cells += `<td rowspan="${span}" style="padding:4px 6px;text-align:center;vertical-align:middle;border:1px solid #000;background:#fff;">${inner}</td>`;
+      } else {
+        cells += `<td style="border:1px solid #000;background:#fff;"></td>`;
+      }
     }
-    const durM = tm(se)-tm(st);
-    const rh = Math.max(44, durM*1.1);
-    const cells = dias.map(d=>{
-      const s=byDS[d]?.[st];
-      if(!s) return `<td style="padding:4px;border-right:1px solid #e2e8f0;"></td>`;
-      const c=colorMap[s.degree||s.subject]||COLORS[0];
-      return `<td style="padding:4px;vertical-align:middle;border-right:1px solid #e2e8f0;">
-        <div style="border-radius:6px;padding:7px 8px;border-left:4px solid ${c.b};background:${c.bg};height:100%;box-sizing:border-box;display:flex;flex-direction:column;justify-content:center;align-items:center;text-align:center;">
-          <div style="font-size:12px;font-weight:700;color:#0f172a;line-height:1.3;">${s.subject}</div>
-          <div style="font-size:10px;color:#475569;margin-top:3px;">${s.classroom||""}</div>
-          ${s.teacher?`<div style="font-size:9px;color:#64748b;margin-top:2px;">${s.teacher}</div>`:""}
-        </div>
-      </td>`;
-    }).join("");
-    rows+=`<tr style="height:${rh}px;border-bottom:1px solid #e2e8f0;">
-      <td style="padding:8px 6px;text-align:center;vertical-align:middle;background:#f8fafc;border-right:2px solid #cbd5e1;">
-        <span style="display:block;font-size:12px;font-weight:700;color:#1e293b;">${st}</span>
-        <span style="display:block;font-size:10px;color:#94a3b8;margin-top:2px;">${se}</span>
-      </td>${cells}
-    </tr>`;
-    if (!prevEndP || tm(se) > tm(prevEndP)) prevEndP = se;
+    rows += `<tr style="height:${rowH}px;">${cells}</tr>`;
   }
 
-  const legend = Object.entries(colorMap).map(([k,c])=>
-    `<span style="display:inline-flex;align-items:center;gap:5px;margin:3px 10px 3px 0;font-size:11px;color:#334155;">
-      <span style="width:10px;height:10px;border-radius:50%;background:${c.b};display:inline-block;"></span>${k}
-    </span>`).join("");
+  const cuatriNum = (year && semester) ? (year-1)*2+semester : null;
+  const semStr    = semester === 1 ? "1er" : "2º";
+  const yearStr   = year ? `${year}º` : '';
+  const leftTitle = cuatriNum ? `CUATRIMESTRE ${cuatriNum}º (Curso ${year}º, Semestre ${semester}º)` : title;
+  const degree    = title.split(/\s*[–\-]\s*/)[0]?.trim() || title;
+  const grpMatch  = title.match(/Gr\.\s*([A-Z0-9]+)/);
+  const grpStr    = grpMatch ? ` ${grpMatch[1]}` : (groupLetter ? ` ${groupLetter}` : '');
+  const rightTitle = (year && semester)
+    ? `GRUPO ${yearStr}${grpStr}`
+    : year ? `${degree} – ${yearStr} Año` : "Universidad de Alcalá";
+  const anyo = new Date().getFullYear();
+  const curso = `Curso ${anyo}/${anyo+1}`;
 
   return `<!DOCTYPE html><html lang="es"><head><meta charset="UTF-8"><title>${title}</title>
-<style>*{margin:0;padding:0;box-sizing:border-box}body{font-family:Arial,Helvetica,sans-serif;background:#fff;color:#000;padding:18px 22px}
-@media print{@page{margin:10mm 8mm;size:A4 landscape}body{padding:0}}</style></head><body>
-<div style="display:flex;justify-content:space-between;align-items:flex-end;margin-bottom:14px;padding-bottom:10px;border-bottom:2px solid #1e293b;">
-  <div>
-    <h1 style="font-size:20px;font-weight:800;color:#0f172a;">${title}</h1>
-    <p style="font-size:11px;color:#64748b;margin-top:3px;">${sesiones.length} sesiones · ${new Date().toLocaleDateString("es-ES",{day:"2-digit",month:"long",year:"numeric"})}</p>
-  </div>
-  <div style="font-size:10px;color:#94a3b8;text-align:right;">TFG Plataforma<br>Universidad de Alcalá</div>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:Arial,Helvetica,sans-serif;background:#fff;color:#000;padding:10px 14px}
+@media print{@page{margin:6mm;size:A4 landscape}body{padding:0}*{-webkit-print-color-adjust:exact;print-color-adjust:exact;color-adjust:exact}}
+</style></head><body>
+<div style="display:flex;justify-content:space-between;align-items:center;padding:7px 14px;border-bottom:2px solid #1e3a6e;margin-bottom:0;">
+  <span style="font-size:13px;font-weight:700;color:#1e3a6e;">${leftTitle}</span>
+  <span style="font-size:13px;font-weight:600;color:#333;">${curso}</span>
+  <span style="font-size:13px;font-weight:700;color:#1e3a6e;">${rightTitle}</span>
 </div>
-<table style="width:100%;border-collapse:collapse;table-layout:fixed;"><thead>${hdr}</thead><tbody>${rows}</tbody></table>
-${Object.keys(colorMap).length>1?`<div style="margin-top:12px;padding-top:8px;border-top:1px solid #e2e8f0;"><span style="font-size:10px;font-weight:700;color:#64748b;text-transform:uppercase;letter-spacing:.06em;margin-right:6px;">Leyenda:</span>${legend}</div>`:""}
+<table style="width:100%;border-collapse:collapse;border:2px solid #000;">
+  <thead>${hdr}</thead><tbody>${rows}</tbody>
+</table>
+<div style="font-size:9px;color:#94a3b8;margin-top:5px;text-align:right;font-style:italic;">${new Date().toLocaleDateString("es-ES",{day:"2-digit",month:"long",year:"numeric"})} · TFG Plataforma · Universidad de Alcalá</div>
 </body></html>`;
 }
 
@@ -472,7 +488,7 @@ function exportPDF() {
   if (!currentSessions.length) return;
   const title = document.querySelector("#estado-resultado h1")?.textContent || "Horario";
   const win = window.open("", "_blank", "width=1000,height=700");
-  win.document.write(buildPrintHTML(currentSessions, title));
+  win.document.write(buildPrintHTML(currentSessions, title, currentMeta?.year, currentMeta?.semester, currentMeta?.group_letter || ''));
   win.document.close();
   win.addEventListener("load", () => { win.focus(); win.print(); });
 }
@@ -480,6 +496,7 @@ function exportPDF() {
 // ── State ─────────────────────────────────────────
 let currentSessions = [];
 let currentScheduleId = null;
+let currentMeta = null;
 let savedFranjas = null;
 let savedBreaks  = [];
 let currentSlotMins = [];
@@ -508,16 +525,17 @@ function renderLegend(colorMap) {
 
 // ── Metrics ───────────────────────────────────────
 function renderStats(sesiones, noAsig, payload, totalNeeded) {
-  const assigned   = sesiones.length;
+  const theory  = sesiones.filter(s => s.subgroup == null).length;
+  const lab     = sesiones.filter(s => s.subgroup != null).length;
+  const total   = sesiones.length;
   const aulasUsed  = new Set(sesiones.map(s => s.classroom_id || s.classroom)).size;
   const aulasTotal = payload.aulas.length;
-  const teachers   = new Set(sesiones.map(s => s.teacher).filter(Boolean)).size;
-  const pct = totalNeeded > 0 ? Math.round(assigned / totalNeeded * 100) : 100;
+  const pct = totalNeeded > 0 ? Math.round(theory / totalNeeded * 100) : 100;
+  const theorySub = lab > 0 ? `${theory}T · ${lab}P` : `${theory} sesiones`;
 
   const cards = [
-    { val: `${assigned}/${totalNeeded}`, lbl: "Sesiones asignadas", sub: `${pct}% completado`, cls: pct === 100 ? "ok" : "warn" },
+    { val: total, lbl: "Sesiones asignadas", sub: theorySub, cls: pct === 100 ? "ok" : "warn" },
     { val: `${aulasUsed}/${aulasTotal}`, lbl: "Aulas utilizadas", sub: `${Math.round(aulasUsed/aulasTotal*100)}% de ocupación`, cls: "" },
-    { val: teachers, lbl: "Profesores con clase", sub: "", cls: "" },
   ];
   if (noAsig.length) {
     cards.push({ val: noAsig.length, lbl: "Sin asignar", sub: "Ver abajo", cls: "warn" });
@@ -607,12 +625,36 @@ function renderTable(sesiones, franjas, colorMap, breaks = [], slotMins = []) {
         const sm = timeToMin(s.start);
         return sm >= rowStartMin && sm < rowEndMin;
       });
+      entries.sort((a, b) => (a.s.subgroup ?? 0) - (b.s.subgroup ?? 0));
 
       if (!entries.length) {
         return `<td class="sc-day-cell" data-day="${d}" data-start="${slotStart}"></td>`;
       }
+
+      // Si hay varias sesiones (subgrupos de prácticas), mostrarlas apiladas
+      if (entries.length > 1 || entries[0].s.subgroup != null) {
+        const cards = entries.map(({ s, idx }) => {
+          const color = colorMap[s.degree || s.subject] || PALETTE[0];
+          const isTheory = s.subgroup == null;
+          const grpTag = currentMeta?.year && currentMeta?.group_letter
+            ? `${currentMeta.year}${currentMeta.group_letter}${isTheory ? '' : (s.subgroup || '')}`
+            : '';
+          return `<div class="sc-card" style="--sc:${color};flex:1;min-height:0;margin:2px 0;${isTheory ? '' : 'opacity:.9;border-left-style:dashed;'}"
+            draggable="true" data-idx="${idx}">
+            <div class="c-subject" style="${isTheory ? 'text-transform:uppercase;' : 'font-size:11px;'}">${s.subject}</div>
+            <div class="c-room">${s.classroom||''}${grpTag ? ' · '+grpTag : ''}</div>
+          </div>`;
+        }).join("");
+        return `<td class="sc-day-cell" data-day="${d}" data-start="${slotStart}" style="padding:0;vertical-align:top">
+          <div class="multi-wrapper" style="display:flex;flex-direction:column;gap:2px;padding:2px 5px;box-sizing:border-box;">${cards}</div>
+        </td>`;
+      }
+
       const { s, idx } = entries[0];
       const color    = colorMap[s.degree || s.subject] || PALETTE[0];
+      const grpTag   = currentMeta?.year && currentMeta?.group_letter
+        ? `${currentMeta.year}${currentMeta.group_letter}${s.subgroup != null ? s.subgroup : ''}`
+        : '';
       const sessMin  = timeToMin(s.start);
       const sessDur  = timeToMin(s.end) - sessMin;
       const topPx    = Math.round(((sessMin - rowStartMin) / durMin) * rowH);
@@ -637,8 +679,7 @@ function renderTable(sesiones, franjas, colorMap, breaks = [], slotMins = []) {
           draggable="true" data-idx="${idx}"
           ${isOffsetable ? `data-offset="${maxTopPx}" data-flipped="${flippedNow}" data-orig-start="${fringeStart}" data-orig-end="${fringeEnd}" data-top-start="${topStartTime}" data-top-end="${topEndTime}"` : ""}>
           <div class="c-subject">${s.subject}</div>
-          <div class="c-room">${s.classroom}</div>
-          ${s.teacher ? `<div class="c-teacher">${s.teacher}</div>` : ""}
+          <div class="c-room">${s.classroom}${grpTag ? ' · ' + grpTag : ''}</div>
           ${isOffsetable ? `<button class="sc-toggle-btn" draggable="false" title="Mover arriba/abajo" onmousedown="event.stopPropagation()" onclick="toggleOffsetCard(this,event)">⇅</button>` : ""}
         </div>
       </td>`;
@@ -657,6 +698,15 @@ function renderTable(sesiones, franjas, colorMap, breaks = [], slotMins = []) {
 
   document.getElementById("schedule-grid").innerHTML =
     `<table class="sc-table"><thead>${header}</thead><tbody>${rows}</tbody></table>`;
+
+  requestAnimationFrame(() => {
+    document.querySelectorAll('#schedule-grid tr').forEach(tr => {
+      const h = tr.offsetHeight;
+      tr.querySelectorAll('.multi-wrapper').forEach(div => {
+        div.style.height = Math.max(0, h - 4) + 'px';
+      });
+    });
+  });
 
   attachDragDrop();
 }
@@ -724,7 +774,10 @@ function attachDragDrop() {
       const targetStart = cell.dataset.start;
       const src = currentSessions[dragIdx];
 
-      if (src.day === targetDay && src.start === targetStart) return;
+      if (src.day === targetDay && src.start === targetStart) {
+        dragIdx = null;
+        return;
+      }
 
       const dur     = timeToMin(src.end) - timeToMin(src.start);
       const duracion = savedFranjas ? savedFranjas.duracion : dur;
@@ -765,18 +818,25 @@ function attachDragDrop() {
 
       const newEnd = minToTime(actualStartMin + dur);
 
-      // Find any session occupying the target row. Use exact row boundaries (capped by next
-      // slotMin and endMin0) to avoid catching sessions in adjacent rows.
+      // Resolve which card the drop landed on (ignoring the card being dragged)
+      const droppedOnCard = e.target.closest('.sc-card[data-idx]');
+      const droppedOnIdx  = (droppedOnCard && parseInt(droppedOnCard.dataset.idx) !== dragIdx)
+        ? parseInt(droppedOnCard.dataset.idx) : -1;
+
+      // Find which session to swap with. If the drop landed on a specific card (multi-cell),
+      // use that card's index; otherwise fall back to the first session in the target row.
       const targetRowStart = [...currentSlotMins].reverse().find(sm => sm <= timeToMin(targetStart)) ?? timeToMin(targetStart);
       const targetRowIdxSl = currentSlotMins.indexOf(targetRowStart);
       const targetNextSl   = targetRowIdxSl >= 0 ? currentSlotMins[targetRowIdxSl + 1] : undefined;
       const targetRowEnd   = targetNextSl !== undefined
         ? Math.min(targetNextSl, targetRowStart + duracion)
         : Math.min(targetRowStart + duracion, endMin0);
-      const targetIdx = currentSessions.findIndex(s => {
-        const sm = timeToMin(s.start);
-        return s.day === targetDay && sm >= targetRowStart && sm < targetRowEnd;
-      });
+      const targetIdx = droppedOnIdx >= 0
+        ? droppedOnIdx
+        : currentSessions.findIndex(s => {
+            const sm = timeToMin(s.start);
+            return s.day === targetDay && sm >= targetRowStart && sm < targetRowEnd;
+          });
 
       if (targetIdx >= 0) {
         const tgt    = currentSessions[targetIdx];
@@ -784,9 +844,12 @@ function attachDragDrop() {
         // Place the displaced session at the correct fringe/row-start of the source row.
         const swapStartMin = snapToRow(timeToMin(src.start), tgtDur);
         if (overflows(swapStartMin, tgtDur)) { dragIdx = null; return; }
+        // Each session keeps its own subgroup — group identity travels with the session
         currentSessions[targetIdx] = { ...tgt, day: src.day, start: minToTime(swapStartMin), end: minToTime(swapStartMin + tgtDur) };
+        currentSessions[dragIdx]   = { ...src, day: targetDay, start: actualStart, end: newEnd, forceTopHalf: srcAtTop };
+      } else {
+        currentSessions[dragIdx] = { ...src, day: targetDay, start: actualStart, end: newEnd, forceTopHalf: srcAtTop };
       }
-      currentSessions[dragIdx] = { ...src, day: targetDay, start: actualStart, end: newEnd, forceTopHalf: srcAtTop };
 
       dragIdx = null;
       hasUnsaved = true;
@@ -843,6 +906,7 @@ document.addEventListener("DOMContentLoaded", async () => {
   catch { showError("Datos de generación inválidos."); return; }
 
   savedFranjas = payload.franjas;
+  currentMeta  = payload.meta || null;
 
   let data;
   try {

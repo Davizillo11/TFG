@@ -15,25 +15,25 @@ router.get("/", requireAuth, (req, res) => {
 
 // POST create
 router.post("/", requireAdmin, (req, res) => {
-  const { name, department, email } = req.body;
+  const { name, department, email, session_type } = req.body;
   if (!name) return res.status(400).json({ error: "Nombre requerido" });
 
   db.run(
-    "INSERT INTO teachers (name, department, email) VALUES (?,?,?)",
-    [name, department || null, email || null],
+    "INSERT INTO teachers (name, department, email, session_type) VALUES (?,?,?,?)",
+    [name, department || null, email || null, session_type || 'ambos'],
     function (err) {
       if (err) return res.status(500).json({ error: err.message });
-      res.json({ id: this.lastID, name, department, email });
+      res.json({ id: this.lastID, name, department, email, session_type: session_type || 'ambos' });
     }
   );
 });
 
 // PUT update
 router.put("/:id", requireAdmin, (req, res) => {
-  const { name, department, email } = req.body;
+  const { name, department, email, session_type } = req.body;
   db.run(
-    "UPDATE teachers SET name=?, department=?, email=? WHERE id=?",
-    [name, department, email, req.params.id],
+    "UPDATE teachers SET name=?, department=?, email=?, session_type=? WHERE id=?",
+    [name, department, email, session_type || 'ambos', req.params.id],
     function (err) {
       if (err) return res.status(500).json({ error: err.message });
       if (this.changes === 0) return res.status(404).json({ error: "No encontrado" });

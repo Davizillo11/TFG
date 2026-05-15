@@ -28,21 +28,165 @@ const {
 } = require('../lib/solver');
 
 
+// Asigna sesiones de prácticas (subgrupos) de forma greedy después del CSP de teoría.
+// Reglas: máx 2 labs por slot, intercala subgrupos de distintas asignaturas,
+// prioriza mañana (rejilla 10:00 / 12:00) igual que el solver de teoría.
+function solveLabSessions({ subjects, classroomRows, classroomType, classroomCapacity,
+                             classroomMeta, preOccClassrooms, theoryDayBySubject,
+                             effectiveDias, startMin0, finMin, theorySessions = [],
+                             transversalDay = 4, classroomZone = {}, zonePrefMap = {},
+                             subjectLabTeachersMap = {}, teacherMeta = {}, teacherAvail = {},
+                             preOccTeachers = new Set() }) {
+  const LAB_DUR = 120;
+  const labSessions = [];
+  const noAsig = [];
+  const roomOcc = new Set();
+
+  // Ocupación de teoría → bloquea labs en esos huecos
+  const theoryTimeOcc = new Set();
+  for (const ts of theorySessions) {
+    const s = timeToMin(ts.start), e = timeToMin(ts.end);
+    for (let m = s; m < e; m += 5) theoryTimeOcc.add(`${ts.day}-${m}`);
+  }
+
+  const ANCHORS = [10 * 60, 15 * 60];
+  const candidateSlots = [];
+  // Fase 1: franja 10:00-14:00 — primera opción para grupos de mañana
+  for (let m = ANCHORS[0]; m + LAB_DUR <= LUNCH_START; m += LAB_DUR) {
+    if (m < startMin0) continue; // grupos de tarde (F): omitir mañana
+    for (const d of effectiveDias) candidateSlots.push({ dia: d, startMin: m });
+  }
+  // Fase 2: franja 8:00-10:00 — fallback si la mañana está saturada
+  for (let m = startMin0; m + LAB_DUR <= ANCHORS[0]; m += LAB_DUR) {
+    for (const d of effectiveDias) candidateSlots.push({ dia: d, startMin: m });
+  }
+  // Fase 3: tarde 15:00-21:00 — prioridad para grupos de tarde, último recurso para grupos de mañana
+  for (let m = Math.max(ANCHORS[1], startMin0); m + LAB_DUR <= finMin; m += LAB_DUR) {
+    if (m >= LUNCH_START && m < LUNCH_END) continue;
+    for (const d of effectiveDias) candidateSlots.push({ dia: d, startMin: m });
+  }
+
+  // Preparar metadatos por asignatura lab
+  const labSubjects = [];
+  for (const subj of subjects) {
+    if (!subj.labHours || subj.transversal) continue;
+    const labType = subj.roomType || 'laboratorio';
+    const eligible = classroomRows.filter(r => (classroomType[r.id] || 'teoria') === labType);
+    if (!eligible.length) { noAsig.push(`${subj.name} (sin aulas ${labType})`); continue; }
+    const prefZone = zonePrefMap[`${subj.degree}|${subj.year}`] || null;
+    const eligibleSorted = [
+      ...shuffle(eligible.filter(r => prefZone && classroomZone[r.id] === prefZone)),
+      ...shuffle(eligible.filter(r => !prefZone || classroomZone[r.id] !== prefZone)),
+    ];
+    const maxCap = Math.max(...eligible.map(r => classroomCapacity[r.id]));
+    // Year 3+ → always 1 subgroup (branch-specific small groups, no subdivision needed)
+    const N = (subj.year >= 3) ? 1 : Math.max(1, Math.ceil((subj.students || 1) / maxCap));
+    const subgroupSize = Math.ceil((subj.students || 1) / N);
+    labSubjects.push({ subj, labType, eligible: eligibleSorted, N, subgroupSize });
+  }
+
+  // Orden de tareas: k=1 de todas las asignaturas primero, luego k=2, luego k=3, ...
+  // Así los subgrupos "primeros" (A1) llenan los slots prioritarios (10-14) antes que A2 o A3.
+  const maxN = labSubjects.length ? Math.max(...labSubjects.map(s => s.N)) : 0;
+  const tasks = [];
+  for (let k = 1; k <= maxN; k++) {
+    for (const ls of labSubjects) {
+      if (k > ls.N) continue;
+      tasks.push({ ...ls, k });
+    }
+  }
+
+  // Máx 2 labs por slot (de cualquier asignatura)
+  const slotLabCount = new Map();
+  // Por subgrupo k: slots ya ocupados → evita que sg1 de dos asignaturas coincidan en el mismo horario
+  const subgroupSlotOcc = new Map();
+  // Por asignatura: slots ya ocupados → evita que dos subgrupos de la misma asignatura coincidan
+  const subjectSlotOcc = new Map();
+
+  for (const { subj, labType, eligible, subgroupSize, k } of tasks) {
+    const theoryDay = theoryDayBySubject[subj.id] ?? null;
+    let assigned = false;
+
+    if (!subgroupSlotOcc.has(k)) subgroupSlotOcc.set(k, new Set());
+    const sgOcc = subgroupSlotOcc.get(k);
+    if (!subjectSlotOcc.has(subj.id)) subjectSlotOcc.set(subj.id, new Set());
+    const subjOcc = subjectSlotOcc.get(subj.id);
+
+    for (const slot of candidateSlots) {
+      if (transversalDay >= 0 && slot.dia === transversalDay) continue; // día transversal reservado
+      if (slot.dia === theoryDay) continue;
+      if (!isSegmentFree([theoryTimeOcc], `${slot.dia}`, slot.startMin, slot.startMin + LAB_DUR)) continue;
+      const slotKey = `${slot.dia}-${slot.startMin}`;
+      if ((slotLabCount.get(slotKey) || 0) >= 2) continue; // máx 2 simultáneos
+      if (sgOcc.has(slotKey)) continue; // este subgrupo k ya tiene lab en este horario
+      if (subjOcc.has(slotKey)) continue; // otro subgrupo de esta misma asignatura ya está aquí
+
+      const freeRoom = eligible.find(r => {
+        if (classroomCapacity[r.id] < subgroupSize) return false;
+        const rKey = `${r.id}-${slot.dia}`;
+        return isSegmentFree([preOccClassrooms, roomOcc], rKey, slot.startMin, slot.startMin + LAB_DUR);
+      });
+
+      if (freeRoom) {
+        occupySegment(roomOcc, `${freeRoom.id}-${slot.dia}`, slot.startMin, slot.startMin + LAB_DUR);
+        slotLabCount.set(slotKey, (slotLabCount.get(slotKey) || 0) + 1);
+        sgOcc.add(slotKey);
+        subjOcc.add(slotKey);
+
+        // Asignar profesor de lab disponible para este subgrupo
+        const labTeachers = subjectLabTeachersMap[subj.id] || [];
+        let labTeacherId = null;
+        for (const tid of labTeachers) {
+          const avail = teacherAvail[tid];
+          if (avail) {
+            const dayAvail = avail[slot.dia] || [];
+            const free = dayAvail.some(([s, e]) => s <= slot.startMin && e >= slot.startMin + LAB_DUR);
+            if (!free) continue;
+          }
+          const tKey = `${tid}-${slot.dia}`;
+          if (!isSegmentFree([preOccTeachers], tKey, slot.startMin, slot.startMin + LAB_DUR)) continue;
+          labTeacherId = tid;
+          break;
+        }
+        if (labTeacherId) occupySegment(preOccTeachers, `${labTeacherId}-${slot.dia}`, slot.startMin, slot.startMin + LAB_DUR);
+
+        labSessions.push({
+          subject_id:   subj.id,
+          subject:      subj.name,
+          degree:       subj.degree,
+          classroom_id: freeRoom.id,
+          classroom:    classroomMeta[freeRoom.id] || `Lab ${freeRoom.id}`,
+          teacher_ids:  labTeacherId ? [labTeacherId] : [],
+          teacher:      labTeacherId ? (teacherMeta[labTeacherId] || "") : "",
+          day:          slot.dia,
+          start:        minToTime(slot.startMin),
+          end:          minToTime(slot.startMin + LAB_DUR),
+          subgroup:     k,
+        });
+        assigned = true;
+        break;
+      }
+    }
+    if (!assigned) noAsig.push(`${subj.name} (práct. sg${k})`);
+  }
+
+  return { labSessions, noAsig };
+}
+
 // genera el horario para un grupo/cuatrimestre y lo guarda en BD
 router.post("/generate", requireAuth, async (req, res) => {
   try {
-    const { aulas, asignaturas, franjas, meta = {} } = req.body;
+    const { aulas, asignaturas, franjas, meta = {}, transversalDay = -1 } = req.body;
     const { dias, horaInicio, horaFin, duracion } = franjas;
     const finMin = timeToMin(horaFin);
-    // 1º siempre incluye el viernes para las asignaturas transversales
-    const effectiveDias = (meta.year === 1) ? [...new Set([...dias, 4])] : dias;
 
-    const [availRows, stRows, subjectRows, teacherRows, classroomRows] = await Promise.all([
+    const [availRows, stRows, subjectRows, teacherRows, classroomRows, zonePrefRows] = await Promise.all([
       dbAll("SELECT * FROM teacher_availability WHERE available=1"),
       dbAll("SELECT * FROM subject_teachers"),
-      dbAll("SELECT id, name, degree, year, semester, room_type, bilingual FROM subjects"),
-      dbAll("SELECT id, name FROM teachers"),
-      dbAll("SELECT id, name, type FROM classrooms"),
+      dbAll("SELECT id, name, degree, year, semester, room_type, bilingual, session_type, theory_hours, lab_hours FROM subjects"),
+      dbAll("SELECT id, name, session_type FROM teachers"),
+      dbAll("SELECT id, name, type, capacity, zone FROM classrooms"),
+      dbAll("SELECT degree, year, zone FROM zone_preferences"),
     ]);
 
     // disponibilidad de cada profesor: fusionar intervalos adyacentes una sola vez aquí
@@ -67,14 +211,31 @@ router.post("/generate", requireAuth, async (req, res) => {
         teacherAvail[tid][+day] = merged; // +day: string key → number
       }
     }
-    const subjectTeachersMap = {};
+    const subjectMeta        = Object.fromEntries(subjectRows.map(r => [r.id, r]));
+    const teacherMeta        = Object.fromEntries(teacherRows.map(r => [r.id, r.name]));
+    const teacherSessionType = Object.fromEntries(teacherRows.map(r => [r.id, r.session_type || 'ambos']));
+    const subjectTeachersMap    = {}; // para teoría: solo profes de tipo 'teoria' o 'ambos'
+    const subjectLabTeachersMap = {}; // para labs: solo profes de tipo 'laboratorio' o 'ambos'
     for (const r of stRows) {
-      (subjectTeachersMap[r.subject_id] = subjectTeachersMap[r.subject_id] || []).push(r.teacher_id);
+      const st = teacherSessionType[r.teacher_id] || 'ambos';
+      if (st === 'teoria' || st === 'ambos')
+        (subjectTeachersMap[r.subject_id] = subjectTeachersMap[r.subject_id] || []).push(r.teacher_id);
+      if (st === 'laboratorio' || st === 'ambos')
+        (subjectLabTeachersMap[r.subject_id] = subjectLabTeachersMap[r.subject_id] || []).push(r.teacher_id);
     }
-    const subjectMeta   = Object.fromEntries(subjectRows.map(r => [r.id, r]));
-    const teacherMeta   = Object.fromEntries(teacherRows.map(r => [r.id, r.name]));
-    const classroomMeta = Object.fromEntries(classroomRows.map(r => [r.id, r.name]));
-    const classroomType = Object.fromEntries(classroomRows.map(r => [r.id, r.type]));
+    const classroomMeta      = Object.fromEntries(classroomRows.map(r => [r.id, r.name]));
+    const classroomType      = Object.fromEntries(classroomRows.map(r => [r.id, r.type]));
+    const classroomCapacity  = Object.fromEntries(classroomRows.map(r => [r.id, r.capacity]));
+    const classroomZone      = Object.fromEntries(classroomRows.map(r => [r.id, r.zone || null]));
+    const zonePrefMap        = Object.fromEntries(zonePrefRows.map(r => [`${r.degree}|${r.year}`, r.zone || null]));
+
+    // effectiveDias: excluye el día transversal si hay asignaturas transversales y hay día reservado
+    const hasTransversal = asignaturas.some(a =>
+      (subjectMeta[a.id]?.name || '').trim().toLowerCase().startsWith('transversal')
+    );
+    const effectiveDias = (hasTransversal && transversalDay >= 0)
+      ? dias.filter(d => d !== transversalDay)
+      : dias;
 
     // rejilla de slots anclada en 10:00 y 15:00 con paso = duracion
     const ANCHORS   = [10 * 60, 15 * 60];
@@ -86,7 +247,7 @@ router.post("/generate", requireAuth, async (req, res) => {
       for (let m = anchor; m + duracion <= endMin0; m += duracion) {
         if (m < LUNCH_END && m + duracion > LUNCH_START) break; // solaparía la comida
         if (m < startMin0) continue;
-        for (const d of effectiveDias) mainSlots.push({ dia: d, startMin: m });
+        for (const d of effectiveDias) mainSlots.push({ dia: d, startMin: m, isLate: m >= 19 * 60 });
       }
     }
 
@@ -136,18 +297,22 @@ router.post("/generate", requireAuth, async (req, res) => {
       const year          = subMeta.year   ?? null;
       const roomType      = subMeta.room_type || null;
       const isTransversal = (subMeta.name || "").trim().toLowerCase().startsWith("transversal");
+      const theoryHours   = subMeta.theory_hours ?? Math.max(2, (s.hours || 4) - 2);
+      const labHours      = subMeta.lab_hours    ?? (isTransversal ? 0 : 2);
       return {
         ...s,
         teacherIds:       isTransversal ? [] : (subjectTeachersMap[s.id] || []),
-        sessionDurations: getSessionDurations(s.hours, duracion),
+        sessionDurations: getSessionDurations(theoryHours || 2, duracion),
         name:             subMeta.name || `Asignatura ${s.id}`,
         degree,
         year,
         roomType,
-        semester:    subMeta.semester ?? null,
-        bilingual:   subMeta.bilingual   || 0,
-        transversal: isTransversal,
-        groupLetter: meta.group_letter || null,
+        labHours,
+        semester:     subMeta.semester    ?? null,
+        bilingual:    subMeta.bilingual   || 0,
+        session_type: subMeta.session_type || 'teoria',
+        transversal:  isTransversal,
+        groupLetter:  meta.group_letter || null,
         groupKey: degree && year != null ? `${degree}|${year}` : null,
       };
     });
@@ -156,16 +321,17 @@ router.post("/generate", requireAuth, async (req, res) => {
       subjects = subjects.filter(s => s.bilingual);
     }
 
-    // aulas válidas por asignatura según tipo de sala y aforo
+    // Teoría siempre en aulas de tipo 'teoria' con aforo >= alumnos; zona preferida primero
     const validAulasBySubject = {};
     for (const s of subjects) {
-      const requiredType = s.roomType || "teoria";
-      validAulasBySubject[s.id] = shuffle(
-        aulas.filter(a =>
-          a.capacity >= s.students &&
-          (classroomType[a.id] || "teoria") === requiredType
-        )
+      const prefZone = zonePrefMap[`${s.degree}|${s.year}`] || null;
+      const filtered = aulas.filter(a =>
+        a.capacity >= s.students &&
+        (classroomType[a.id] || "teoria") === "teoria"
       );
+      const preferred = shuffle(filtered.filter(a => prefZone && classroomZone[a.id] === prefZone));
+      const others    = shuffle(filtered.filter(a => !prefZone || classroomZone[a.id] !== prefZone));
+      validAulasBySubject[s.id] = [...preferred, ...others];
     }
 
     // días a evitar por asignatura según los horarios ya generados de otros grupos
@@ -234,30 +400,32 @@ router.post("/generate", requireAuth, async (req, res) => {
       }
     }
 
-    // MRV: contar slots disponibles por asignatura para ordenarlas de más a menos restringida
+    // MRV: contar slots por asignatura (restricción de aula, no de profesor — profesor es soft)
     const validSlots = {};
     for (const s of subjects) {
       const checkDur = Math.max(...s.sessionDurations, duracion);
-      let count = 0;
-      for (const { dia, startMin } of startTimes) {
-        if (startMin + checkDur > finMin) continue;
-        const teacherOK = s.teacherIds.length === 0 || s.teacherIds.some(tid =>
-          isTeacherAvailable(tid, dia, startMin, startMin + checkDur, teacherAvail) &&
-          isSegmentFree([preOccTeachers], `${tid}-${dia}`, startMin, startMin + checkDur)
-        );
-        if (teacherOK) count++;
-      }
+      const count = startTimes.filter(({ startMin }) => startMin + checkDur <= finMin).length;
       validSlots[s.id] = s.sessionDurations.length > 0 ? count / s.sessionDurations.length : count;
     }
 
     const subjSorted = [...subjects].sort((a, b) => {
+      // sin reserva: transversal primero para que no quede al final con slots agotados
+      if (transversalDay < 0) {
+        if (a.transversal && !b.transversal) return -1;
+        if (!a.transversal && b.transversal) return 1;
+      }
       if (validSlots[a.id] !== validSlots[b.id]) return validSlots[a.id] - validSlots[b.id];
       if (b.sessionDurations.length !== a.sessionDurations.length) return b.sessionDurations.length - a.sessionDurations.length;
       return b.students - a.students;
     });
 
     // interleave de sesiones en round-robin para no poner dos del mismo en el mismo día
-    const eligibleSubjs = subjSorted.filter(s => s.sessionDurations.length > 0 && validAulasBySubject[s.id].length > 0);
+    // Sin día reservado (transversalDay < 0): las transversales entran al CSP como teoría normal
+    const eligibleSubjs = subjSorted.filter(s =>
+      (transversalDay >= 0 ? !s.transversal : true) &&
+      s.sessionDurations.length > 0 &&
+      validAulasBySubject[s.id].length > 0
+    );
     const maxRounds = Math.max(0, ...eligibleSubjs.map(s => s.sessionDurations.length));
     const allSessions = [];
     for (let round = 0; round < maxRounds; round++) {
@@ -276,11 +444,59 @@ router.post("/generate", requireAuth, async (req, res) => {
       }
     }
 
-    const { result, perfect } = solveCSP(allSessions, validAulasBySubject, startTimes, finMin, teacherAvail, duracion, partialMins, avoidDays, preOccTeachers, preOccClassrooms);
+    // bases no barajadas para poder volver a barajar en cada iteración
+    const morningMainBase   = mainSlots.filter(t => t.startMin < LUNCH_START);
+    const afternoonMainBase = mainSlots.filter(t => t.startMin >= LUNCH_END);
+    const validAulasBase    = {};
+    for (const s of subjects) {
+      validAulasBase[s.id] = aulas.filter(a =>
+        a.capacity >= s.students &&
+        (classroomType[a.id] || "teoria") === "teoria"
+      );
+    }
 
-    // recopilar sesiones asignadas
+    const scoreResult = (res) => {
+      let fit = 0, n = 0;
+      for (let i = 0; i < res.length; i++) {
+        const a = res[i]; if (!a) continue;
+        n++;
+        fit += Math.min((allSessions[i].subject.students || 1) / (classroomCapacity[a.aulaId] || 1), 1);
+      }
+      return n * 1000 + (n > 0 ? fit / n : 0); // primero maximizar asignadas, luego ajuste de aforo
+    };
+
+    const MAX_ITER = 5;
+    let bestResult = null, bestPerfect = false, bestScore = -1;
+
+    for (let iter = 0; iter < MAX_ITER; iter++) {
+      const stIter = [
+        ...shuffle([...morningMainBase]),
+        ...shuffle([...afternoonMainBase]),
+        ...shuffle([...extremeSlots]),
+        ...partialSlots,
+      ];
+      const validIter = Object.fromEntries(
+        subjects.map(s => {
+          const prefZone = zonePrefMap[`${s.degree}|${s.year}`] || null;
+          const base = validAulasBase[s.id] || [];
+          const pref   = shuffle(base.filter(a => prefZone && classroomZone[a.id] === prefZone));
+          const others = shuffle(base.filter(a => !prefZone || classroomZone[a.id] !== prefZone));
+          return [s.id, [...pref, ...others]];
+        })
+      );
+      const { result: r, perfect: p } = solveCSP(allSessions, validIter, stIter, finMin, teacherAvail, duracion, partialMins, avoidDays, preOccTeachers, preOccClassrooms);
+      const sc = scoreResult(r);
+      if (sc > bestScore) { bestScore = sc; bestResult = r; bestPerfect = p; }
+      if (p) break; // resultado perfecto: no seguir iterando
+    }
+
+    const result = bestResult;
+    const perfect = bestPerfect;
+
+    // recopilar sesiones de teoría asignadas
     const sesiones = [];
     const assignedCount = {};
+    const theoryDayBySubject = {};
 
     for (let i = 0; i < allSessions.length; i++) {
       const sess    = allSessions[i];
@@ -290,6 +506,7 @@ router.post("/generate", requireAuth, async (req, res) => {
 
       if (a) {
         assignedCount[sid] = (assignedCount[sid] || 0) + 1;
+        theoryDayBySubject[sid] = a.dia;
         sesiones.push({
           subject_id:   sid,
           subject:      subject.name,
@@ -301,13 +518,70 @@ router.post("/generate", requireAuth, async (req, res) => {
           day:          a.dia,
           start:        minToTime(a.startMin),
           end:          minToTime(a.endMin),
+          subgroup:     null,
         });
       }
     }
 
-    // asignaturas con sesiones parciales o sin asignar
+    // Sesiones transversales: solo si hay día reservado (transversalDay >= 0)
+    // Sin día reservado, ya fueron al CSP como teoría normal
+    const transversalSubjs = transversalDay >= 0 ? subjects.filter(s => s.transversal) : [];
+    for (const tSubj of transversalSubjs) {
+      const transvSlots = [];
+      for (const anchor of ANCHORS) {
+        for (let m = anchor; m + duracion <= finMin; m += duracion) {
+          if (m < LUNCH_END && m + duracion > LUNCH_START) break; // same break as mainSlots
+          if (m < startMin0) continue;
+          if (m >= LUNCH_START && m < LUNCH_END) continue;
+          transvSlots.push(m);
+        }
+      }
+      for (const dur of tSubj.sessionDurations) {
+        let placed = false;
+        for (const m of transvSlots) {
+          const freeAula = validAulasBySubject[tSubj.id].find(a => {
+            const rKey = `${a.id}-${transversalDay}`;
+            return isSegmentFree([preOccClassrooms], rKey, m, m + dur);
+          });
+          if (freeAula) {
+            occupySegment(preOccClassrooms, `${freeAula.id}-${transversalDay}`, m, m + dur);
+            transvSlots.splice(transvSlots.indexOf(m), 1);
+            sesiones.push({
+              subject_id:   tSubj.id,
+              subject:      tSubj.name,
+              degree:       tSubj.degree,
+              classroom_id: freeAula.id,
+              classroom:    classroomMeta[freeAula.id] || `Aula ${freeAula.id}`,
+              teacher_ids:  [],
+              teacher:      "",
+              day:          transversalDay,
+              start:        minToTime(m),
+              end:          minToTime(m + dur),
+              subgroup:     null,
+            });
+            assignedCount[tSubj.id] = (assignedCount[tSubj.id] || 0) + 1;
+            placed = true;
+            break;
+          }
+        }
+        if (!placed) noAsignadas.push(`${tSubj.name} (sin aula libre el día transversal)`);
+      }
+    }
+
+    // sesiones de prácticas (subgrupos)
+    const { labSessions, noAsig: noLab } = solveLabSessions({
+      subjects, classroomRows, classroomType, classroomCapacity, classroomMeta,
+      preOccClassrooms, theoryDayBySubject, effectiveDias,
+      startMin0: timeToMin(horaInicio), finMin,
+      theorySessions: sesiones, transversalDay,
+      classroomZone, zonePrefMap,
+      subjectLabTeachersMap, teacherMeta, teacherAvail, preOccTeachers,
+    });
+    noAsignadas.push(...noLab);
+
+    // asignaturas de teoría con sesiones parciales o sin asignar
     for (const s of subjects) {
-      if (s.hours <= 0 || s.sessionDurations.length === 0) continue;
+      if (s.sessionDurations.length === 0) continue;
       const got = assignedCount[s.id] || 0;
       if (got < s.sessionDurations.length && !noAsignadas.includes(s.name)) {
         noAsignadas.push(`${s.name} (${got}/${s.sessionDurations.length} sesiones)`);
@@ -334,11 +608,19 @@ router.post("/generate", requireAuth, async (req, res) => {
 
     for (const s of sesiones) {
       const r = await dbRun(
-        "INSERT INTO schedule_sessions (schedule_id, subject_id, teacher_id, classroom_id, day_of_week, slot_start, slot_end) VALUES (?,?,?,?,?,?,?)",
-        [scheduleId, s.subject_id, s.teacher_ids[0] || null, s.classroom_id, s.day, s.start, s.end]
+        "INSERT INTO schedule_sessions (schedule_id, subject_id, teacher_id, classroom_id, day_of_week, slot_start, slot_end, subgroup) VALUES (?,?,?,?,?,?,?,?)",
+        [scheduleId, s.subject_id, s.teacher_ids[0] || null, s.classroom_id, s.day, s.start, s.end, null]
       );
       s.session_id = r.lastID;
     }
+    for (const s of labSessions) {
+      const r = await dbRun(
+        "INSERT INTO schedule_sessions (schedule_id, subject_id, teacher_id, classroom_id, day_of_week, slot_start, slot_end, subgroup) VALUES (?,?,?,?,?,?,?,?)",
+        [scheduleId, s.subject_id, s.teacher_ids[0] || null, s.classroom_id, s.day, s.start, s.end, s.subgroup]
+      );
+      s.session_id = r.lastID;
+    }
+    sesiones.push(...labSessions);
 
     const breaks = detectBreaks(availRows, dias, horaInicio, horaFin);
 
@@ -354,7 +636,8 @@ router.post("/generate", requireAuth, async (req, res) => {
     const slotMins = [...displayMinsSet].sort((a, b) => a - b);
     await dbRun("UPDATE schedules SET slot_mins=?, duracion=? WHERE id=?", [JSON.stringify(slotMins), duracion, scheduleId]);
 
-    res.json({ schedule_id: scheduleId, sesiones, no_asignadas: noAsignadas, breaks, perfect, total_needed: allSessions.length, slotMins });
+    const totalNeeded = allSessions.length + transversalSubjs.reduce((acc, s) => acc + s.sessionDurations.length, 0);
+    res.json({ schedule_id: scheduleId, sesiones, no_asignadas: noAsignadas, breaks, perfect, total_needed: totalNeeded, slotMins });
 
   } catch (err) {
     console.error("Error generando horario:", err);
@@ -398,6 +681,12 @@ router.get("/conflicts", requireAuth, async (req, res) => {
     if (!degree || !year || !semester)
       return res.status(400).json({ error: "degree, year y semester son obligatorios" });
 
+    const latestPerGroup = `
+      SELECT MAX(id) FROM schedules
+      WHERE degree=? AND year=? AND semester=?
+      GROUP BY COALESCE(group_letter, 'NULL')
+    `;
+
     const teacherConflicts = await dbAll(`
       SELECT t.name AS entity,
              a.day_of_week, a.slot_start, a.slot_end,
@@ -418,7 +707,10 @@ router.get("/conflicts", requireAuth, async (req, res) => {
       WHERE  sca.degree=? AND sca.year=? AND sca.semester=?
         AND  scb.degree=? AND scb.year=? AND scb.semester=?
         AND  a.teacher_id IS NOT NULL
-    `, [degree, year, semester, degree, year, semester]);
+        AND  a.schedule_id IN (${latestPerGroup})
+        AND  b.schedule_id IN (${latestPerGroup})
+    `, [degree, year, semester, degree, year, semester,
+        degree, year, semester, degree, year, semester]);
 
     const classroomConflicts = await dbAll(`
       SELECT c.name AS entity,
@@ -439,7 +731,10 @@ router.get("/conflicts", requireAuth, async (req, res) => {
       JOIN   classrooms c  ON   c.id = a.classroom_id
       WHERE  sca.degree=? AND sca.year=? AND sca.semester=?
         AND  scb.degree=? AND scb.year=? AND scb.semester=?
-    `, [degree, year, semester, degree, year, semester]);
+        AND  a.schedule_id IN (${latestPerGroup})
+        AND  b.schedule_id IN (${latestPerGroup})
+    `, [degree, year, semester, degree, year, semester,
+        degree, year, semester, degree, year, semester]);
 
     res.json({ teachers: teacherConflicts, classrooms: classroomConflicts });
   } catch (err) {
@@ -456,6 +751,7 @@ router.get("/:id", async (req, res) => {
 
     const sessions = await dbAll(`
       SELECT ss.id AS session_id, ss.day_of_week AS day, ss.slot_start AS start, ss.slot_end AS end,
+             ss.subgroup,
              sub.name AS subject, sub.degree, sub.id AS subject_id,
              c.name AS classroom, c.id AS classroom_id,
              t.name AS teacher
@@ -514,10 +810,10 @@ router.get("/validate", requireAuth, async (req, res) => {
       if (!teachersBySubject[s.id]?.length) {
         warnings.push({ type: "no_teacher", msg: `"${s.name}" no tiene profesor asignado.` });
       }
-      const required = s.room_type || "teoria";
-      const compatible = (classroomsByType[required] || []).filter(c => c.capacity >= (s.students || 0));
+      // Teoría necesita aula tipo 'teoria' con aforo suficiente
+      const compatible = (classroomsByType["teoria"] || []).filter(c => c.capacity >= (s.students || 0));
       if (!compatible.length) {
-        warnings.push({ type: "no_classroom", msg: `"${s.name}" necesita aula tipo "${required}" (≥${s.students} plazas) pero no hay ninguna disponible.` });
+        warnings.push({ type: "no_classroom", msg: `"${s.name}" necesita aula teoría ≥${s.students} plazas pero no hay ninguna disponible.` });
       }
     }
 

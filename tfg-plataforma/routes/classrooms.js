@@ -5,6 +5,27 @@ const requireAdmin = require("../middleware/adminOnly");
 
 const router = express.Router();
 
+// aulas libres en una franja horaria concreta
+router.get("/free", requireAuth, (req, res) => {
+  const { day, start, end } = req.query;
+  if (day === undefined || !start || !end)
+    return res.status(400).json({ error: "day, start y end son obligatorios" });
+
+  db.all(`
+    SELECT DISTINCT classroom_id FROM schedule_sessions
+    WHERE day_of_week = ?
+      AND slot_start < ?
+      AND slot_end   > ?
+  `, [parseInt(day), end, start], (err, occupied) => {
+    if (err) return res.status(500).json({ error: err.message });
+    const occupiedIds = new Set(occupied.map(r => r.classroom_id));
+    db.all("SELECT * FROM classrooms ORDER BY type, name", (err2, all) => {
+      if (err2) return res.status(500).json({ error: err2.message });
+      res.json(all.filter(c => !occupiedIds.has(c.id)));
+    });
+  });
+});
+
 // GET all
 router.get("/", requireAuth, (req, res) => {
   db.all("SELECT * FROM classrooms ORDER BY name", (err, rows) => {

@@ -58,9 +58,9 @@
       <button class="admin-tab-btn active" onclick="switchTab('aulas')">Aulas</button>
       <button class="admin-tab-btn"        onclick="switchTab('profesores')">Profesores</button>
       <button class="admin-tab-btn"        onclick="switchTab('asignaturas')">Asignaturas</button>
-      <button class="admin-tab-btn"        onclick="switchTab('usuarios')">Usuarios</button>
       <button class="admin-tab-btn"        onclick="switchTab('horarios');loadHorarios()">Horarios</button>
       <button class="admin-tab-btn"        onclick="switchTab('vistas');initVistas()">Vistas</button>
+      <button class="admin-tab-btn"        onclick="switchTab('preferencias');loadZonas();loadGrupos()">Preferencias</button>
     </div>
 
     <!-- ── AULAS ── -->
@@ -100,6 +100,7 @@
         <thead><tr><th>Nombre</th><th>Capacidad</th><th>Tipo</th><th>Zona</th><th>Edificio</th><th></th></tr></thead>
         <tbody id="tbody-aulas"><tr><td colspan="6" class="empty-msg">Cargando...</td></tr></tbody>
       </table>
+
     </div>
 
     <!-- ── PROFESORES ── -->
@@ -109,6 +110,11 @@
         <input type="text"  id="p-name"  placeholder="Nombre completo">
         <input type="text"  id="p-dept"  placeholder="Departamento" list="dept-suggestions">
         <input type="email" id="p-email" placeholder="Email">
+        <select id="p-session-type">
+          <option value="ambos">Teoría y Lab</option>
+          <option value="teoria">Solo Teoría</option>
+          <option value="laboratorio">Solo Lab</option>
+        </select>
         <datalist id="dept-suggestions"></datalist>
         <button id="p-submit-btn" class="btn-add" onclick="submitProfesor()">+ Añadir</button>
         <button id="p-cancel-btn" class="btn-add" style="background:#6c757d;display:none" onclick="cancelProfesorEdit()">Cancelar</button>
@@ -120,7 +126,7 @@
       </div>
       <input type="text" id="search-profesores" class="search-input" placeholder="Buscar profesor..." oninput="renderProfesores()">
       <table class="data-table">
-        <thead><tr><th>Nombre</th><th>Departamento</th><th>Email</th><th>Disponibilidad</th><th>Excel</th><th></th></tr></thead>
+        <thead><tr><th>Nombre</th><th>Departamento</th><th>Email</th><th>Tipo</th><th>Disponibilidad</th><th>Excel</th><th></th></tr></thead>
         <tbody id="tbody-profesores"><tr><td colspan="5" class="empty-msg">Cargando...</td></tr></tbody>
       </table>
     </div>
@@ -128,7 +134,7 @@
     <!-- ── ASIGNATURAS ── -->
     <div class="admin-tab-content" id="tab-asignaturas">
       <h3 class="admin-section-title">Asignaturas</h3>
-      <div class="gen-form" style="margin-bottom:10px;flex-wrap:nowrap;">
+      <div class="gen-form" style="margin-bottom:10px;flex-wrap:wrap;">
         <input  type="text"   id="s-name"     placeholder="Nombre"       style="min-width:120px;flex:2">
         <input  type="text"   id="s-code"     placeholder="Código"       style="min-width:80px;flex:1">
         <input  type="text"   id="s-degree"   placeholder="Titulación"   style="min-width:90px;flex:1" list="degree-suggestions">
@@ -139,14 +145,21 @@
           <option value="2">2do cuatri</option>
         </select>
         <input  type="number" id="s-students" placeholder="Alumnos"      style="min-width:72px;flex:0 0 72px" min="1">
-        <input  type="number" id="s-hours"    placeholder="H/sem"        style="min-width:60px;flex:0 0 60px" min="1" max="20" value="4">
+        <input  type="number" id="s-hours"       placeholder="H/sem"    style="min-width:55px;flex:0 0 55px" min="1" max="20" value="4">
+        <input  type="number" id="s-theory-h"   placeholder="H.Teo"    style="min-width:55px;flex:0 0 55px" min="0" max="20" value="2">
+        <input  type="number" id="s-lab-h"      placeholder="H.Práct"  style="min-width:55px;flex:0 0 55px" min="0" max="20" value="2">
         <div style="display:flex;gap:4px;align-items:center;flex:1.5;min-width:150px;">
           <select id="s-teacher" style="flex:1;min-width:0"><option value="">Profesor…</option></select>
           <button type="button" onclick="addTeacherChip()" title="Añadir profesor" style="padding:0 10px;height:36px;background:#00b4d8;color:#fff;border:none;border-radius:6px;cursor:pointer;font-size:18px;line-height:1;flex-shrink:0;">+</button>
         </div>
         <label style="display:inline-flex;align-items:center;gap:5px;font-size:0.83rem;cursor:pointer;white-space:nowrap;padding:0 8px;border:1px solid #ccc;border-radius:6px;background:#fff;flex:0 0 auto;align-self:stretch;width:fit-content;">
-          Bilingüe <input type="checkbox" id="s-bilingual" style="cursor:pointer;margin:0;width:13px;height:13px;flex-shrink:0;">
+          Bilingüe: <input type="checkbox" id="s-bilingual" style="cursor:pointer;margin:0;margin-left:3px;width:13px;height:13px;flex-shrink:0;">
         </label>
+        <select id="s-room-type" style="min-width:120px;flex:1">
+          <option value="">Aula normal</option>
+          <option value="laboratorio">Laboratorio</option>
+          <option value="seminario">Seminario</option>
+        </select>
         <datalist id="degree-suggestions"></datalist>
         <button id="s-submit-btn" class="btn-add" onclick="submitAsignatura()">+ Añadir</button>
         <button id="s-cancel-btn" class="btn-add" style="background:#6c757d;display:none" onclick="cancelAsignaturaEdit()">Cancelar</button>
@@ -220,6 +233,33 @@
 
       <!-- Tabla resultado -->
       <div id="vista-result-table"></div>
+
+      <!-- Aulas libres en una franja -->
+      <div style="margin-top:32px;padding-top:22px;border-top:1px solid rgba(255,255,255,0.12);">
+        <h3 class="admin-section-title" style="margin-bottom:14px;">Aulas libres en una franja</h3>
+        <div style="display:flex;gap:10px;align-items:flex-end;flex-wrap:wrap;margin-bottom:14px;justify-content:center;">
+          <div>
+            <label style="font-size:12px;color:rgba(255,255,255,0.55);display:block;margin-bottom:4px;">Día</label>
+            <select id="fl-day" style="padding:7px 12px;border-radius:6px;border:2px solid #00b4d8;background:#fff;color:#0d1b2a;font-size:13px;">
+              <option value="0">Lunes</option>
+              <option value="1">Martes</option>
+              <option value="2">Miércoles</option>
+              <option value="3">Jueves</option>
+              <option value="4">Viernes</option>
+            </select>
+          </div>
+          <div>
+            <label style="font-size:12px;color:rgba(255,255,255,0.55);display:block;margin-bottom:4px;">Hora inicio</label>
+            <input type="time" id="fl-start" value="10:00" style="padding:7px 10px;border-radius:6px;border:2px solid #00b4d8;background:#fff;color:#0d1b2a;font-size:13px;">
+          </div>
+          <div>
+            <label style="font-size:12px;color:rgba(255,255,255,0.55);display:block;margin-bottom:4px;">Hora fin</label>
+            <input type="time" id="fl-end" value="12:00" style="padding:7px 10px;border-radius:6px;border:2px solid #00b4d8;background:#fff;color:#0d1b2a;font-size:13px;">
+          </div>
+          <button class="btn-add" onclick="buscarAulasLibres()" style="padding:7px 18px;font-size:13px;">Buscar</button>
+        </div>
+        <div id="fl-result"></div>
+      </div>
     </div>
 
     <!-- ── HORARIOS ── -->
@@ -250,6 +290,53 @@
       <table class="data-table" id="horarios-table">
         <thead><tr><th>Nombre</th><th>Grupo</th><th>Sesiones</th><th>Estado</th><th>Creado por</th><th>Fecha</th><th></th></tr></thead>
         <tbody id="tbody-horarios"><tr><td colspan="7" class="empty-msg">Selecciona esta pestaña para cargar…</td></tr></tbody>
+      </table>
+
+    </div>
+
+    <!-- ── PREFERENCIAS ── -->
+    <div class="admin-tab-content" id="tab-preferencias">
+
+      <h3 class="admin-section-title">Zonas de aulas</h3>
+      <div class="gen-form" style="margin-bottom:14px;flex-wrap:wrap;">
+        <input  type="text"   id="z-degree"  placeholder="Titulación (ej. Teleco)" style="min-width:140px;flex:1" list="z-degree-list">
+        <datalist id="z-degree-list">
+          <option value="Teleco"><option value="GIT"><option value="GITT"><option value="GIEC"><option value="GIST">
+        </datalist>
+        <input  type="number" id="z-year"    placeholder="Curso" style="min-width:80px;flex:0 0 80px" min="1" max="4">
+        <select id="z-zone"                  style="min-width:130px;flex:1">
+          <option value="">Sin preferencia</option>
+          <option value="Este">Este</option>
+          <option value="Sur">Sur</option>
+          <option value="Oeste">Oeste</option>
+          <option value="Norte">Norte</option>
+        </select>
+        <button class="btn-add" onclick="saveZona()">Guardar</button>
+      </div>
+      <table class="data-table" style="margin-bottom:32px;">
+        <thead><tr><th>Titulación</th><th>Curso</th><th>Zona preferida</th><th></th></tr></thead>
+        <tbody id="tbody-zonas"><tr><td colspan="4" class="empty-msg">Cargando...</td></tr></tbody>
+      </table>
+
+      <h3 class="admin-section-title">Grupos</h3>
+      <div class="gen-form" style="margin-bottom:14px;flex-wrap:nowrap;align-items:center;">
+        <input  type="text"   id="g-degree"  placeholder="Titulación (ej. Teleco)" style="flex:2;min-width:120px;" list="g-degree-list">
+        <datalist id="g-degree-list">
+          <option value="Teleco"><option value="GIT"><option value="GITT"><option value="GIEC"><option value="GIST">
+        </datalist>
+        <input  type="number" id="g-year"    placeholder="Curso" style="flex:0 0 70px;" min="1" max="4">
+        <input  type="text"   id="g-letter"  placeholder="Grupo" style="flex:0 0 70px;text-transform:uppercase;">
+        <label style="display:inline-flex;align-items:center;gap:5px;font-size:0.83rem;cursor:pointer;white-space:nowrap;padding:0 8px;border:1px solid #ccc;border-radius:6px;background:#fff;flex:0 0 auto;align-self:stretch;width:fit-content;">
+          Tarde: <input type="checkbox" id="g-afternoon" style="cursor:pointer;margin:0;margin-left:3px;width:13px;height:13px;flex-shrink:0;">
+        </label>
+        <label style="display:inline-flex;align-items:center;gap:5px;font-size:0.83rem;cursor:pointer;white-space:nowrap;padding:0 8px;border:1px solid #ccc;border-radius:6px;background:#fff;flex:0 0 auto;align-self:stretch;width:fit-content;">
+          Bilingüe: <input type="checkbox" id="g-bilingual" style="cursor:pointer;margin:0;margin-left:3px;width:13px;height:13px;flex-shrink:0;">
+        </label>
+        <button class="btn-add" onclick="saveGrupo()">Guardar</button>
+      </div>
+      <table class="data-table">
+        <thead><tr><th>Titulación</th><th>Curso</th><th>Grupo</th><th>Tarde</th><th>Bilingüe</th><th></th></tr></thead>
+        <tbody id="tbody-grupos"><tr><td colspan="6" class="empty-msg">Cargando...</td></tr></tbody>
       </table>
 
     </div>
@@ -454,12 +541,14 @@ function renderProfesores() {
   const q = (document.getElementById("search-profesores")?.value || "").toLowerCase();
   const tbody = document.getElementById("tbody-profesores");
   const list = profesores.filter(p => !q || p.name.toLowerCase().includes(q) || (p.department||"").toLowerCase().includes(q));
-  if (!list.length) { tbody.innerHTML = `<tr><td colspan="5" class="empty-msg">Sin profesores</td></tr>`; return; }
+  if (!list.length) { tbody.innerHTML = `<tr><td colspan="6" class="empty-msg">Sin profesores</td></tr>`; return; }
+  const typeLabel = { teoria: 'Solo Teoría', laboratorio: 'Solo Lab', ambos: 'Teoría y Lab' };
   tbody.innerHTML = list.map(p => `
     <tr>
       <td>${p.name}</td>
       <td>${p.department || "—"}</td>
       <td>${p.email || "—"}</td>
+      <td>${typeLabel[p.session_type] || 'Teoría y Lab'}</td>
       <td><button class="btn-avail" onclick="openAvailModal(${p.id}, '${p.name.replace(/'/g,"\\'")}')">Ver / Editar</button></td>
       <td style="white-space:nowrap">
         <button class="btn-edit" style="background:#1e7e34;color:#fff" onclick="downloadProfesorExcel(${p.id})">⬇</button>
@@ -477,9 +566,10 @@ function editProfesor(id) {
   const p = profesores.find(x => x.id === id);
   if (!p) return;
   profesorEditId = id;
-  document.getElementById("p-name").value  = p.name;
-  document.getElementById("p-dept").value  = p.department || "";
-  document.getElementById("p-email").value = p.email || "";
+  document.getElementById("p-name").value         = p.name;
+  document.getElementById("p-dept").value         = p.department || "";
+  document.getElementById("p-email").value        = p.email || "";
+  document.getElementById("p-session-type").value = p.session_type || "ambos";
   document.getElementById("p-submit-btn").textContent = "Guardar";
   document.getElementById("p-cancel-btn").style.display = "";
   document.getElementById("p-name").focus();
@@ -488,6 +578,7 @@ function editProfesor(id) {
 function cancelProfesorEdit() {
   profesorEditId = null;
   ["p-name","p-dept","p-email"].forEach(id => document.getElementById(id).value = "");
+  document.getElementById("p-session-type").value = "ambos";
   document.getElementById("p-submit-btn").textContent = "+ Añadir";
   document.getElementById("p-cancel-btn").style.display = "none";
 }
@@ -530,16 +621,17 @@ function renderTeacherChips() {
 }
 
 async function submitProfesor() {
-  const name  = document.getElementById("p-name").value.trim();
-  const dept  = document.getElementById("p-dept").value.trim();
-  const email = document.getElementById("p-email").value.trim();
+  const name         = document.getElementById("p-name").value.trim();
+  const dept         = document.getElementById("p-dept").value.trim();
+  const email        = document.getElementById("p-email").value.trim();
+  const session_type = document.getElementById("p-session-type").value;
   if (!name) return alert("Nombre requerido");
 
   const url    = profesorEditId ? `/api/v1/teachers/${profesorEditId}` : "/api/v1/teachers";
   const method = profesorEditId ? "PUT" : "POST";
   const res = await fetch(url, {
     method, headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ name, department: dept, email })
+    body: JSON.stringify({ name, department: dept, email, session_type })
   });
   if (res.ok) { cancelProfesorEdit(); await loadProfesores(); }
   else { const d = await res.json(); alert(d.error); }
@@ -612,7 +704,10 @@ function editAsignatura(id) {
   document.getElementById("s-semester").value = s.semester || "";
   document.getElementById("s-students").value = s.students || "";
   document.getElementById("s-hours").value        = s.hours_week;
+  document.getElementById("s-theory-h").value     = s.theory_hours ?? (s.hours_week - 2);
+  document.getElementById("s-lab-h").value        = s.lab_hours    ?? 2;
   document.getElementById("s-bilingual").checked  = !!s.bilingual;
+  document.getElementById("s-room-type").value    = s.room_type    || '';
   selectedTeacherIds = (s.teacher_ids_str || "").split(",").map(Number).filter(Boolean);
   renderTeacherChips();
   document.getElementById("s-teacher").value = "";
@@ -624,10 +719,13 @@ function editAsignatura(id) {
 function cancelAsignaturaEdit() {
   asigEditId = null;
   ["s-name","s-code","s-degree","s-year","s-students"].forEach(id => document.getElementById(id).value = "");
-  document.getElementById("s-semester").value  = "";
-  document.getElementById("s-hours").value     = "4";
-  document.getElementById("s-bilingual").checked = false;
-  document.getElementById("s-teacher").value   = "";
+  document.getElementById("s-semester").value     = "";
+  document.getElementById("s-hours").value        = "4";
+  document.getElementById("s-theory-h").value     = "2";
+  document.getElementById("s-lab-h").value        = "2";
+  document.getElementById("s-bilingual").checked  = false;
+  document.getElementById("s-room-type").value    = '';
+  document.getElementById("s-teacher").value      = "";
   selectedTeacherIds = [];
   renderTeacherChips();
   document.getElementById("s-submit-btn").textContent = "+ Añadir";
@@ -641,7 +739,9 @@ async function submitAsignatura() {
   const year       = document.getElementById("s-year").value;
   const semester   = document.getElementById("s-semester").value;
   const students   = document.getElementById("s-students").value;
-  const hours_week = document.getElementById("s-hours").value;
+  const hours_week   = document.getElementById("s-hours").value;
+  const theory_hours = document.getElementById("s-theory-h").value;
+  const lab_hours    = document.getElementById("s-lab-h").value;
   if (!name) return alert("Nombre requerido");
 
   const url    = asigEditId ? `/api/v1/subjects/${asigEditId}` : "/api/v1/subjects";
@@ -649,7 +749,9 @@ async function submitAsignatura() {
   const res = await fetch(url, {
     method, headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ name, code, degree, year, semester: semester || null, students, hours_week,
+      theory_hours, lab_hours,
       bilingual: document.getElementById("s-bilingual").checked ? 1 : 0,
+      room_type:    document.getElementById("s-room-type").value || null,
       teacher_ids: selectedTeacherIds })
   });
   if (res.ok) { cancelAsignaturaEdit(); await loadAsignaturas(); }
@@ -914,7 +1016,7 @@ async function viewAdminSchedule(id, name) {
   _adminSchedData = data;
   document.getElementById("btn-pdf-admin").style.display = "";
   const sched = data.schedule;
-  const html  = buildPrintHTML(data.sesiones, name, data.slotMins, data.duracion, sched?.year, sched?.semester);
+  const html  = buildPrintHTML(data.sesiones, name, data.slotMins, data.duracion, sched?.year, sched?.semester, sched?.group_letter || '');
   const iframe = document.createElement("iframe");
   iframe.scrolling = "no";
   iframe.style.cssText = "width:100%;border:none;border-radius:6px;display:block;background:#fff;height:0;";
@@ -941,7 +1043,7 @@ function exportAdminPDF() {
   if (!_adminSchedData) return;
   const sched = _adminSchedData.schedule;
   const win = window.open("", "_blank", "width=1000,height=700");
-  win.document.write(buildPrintHTML(_adminSchedData.sesiones, _adminSchedName, _adminSchedData.slotMins, _adminSchedData.duracion, sched?.year, sched?.semester));
+  win.document.write(buildPrintHTML(_adminSchedData.sesiones, _adminSchedName, _adminSchedData.slotMins, _adminSchedData.duracion, sched?.year, sched?.semester, sched?.group_letter || ''));
   win.document.close();
   win.addEventListener("load", () => { win.focus(); win.print(); });
 }
@@ -1003,7 +1105,7 @@ async function deleteAllHorarios() {
   loadStats();
 }
 
-function buildPrintHTML(sesiones, title, slotMins, duracion, year, semester) {
+function buildPrintHTML(sesiones, title, slotMins, duracion, year, semester, groupLetter = '') {
   const DAY_NMS = ["Lunes","Martes","Miércoles","Jueves","Viernes"];
   function tm(t) { const [h,m] = t.split(":").map(Number); return h*60+m; }
   // Always show all 5 days; 2h base grid + session boundaries so 1h fringe slots fit exactly
@@ -1032,15 +1134,32 @@ function buildPrintHTML(sesiones, title, slotMins, duracion, year, semester) {
     </td>`;
     for (const d of dias) {
       if (covered.has(`${d}-${ri}`)) continue;
-      const sess = sesiones.find(s => s.day === d && tm(s.start) >= rStart && tm(s.start) < rEnd);
-      if (sess) {
-        const sessEnd = tm(sess.end);
+      // Todas las sesiones que arrancan en esta franja (puede haber varias de distintos subgrupos)
+      const sessArr = sesiones.filter(s => s.day === d && tm(s.start) >= rStart && tm(s.start) < rEnd);
+      if (sessArr.length) {
+        // El rowspan se basa en la sesión de mayor duración del grupo
+        const maxEnd = Math.max(...sessArr.map(s => tm(s.end)));
         let span = 0;
-        for (let j = ri; j < rowBounds.length && rowBounds[j][0] < sessEnd; j++) { span++; covered.add(`${d}-${j}`); }
+        for (let j = ri; j < rowBounds.length && rowBounds[j][0] < maxEnd; j++) { span++; covered.add(`${d}-${j}`); }
+        const inner = sessArr.map((sess, i) => {
+          const isTheory = sess.subgroup == null;
+          const grpTag   = year && groupLetter ? `${year}${groupLetter}${isTheory ? '' : (sess.subgroup || '')}` : '';
+          const meta     = [grpTag, sess.classroom ? `(${sess.classroom})` : ''].filter(Boolean).join(' ');
+          const sep      = i > 0 ? 'border-top:1px solid #ddd;padding-top:5px;width:100%;' : '';
+          if (isTheory) {
+            return `<div style="${sep}line-height:1.3;">
+              <div style="font-size:12px;font-weight:700;text-transform:uppercase;">${sess.subject}</div>
+              ${meta ? `<div style="font-size:10px;font-weight:700;margin-top:3px;opacity:.75;">${meta}</div>` : ''}
+            </div>`;
+          } else {
+            return `<div style="${sep}line-height:1.3;">
+              <div style="font-size:10.5px;font-weight:600;">${sess.subject}</div>
+              ${meta ? `<div style="font-size:9.5px;font-weight:700;margin-top:2px;opacity:.75;">${meta}</div>` : ''}
+            </div>`;
+          }
+        }).join("");
         cells += `<td rowspan="${span}" style="padding:5px 6px;text-align:center;vertical-align:middle;border:1px solid #000;background:#fff;">
-          <div style="font-size:13px;font-weight:700;text-transform:uppercase;line-height:1.3;">${sess.subject}</div>
-          ${sess.classroom?`<div style="font-size:11px;font-weight:700;margin-top:2px;">(${sess.classroom})</div>`:""}
-          ${sess.teacher?`<div style="font-size:10px;color:#444;margin-top:2px;">${sess.teacher}</div>`:""}
+          <div style="display:flex;flex-direction:column;gap:6px;align-items:center;">${inner}</div>
         </td>`;
       } else {
         cells += `<td style="border:1px solid #000;background:${cellBg};"></td>`;
@@ -1153,6 +1272,134 @@ function setVistaMode(mode) {
   applyToggle('vista-toggle-teacher',   mode === 'teacher');
   applyToggle('vista-toggle-classroom', mode === 'classroom');
   document.getElementById("vista-result-table").innerHTML = "";
+}
+
+// ── AULAS LIBRES ─────────────────────────────────
+async function buscarAulasLibres() {
+  const day   = document.getElementById("fl-day").value;
+  const start = document.getElementById("fl-start").value;
+  const end   = document.getElementById("fl-end").value;
+  const el    = document.getElementById("fl-result");
+  if (!start || !end || start >= end) {
+    el.innerHTML = '<p style="color:#e06c75;font-size:13px;">Hora fin debe ser mayor que hora inicio.</p>';
+    return;
+  }
+  el.innerHTML = '<p style="color:#888;font-size:13px;">Buscando…</p>';
+  const res  = await fetch(`/api/v1/classrooms/free?day=${day}&start=${encodeURIComponent(start)}&end=${encodeURIComponent(end)}`);
+  const list = await res.json();
+  if (!list.length) {
+    el.innerHTML = '<p style="color:#e06c75;font-size:13px;">No hay aulas libres en esa franja.</p>';
+    return;
+  }
+  el.innerHTML = `<table class="data-table" style="margin-top:8px;">
+    <thead><tr><th>Nombre</th><th>Capacidad</th><th>Tipo</th><th>Zona</th><th>Edificio</th></tr></thead>
+    <tbody>${list.map(a => `<tr>
+      <td>${a.name}</td><td>${a.capacity}</td><td>${a.type}</td>
+      <td>${a.zone||"—"}</td><td>${a.building||"—"}</td>
+    </tr>`).join("")}</tbody>
+  </table>`;
+}
+
+// ── PREFERENCIAS DE ZONA ──────────────────────────
+let zonas = [];
+
+async function loadZonas() {
+  const res = await fetch("/api/v1/zone-preferences");
+  zonas = await res.json();
+  renderZonas();
+}
+
+function renderZonas() {
+  const tbody = document.getElementById("tbody-zonas");
+  if (!zonas.length) { tbody.innerHTML = `<tr><td colspan="4" class="empty-msg">Sin preferencias configuradas</td></tr>`; return; }
+  tbody.innerHTML = zonas.map(z => `
+    <tr>
+      <td>${z.degree}</td>
+      <td>${z.year}º</td>
+      <td>${z.zone || "—"}</td>
+      <td><button class="btn-remove" onclick="deleteZona(${z.id})">✕</button></td>
+    </tr>`).join("");
+}
+
+async function saveZona() {
+  const degree = document.getElementById("z-degree").value.trim();
+  const year   = document.getElementById("z-year").value;
+  const zone   = document.getElementById("z-zone").value;
+  if (!degree || !year) return alert("Titulación y curso son obligatorios");
+  const res = await fetch("/api/v1/zone-preferences", {
+    method: "POST", headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ degree, year: parseInt(year), zone: zone || null })
+  });
+  if (res.ok) {
+    document.getElementById("z-degree").value = "";
+    document.getElementById("z-year").value   = "";
+    document.getElementById("z-zone").value   = "";
+    await loadZonas();
+  } else {
+    const d = await res.json(); alert(d.error);
+  }
+}
+
+async function deleteZona(id) {
+  await fetch(`/api/v1/zone-preferences/${id}`, { method: "DELETE" });
+  await loadZonas();
+}
+
+// ── Grupos ──────────────────────────────────────────
+let grupos = [];
+
+async function loadGrupos() {
+  const res = await fetch("/api/v1/group-config");
+  grupos = await res.json();
+  renderGrupos();
+}
+
+function renderGrupos() {
+  const tbody = document.getElementById("tbody-grupos");
+  if (!grupos.length) {
+    tbody.innerHTML = `<tr><td colspan="6" class="empty-msg">Sin grupos configurados</td></tr>`;
+    return;
+  }
+  tbody.innerHTML = grupos.map(g => `
+    <tr>
+      <td>${g.degree}</td>
+      <td>${g.year}º</td>
+      <td>${g.group_letter}</td>
+      <td>${g.afternoon ? "✓" : "—"}</td>
+      <td>${g.bilingual ? "✓" : "—"}</td>
+      <td><button class="btn-remove" onclick="deleteGrupo('${g.degree}',${g.year},'${g.group_letter}')">✕</button></td>
+    </tr>`).join("");
+}
+
+async function saveGrupo() {
+  const degree      = document.getElementById("g-degree").value.trim();
+  const year        = parseInt(document.getElementById("g-year").value);
+  const group_letter= document.getElementById("g-letter").value.trim().toUpperCase();
+  const afternoon   = document.getElementById("g-afternoon").checked ? 1 : 0;
+  const bilingual   = document.getElementById("g-bilingual").checked ? 1 : 0;
+  if (!degree || !year || !group_letter) return alert("Titulación, curso y grupo son obligatorios");
+  const res = await fetch("/api/v1/group-config", {
+    method: "PUT", headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ degree, year, group_letter, afternoon, bilingual })
+  });
+  if (res.ok) {
+    document.getElementById("g-degree").value   = "";
+    document.getElementById("g-year").value     = "";
+    document.getElementById("g-letter").value   = "";
+    document.getElementById("g-afternoon").checked = false;
+    document.getElementById("g-bilingual").checked = false;
+    await loadGrupos();
+  } else {
+    const d = await res.json(); alert(d.error);
+  }
+}
+
+async function deleteGrupo(degree, year, group_letter) {
+  await fetch("/api/v1/group-config", {
+    method: "DELETE", headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ degree, year, group_letter })
+  });
+  await loadGrupos();
 }
 
 async function loadVistaData() {

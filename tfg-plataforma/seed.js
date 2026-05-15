@@ -35,7 +35,10 @@ async function seed() {
     year INTEGER, semester INTEGER, students INTEGER,
     hours_week INTEGER DEFAULT 4,
     bilingual INTEGER DEFAULT 0,
-    room_type TEXT
+    room_type TEXT,
+    session_type TEXT DEFAULT 'teoria',
+    theory_hours INTEGER DEFAULT 2,
+    lab_hours INTEGER DEFAULT 2
   )`);
   await run(`CREATE TABLE IF NOT EXISTS subject_teachers (
     subject_id INTEGER, teacher_id INTEGER,
@@ -53,7 +56,8 @@ async function seed() {
   await run(`CREATE TABLE IF NOT EXISTS schedule_sessions (
     id INTEGER PRIMARY KEY AUTOINCREMENT, schedule_id INTEGER,
     subject_id INTEGER, teacher_id INTEGER, classroom_id INTEGER,
-    day_of_week INTEGER NOT NULL, slot_start TEXT NOT NULL, slot_end TEXT NOT NULL
+    day_of_week INTEGER NOT NULL, slot_start TEXT NOT NULL, slot_end TEXT NOT NULL,
+    subgroup INTEGER DEFAULT NULL
   )`);
 
   // ── Limpiar datos ─────────────────────────────────
@@ -94,9 +98,10 @@ async function seed() {
     { prefix: "OL", zone: "Oeste" },
   ];
   for (const { prefix, zone } of labWings) {
+    const cap = zone === "Este" ? 40 : 30;
     for (let i = 1; i <= 12; i++) {
       await run("INSERT INTO classrooms (name, capacity, type, building, zone) VALUES (?,?,?,?,?)",
-        [`${prefix}${i}`, 30, "laboratorio", EPS, zone]);
+        [`${prefix}${i}`, cap, "laboratorio", EPS, zone]);
     }
   }
   await run("INSERT INTO classrooms (name, capacity, type, building, zone) VALUES (?,?,?,?,?)", ["PL1", 60, "seminario", EPS, "Norte"]);
@@ -151,8 +156,8 @@ async function seed() {
     ["Carlos Buendía López",          "Matemáticas Aplicadas",    "c.buendia@uah.es"],
   ];
   const teacherIds = [];
-  for (const [name, department, email] of teacherDefs) {
-    const r = await run("INSERT INTO teachers (name, department, email) VALUES (?,?,?)", [name, department, email]);
+  for (const [name, department, email, session_type = 'ambos'] of teacherDefs) {
+    const r = await run("INSERT INTO teachers (name, department, email, session_type) VALUES (?,?,?,?)", [name, department, email, session_type]);
     teacherIds.push(r.lastID);
   }
   console.log("✓ Profesores");
@@ -332,10 +337,29 @@ async function seed() {
 
   for (const [code, name, degree, year, semester, students, hours_week] of subjects) {
     await run(
-      "INSERT INTO subjects (code, name, degree, year, semester, students, hours_week, bilingual) VALUES (?,?,?,?,?,?,?,?)",
-      [code, name, degree, year, semester, students, hours_week, bilingualCodes.has(code) ? 1 : 0]
+      "INSERT INTO subjects (code, name, degree, year, semester, students, hours_week, bilingual, room_type, session_type) VALUES (?,?,?,?,?,?,?,?,?,?)",
+      [code, name, degree, year, semester, students, hours_week, bilingualCodes.has(code) ? 1 : 0, null, 'teoria']
     );
   }
+
+  // room_type para asignaturas Teleco con sesiones de prácticas
+  const labRoomTypes = [
+    ['laboratorio', ['TEL-1-SINF','TEL-1-TDC','TEL-1-PRG','TEL-1-ADC',
+                     'TEL-1-CAL1','TEL-1-ALG','TEL-1-CAL2','TEL-1-FF1',
+                     'TEL-2-EBAS','TEL-2-REDES1','TEL-2-ED','TEL-2-EC',
+                     'TEL-2-FF2','TEL-2-REDES2','TEL-2-EST','TEL-2-SYS','TEL-2-TC']],
+    ['seminario',   ['TEL-2-PPO','GITT-3-TAF','GIST-3-TAF','GIST-3-RADIO','GITT-4-RADIO','GIST-4-TINAM']],
+  ];
+  for (const [rt, codes] of labRoomTypes) {
+    const ph = codes.map(() => '?').join(',');
+    await run(`UPDATE subjects SET room_type=? WHERE code IN (${ph})`, [rt, ...codes]);
+  }
+  // Assign room_type='laboratorio' to non-Teleco subjects without one (GIT, GITT, GIEC, etc.)
+  await run(`UPDATE subjects SET room_type='laboratorio' WHERE room_type IS NULL AND name NOT LIKE '%Transversal%'`);
+  // Transversal subjects: all theory, no lab
+  await run(`UPDATE subjects SET lab_hours=0, theory_hours=hours_week WHERE name LIKE '%Transversal%'`);
+  // All other subjects: lab=2h, theory=hours_week-2
+  await run(`UPDATE subjects SET lab_hours=2, theory_hours=hours_week-2 WHERE name NOT LIKE '%Transversal%'`);
   console.log("✓ Asignaturas");
 
   // ── Asignaciones profesor → asignatura ───────────
@@ -490,6 +514,17 @@ async function seed() {
     "GIST-4-TRST":   20,  // Andrés Serrano
     "GIST-4-TSE":    10,  // Patricia Moreno
     "GIST-4-TFOT":   26,  // Verónica Castro
+
+    // Prácticas Teleco año 1
+    "TEL-1-SINF-P":   [5, 6],   // Mª José Sánchez + David Torres
+    "TEL-1-TDC-P":    [4, 9],   // Pedro Martínez + Luis M. Herrera
+    "TEL-1-PRG-P":    [6, 7],   // David Torres + Elena Ramírez
+    "TEL-1-ADC-P":    [4, 9],   // Pedro Martínez + Luis M. Herrera
+    // Prácticas Teleco año 2
+    "TEL-2-EBAS-P":   [9, 10],  // Luis M. Herrera + Patricia Moreno
+    "TEL-2-REDES1-P": [18, 19], // Javier Ortega + Sandra Morales
+    "TEL-2-ED-P":     [9, 11],  // Luis M. Herrera + Alejandro Ruiz
+    "TEL-2-EC-P":     [10, 12], // Patricia Moreno + Isabel Díaz
   };
 
   const subjectRows = await all("SELECT id, code FROM subjects ORDER BY id");
@@ -509,6 +544,26 @@ async function seed() {
     }
   }
   console.log("✓ Asignaciones profesor-asignatura");
+
+  // ── Configuración de grupos ───────────────────────
+  await run("DELETE FROM group_config");
+  const groupConfigs = [
+    // Teleco 1º: F = tarde
+    { degree: 'Teleco', year: 1, group_letter: 'F', afternoon: 1, bilingual: 0 },
+    // Teleco 1º: E = bilingüe
+    { degree: 'Teleco', year: 1, group_letter: 'E', afternoon: 0, bilingual: 1 },
+    // Teleco 2º: D = tarde
+    { degree: 'Teleco', year: 2, group_letter: 'D', afternoon: 1, bilingual: 0 },
+    // Teleco 2º: E = bilingüe
+    { degree: 'Teleco', year: 2, group_letter: 'E', afternoon: 0, bilingual: 1 },
+  ];
+  for (const { degree, year, group_letter, afternoon, bilingual } of groupConfigs) {
+    await run(
+      `INSERT OR REPLACE INTO group_config (degree, year, group_letter, afternoon, bilingual) VALUES (?,?,?,?,?)`,
+      [degree, year, group_letter, afternoon, bilingual]
+    );
+  }
+  console.log("✓ Configuración de grupos");
 
   console.log("\n✅ Seed completado. Ejecuta: npm start");
   db.close();

@@ -235,8 +235,15 @@ footer {
   background: #0d1b2a;
   text-align: center;
   padding: 14px 20px;
-  margin-top: 0;
-  flex-shrink: 0;
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  width: 100%;
+  z-index: 50;
+}
+
+body > main {
+  padding-bottom: 70px;
 }
 
 footer p {
@@ -739,7 +746,7 @@ select:focus {
   align-items: flex-end;
 }
 
-.gen-form input,
+.gen-form input:not([type="checkbox"]):not([type="radio"]),
 .gen-form select {
   flex: 1;
   min-width: 110px;
@@ -752,7 +759,7 @@ select:focus {
   transition: 0.2s;
 }
 
-.gen-form input:focus,
+.gen-form input:not([type="checkbox"]):not([type="radio"]):focus,
 .gen-form select:focus {
   outline: none;
   border-color: #00b4d8;

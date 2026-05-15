@@ -217,7 +217,7 @@ async function actualizarHorario() {
       const data    = detRes.ok ? await detRes.json() : null;
       if (data?.sesiones?.length) {
         const sched = data.schedule;
-        const html  = buildPrintHTML(data.sesiones, latest.name, data.slotMins, data.duracion, sched?.year, sched?.semester);
+        const html  = buildPrintHTML(data.sesiones, latest.name, data.slotMins, data.duracion, sched?.year, sched?.semester, sched?.group_letter || '');
         const iframe = document.createElement("iframe");
         iframe.scrolling = "no";
         iframe.style.cssText = "width:100%;border:none;border-radius:8px;display:block;background:#fff;overflow:hidden;box-shadow:0 4px 20px rgba(0,0,0,0.3);height:0;";
@@ -247,88 +247,109 @@ async function actualizarHorario() {
 }
 
 // ── PDF Export ────────────────────────────────────
-function buildPrintHTML(sesiones, title, slotMins, duracion, year, semester) {
+function buildPrintHTML(sesiones, title, slotMins, duracion, year, semester, groupLetter = '') {
   const DAY_NMS = ["Lunes","Martes","Miércoles","Jueves","Viernes"];
   function tm(t) { const [h,m] = t.split(":").map(Number); return h*60+m; }
-  // Always show all 5 days; 2h base grid + session boundaries so 1h fringe slots fit exactly
+  const pad = n => String(n).padStart(2,"0");
+  const fmt = m => `${Math.floor(m/60)}:${pad(m%60)}`; // sin ceros a la izquierda en la hora
+
   const dias = [0, 1, 2, 3, 4];
-  const FIXED_BOUNDS = [8*60, 10*60, 12*60, 14*60, 15*60, 17*60, 19*60, 21*60];
+  const ROW_PX = 50; // px per hour row
+
+  // 1-hour grid 8→21, augmented with session boundaries
+  const base = [];
+  for (let h = 8; h <= 21; h++) base.push(h * 60);
   const sessBounds = sesiones.flatMap(s => [tm(s.start), tm(s.end)]);
-  const allBounds = [...new Set([...FIXED_BOUNDS, ...sessBounds])]
+  const allBounds = [...new Set([...base, ...sessBounds])]
     .filter(b => b >= 8*60 && b <= 21*60).sort((a,b) => a-b);
   const rowBounds = [];
   for (let i = 0; i < allBounds.length - 1; i++) rowBounds.push([allBounds[i], allBounds[i+1]]);
 
-  const pad = n => String(n).padStart(2,"0");
-  const fmt = m => `${pad(Math.floor(m/60))}:${pad(m%60)}`;
-
-  // Build cells with rowspan
   const covered = new Set();
   const hdr = `<tr>
-    <th style="width:64px;padding:9px 5px;background:#1e3a6e;color:#fff;border:1px solid #000;font-size:12px;font-weight:700;text-align:center;">HORA</th>
-    ${dias.map(d=>`<th style="padding:9px 6px;font-size:14px;font-weight:700;text-align:center;background:#1e3a6e;color:#fff;border:1px solid #000;text-transform:uppercase;">${DAY_NMS[d]}</th>`).join("")}
+    <th style="width:68px;padding:7px 4px;background:#1e3a6e;color:#fff;border:1px solid #000;font-size:11px;font-weight:700;text-align:center;">HORA</th>
+    ${dias.map(d=>`<th style="padding:7px 6px;font-size:12px;font-weight:700;text-align:center;background:#1e3a6e;color:#fff;border:1px solid #000;text-transform:uppercase;letter-spacing:.06em;">${DAY_NMS[d]}</th>`).join("")}
   </tr>`;
 
   let rows = "";
   for (let ri = 0; ri < rowBounds.length; ri++) {
     const [rStart, rEnd] = rowBounds[ri];
-    const lunchRow = rStart === 840;
-    const cellBg   = lunchRow ? '#ddd' : '#fff';
-    let cells = `<td style="padding:5px 6px;text-align:center;vertical-align:middle;background:#f5f5f5;border:1px solid #000;white-space:nowrap;font-size:12px;">
-      <span style="display:block;font-weight:700;">${fmt(rStart)}</span>
-      <span style="display:block;color:#555;font-size:10px;">${fmt(rEnd)}</span>
-    </td>`;
+    const rowH = Math.max(32, Math.round((rEnd - rStart) / 60 * ROW_PX));
+    const isLunch = rStart === 14*60;
+    const lbl = `${fmt(rStart)}/${fmt(rEnd - 5)}`;
+
+    let cells = `<td style="padding:2px 4px;text-align:center;vertical-align:middle;background:#f0f4f8;border:1px solid #000;white-space:nowrap;font-size:10px;font-weight:700;color:#1e3a6e;">${lbl}</td>`;
+
     for (const d of dias) {
       if (covered.has(`${d}-${ri}`)) continue;
-      const sess = sesiones.find(s => s.day === d && tm(s.start) >= rStart && tm(s.start) < rEnd);
-      if (sess) {
-        const sessEnd = tm(sess.end);
+      if (isLunch) { cells += `<td style="border:1px solid #000;background:#e8e8e8;"></td>`; continue; }
+
+      const sessArr = sesiones.filter(s => s.day === d && tm(s.start) >= rStart && tm(s.start) < rEnd);
+      if (sessArr.length) {
+        const maxEnd = Math.max(...sessArr.map(s => tm(s.end)));
         let span = 0;
-        for (let j = ri; j < rowBounds.length && rowBounds[j][0] < sessEnd; j++) { span++; covered.add(`${d}-${j}`); }
+        for (let j = ri; j < rowBounds.length && rowBounds[j][0] < maxEnd; j++) {
+          span++;
+          covered.add(`${d}-${j}`);
+        }
+        const inner = sessArr.map((sess, i) => {
+          const isTheory = sess.subgroup == null;
+          const grpTag   = year && groupLetter ? `${year}${groupLetter}${isTheory ? '' : (sess.subgroup || '')}` : '';
+          const meta     = [grpTag, sess.classroom ? `(${sess.classroom})` : ''].filter(Boolean).join(' ');
+          const sep      = i > 0 ? 'border-top:1px solid #ddd;padding-top:5px;width:100%;' : '';
+          if (isTheory) {
+            return `<div style="${sep}line-height:1.3;">
+              <div style="font-size:12px;font-weight:700;text-transform:uppercase;">${sess.subject}</div>
+              ${meta ? `<div style="font-size:10px;font-weight:700;margin-top:3px;opacity:.75;">${meta}</div>` : ''}
+            </div>`;
+          } else {
+            return `<div style="${sep}line-height:1.3;">
+              <div style="font-size:10.5px;font-weight:600;">${sess.subject}</div>
+              ${meta ? `<div style="font-size:9.5px;font-weight:700;margin-top:2px;opacity:.75;">${meta}</div>` : ''}
+            </div>`;
+          }
+        }).join("");
         cells += `<td rowspan="${span}" style="padding:5px 6px;text-align:center;vertical-align:middle;border:1px solid #000;background:#fff;">
-          <div style="font-size:13px;font-weight:700;text-transform:uppercase;line-height:1.3;">${sess.subject}</div>
-          ${sess.classroom?`<div style="font-size:11px;font-weight:700;margin-top:2px;">(${sess.classroom})</div>`:""}
-          ${sess.teacher?`<div style="font-size:10px;color:#444;margin-top:2px;">${sess.teacher}</div>`:""}
+          <div style="display:flex;flex-direction:column;gap:6px;align-items:center;">${inner}</div>
         </td>`;
       } else {
-        cells += `<td style="border:1px solid #000;background:${cellBg};"></td>`;
+        cells += `<td style="border:1px solid #000;background:#fff;"></td>`;
       }
     }
-    rows += `<tr style="height:${Math.round((rEnd-rStart)/60*45)}px;">${cells}</tr>`;
+    rows += `<tr style="height:${rowH}px;">${cells}</tr>`;
   }
 
-  const now        = new Date();
-  const fecha      = now.toLocaleDateString("es-ES",{day:"2-digit",month:"long",year:"numeric"});
-  const anyo       = now.getFullYear();
-  const curso      = `Curso ${anyo}/${anyo+1}`;
-  const cuatriNum  = (year && semester) ? (year - 1) * 2 + semester : null;
-  const semStr     = semester === 1 ? "1er" : semester === 2 ? "2º" : null;
-  const yearStr    = year === 1 ? "1er" : `${year}º`;
-  const leftTitle  = cuatriNum ? `CUATRIMESTRE ${cuatriNum}º (Curso ${year}º, Cuatrimestre ${semester}º)` : title;
-  const degree     = title.split(/\s*[–\-]\s*/)[0]?.trim() || title;
-  const groupMatch = title.match(/Gr\.\s*([A-F])/);
-  const groupStr   = groupMatch ? ` – Gr. ${groupMatch[1]}` : "";
+  const now       = new Date();
+  const fecha     = now.toLocaleDateString("es-ES",{day:"2-digit",month:"long",year:"numeric"});
+  const anyo      = now.getFullYear();
+  const curso     = `Curso ${anyo}/${anyo+1}`;
+  const cuatriNum = (year && semester) ? (year-1)*2+semester : null;
+  const semStr    = semester === 1 ? "1er" : "2º";
+  const yearStr   = year ? `${year}º` : '';
+  const leftTitle = cuatriNum ? `CUATRIMESTRE ${cuatriNum}º (Curso ${year}º, Semestre ${semester}º)` : title;
+  const degree    = title.split(/\s*[–\-]\s*/)[0]?.trim() || title;
+  const grpMatch  = title.match(/Gr\.\s*([A-Z0-9]+)/);
+  const grpStr    = grpMatch ? ` ${grpMatch[1]}` : (groupLetter ? ` ${groupLetter}` : '');
   const rightTitle = (year && semester)
-    ? `${degree} – ${yearStr} Año – ${semStr} Cuatrimestre${groupStr}`
+    ? `GRUPO ${yearStr}${grpStr}`
     : year ? `${degree} – ${yearStr} Año` : "Universidad de Alcalá";
+
   return `<!DOCTYPE html><html lang="es"><head><meta charset="UTF-8"><title>${title}</title>
 <style>
 *{margin:0;padding:0;box-sizing:border-box}
 html,body{height:auto;overflow:hidden}
-body{font-family:Arial,Helvetica,sans-serif;background:#fff;color:#000;padding:10px 14px}
-@media print{@page{margin:8mm;size:A4 landscape}body{padding:0}*{-webkit-print-color-adjust:exact;print-color-adjust:exact}}
+body{font-family:Arial,Helvetica,sans-serif;background:#fff;color:#000;padding:8px 12px}
+@media print{@page{margin:6mm;size:A4 landscape}body{padding:0}*{-webkit-print-color-adjust:exact;print-color-adjust:exact;color-adjust:exact}}
 </style></head><body onload="parent.postMessage({type:'iframeH',h:document.body.offsetHeight},'*')">
-<table style="width:100%;border:2px solid #000;border-collapse:collapse;margin-bottom:0;">
-  <tr>
-    <td style="padding:9px 14px;border:1px solid #000;font-size:13px;font-weight:700;width:38%;">${leftTitle}</td>
-    <td style="padding:9px 14px;border:1px solid #000;font-size:13px;font-weight:700;text-align:center;width:28%;">${curso}</td>
-    <td style="padding:9px 14px;border:1px solid #000;font-size:13px;font-weight:700;text-align:right;width:34%;">${rightTitle}</td>
-  </tr>
-</table>
-<table style="width:100%;border-collapse:collapse;border:2px solid #000;border-top:none;">
+<div style="display:flex;justify-content:space-between;align-items:center;padding:7px 14px;border-bottom:2px solid #1e3a6e;margin-bottom:0;">
+  <span style="font-size:13px;font-weight:700;color:#1e3a6e;">${leftTitle}</span>
+  <span style="font-size:13px;font-weight:600;color:#333;">${curso}</span>
+  <span style="font-size:13px;font-weight:700;color:#1e3a6e;">${rightTitle}</span>
+</div>
+<table style="width:100%;border-collapse:collapse;border:2px solid #000;">
   <thead>${hdr}</thead><tbody>${rows}</tbody>
 </table>
-<div style="font-size:10px;color:#555;margin-top:8px;margin-bottom:10px;text-align:center;font-style:italic;">Generado el ${fecha} &nbsp;·&nbsp; TFG Plataforma &nbsp;·&nbsp; Universidad de Alcalá</div>
+<div style="font-size:9px;color:#94a3b8;margin-top:5px;margin-bottom:6px;text-align:right;font-style:italic;">Generado el ${fecha} · TFG Plataforma · Universidad de Alcalá</div>
 </body></html>`;
 }
 
@@ -339,7 +360,7 @@ function exportPDF(id, name) {
       if (!data.sesiones?.length) return alert("Sin sesiones para exportar.");
       const sched = data.schedule;
       const win = window.open("", "_blank", "width=1000,height=700");
-      win.document.write(buildPrintHTML(data.sesiones, name, data.slotMins, data.duracion, sched?.year, sched?.semester));
+      win.document.write(buildPrintHTML(data.sesiones, name, data.slotMins, data.duracion, sched?.year, sched?.semester, sched?.group_letter || ''));
       win.document.close();
       win.addEventListener("load", () => { win.focus(); win.print(); });
     })

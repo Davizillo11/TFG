@@ -133,8 +133,12 @@ function getOrderedSlots(startTimes, subject, dur, duracion, partialMins, avoidD
     const late         = mainPref.filter(t => t.startMin >= LUNCH_END && !t.isExtreme);
     const fringeMorn   = fringe.filter(t => t.startMin <  LUNCH_START);
     const fringeAfter  = fringe.filter(t => t.startMin >= LUNCH_END);
+    // Prefer same day as subject's existing sessions (9:00 stacks onto the main session's day)
     return [
-      ...fringeMorn,
+      ...fringeMorn.filter(t =>  used(t) && !av(t)),
+      ...fringeMorn.filter(t =>  used(t) &&  av(t)),
+      ...fringeMorn.filter(t => !used(t) && !av(t)),
+      ...fringeMorn.filter(t => !used(t) &&  av(t)),
       ...late.filter(t => !av(t) && !used(t)), ...late.filter(t => !av(t) && used(t)),
       ...late.filter(t =>  av(t) && !used(t)), ...late.filter(t =>  av(t) && used(t)),
       ...fringeAfter,
@@ -149,9 +153,10 @@ function getOrderedSlots(startTimes, subject, dur, duracion, partialMins, avoidD
     });
   }
 
-  const pref = mainPref.filter(t => isPreferredTime(t) && !t.isExtreme);
-  const extr = mainPref.filter(t => t.isExtreme);
-  const late = mainPref.filter(t => !isPreferredTime(t) && !t.isExtreme);
+  const pref     = mainPref.filter(t => isPreferredTime(t) && !t.isExtreme && !t.isLate);
+  const extr     = mainPref.filter(t => t.isExtreme);
+  const late     = mainPref.filter(t => !isPreferredTime(t) && !t.isExtreme && !t.isLate);
+  const veryLate = mainPref.filter(t => t.isLate);
   return [
     ...pref.filter(t => !av(t) && !used(t)),
     ...pref.filter(t => !av(t) &&  used(t)),
@@ -163,7 +168,35 @@ function getOrderedSlots(startTimes, subject, dur, duracion, partialMins, avoidD
     ...late.filter(t => !av(t) &&  used(t)),
     ...late.filter(t =>  av(t) && !used(t)),
     ...late.filter(t =>  av(t) &&  used(t)),
+    ...veryLate.filter(t => !av(t) && !used(t)),
+    ...veryLate.filter(t => !av(t) &&  used(t)),
+    ...veryLate.filter(t =>  av(t) && !used(t)),
+    ...veryLate.filter(t =>  av(t) &&  used(t)),
   ];
+}
+
+// Selecciona el mejor profesor disponible para un slot dado.
+// Primero respeta la disponibilidad (restricción blanda), luego acepta cualquier
+// profesor que no esté ya ocupado físicamente en ese slot.
+function pickTeacher(teacherIds, dia, startMin, endMin, teacherAvail, occupiedTeachers, preOccTeachers, teacherSessMap) {
+  if (teacherIds.length === 0) return null;
+
+  // primera pasada: respetar disponibilidad
+  for (const tid of teacherIds) {
+    if (!isTeacherAvailable(tid, dia, startMin, endMin, teacherAvail)) continue;
+    if (!isSegmentFree([occupiedTeachers, preOccTeachers], `${tid}-${dia}`, startMin, endMin)) continue;
+    if (countConsecBefore(tid, dia, startMin, teacherSessMap) >= MAX_CONSECUTIVE) continue;
+    return tid;
+  }
+
+  // segunda pasada (restricción blanda): cualquier profesor no ocupado físicamente
+  for (const tid of teacherIds) {
+    if (!isSegmentFree([occupiedTeachers, preOccTeachers], `${tid}-${dia}`, startMin, endMin)) continue;
+    if (countConsecBefore(tid, dia, startMin, teacherSessMap) >= MAX_CONSECUTIVE) continue;
+    return tid;
+  }
+
+  return null; // todos los profesores están físicamente ocupados
 }
 
 function rescueExtremeSlots(result, allSessions, occupied, teacherSessMap, subjectSessions,
@@ -174,7 +207,8 @@ function rescueExtremeSlots(result, allSessions, occupied, teacherSessMap, subje
 
   for (let idx = 0; idx < result.length; idx++) {
     const assignment = result[idx];
-    if (!assignment || assignment.startMin >= PREF_MIN) continue;
+    // Skip fringe slots (e.g. 9:00) — only rescue truly extreme slots (< fringe, e.g. 8:00)
+    if (!assignment || assignment.startMin >= PREF_MIN || partialMins.has(assignment.startMin)) continue;
 
     const { subject, dur } = allSessions[idx];
     const sid = subject.id;
@@ -212,10 +246,6 @@ function rescueExtremeSlots(result, allSessions, occupied, teacherSessMap, subje
     let relocated = false;
     outer: for (const { dia: nd, startMin: ns } of prefSlots) {
       const ne = ns + dur;
-      if (subject.year === 1 && subject.semester === 1) {
-        if (subject.transversal && nd !== 4) continue;
-        if (!subject.transversal && nd === 4 && subject.groupLetter !== 'E') continue;
-      }
       const newGk = subject.groupKey ? `${subject.groupKey}-${nd}` : null;
       if (newGk && !isSegmentFree([occupied.groups], newGk, ns, ne)) continue;
 
@@ -223,17 +253,9 @@ function rescueExtremeSlots(result, allSessions, occupied, teacherSessMap, subje
         const nak = `${aula.id}-${nd}`;
         if (!isSegmentFree([occupied.aulas, preOccClassrooms], nak, ns, ne)) continue;
 
-        let newTid = null;
-        if (subject.teacherIds.length > 0) {
-          for (const tid of subject.teacherIds) {
-            if (!isTeacherAvailable(tid, nd, ns, ne, teacherAvail)) continue;
-            if (!isSegmentFree([occupied.teachers, preOccTeachers], `${tid}-${nd}`, ns, ne)) continue;
-            if (countConsecBefore(tid, nd, ns, teacherSessMap) >= MAX_CONSECUTIVE) continue;
-            newTid = tid;
-            break;
-          }
-          if (newTid === null) continue;
-        }
+        const newTid = pickTeacher(subject.teacherIds, nd, ns, ne, teacherAvail,
+          occupied.teachers, preOccTeachers, teacherSessMap);
+        if (subject.teacherIds.length > 0 && newTid === null) continue;
 
         occupySegment(occupied.aulas, nak, ns, ne);
         if (newTid !== null) {
@@ -280,19 +302,12 @@ function solveGreedy(allSessions, validAulasBySubject, startTimes, finMin, teach
     const { subject, dur } = allSessions[idx];
     const sid        = subject.id;
     const validAulas = validAulasBySubject[sid];
-    const placedDays = subject.transversal
-      ? new Set()
-      : new Set((subjectSessions[sid] || []).map(s => s.dia));
+    const placedDays   = new Set((subjectSessions[sid] || []).map(s => s.dia));
     const orderedSlots = getOrderedSlots(startTimes, subject, dur, duracion, partialMins, avoidDays, placedDays);
 
     outer: for (const { dia, startMin } of orderedSlots) {
       const endMin = startMin + dur;
       if (endMin > finMin) continue;
-
-      if (subject.year === 1 && subject.semester === 1) {
-        if (subject.transversal && dia !== 4) continue;
-        if (!subject.transversal && dia === 4 && subject.groupLetter !== 'E') continue;
-      }
 
       const gk = subject.groupKey ? `${subject.groupKey}-${dia}` : null;
       if (gk && !isSegmentFree([occupied.groups], gk, startMin, endMin)) continue;
@@ -301,17 +316,9 @@ function solveGreedy(allSessions, validAulasBySubject, startTimes, finMin, teach
         const ak = `${aula.id}-${dia}`;
         if (!isSegmentFree([occupied.aulas, preOccClassrooms], ak, startMin, endMin)) continue;
 
-        let selectedTid = null;
-        if (subject.teacherIds.length > 0) {
-          for (const tid of subject.teacherIds) {
-            if (!isTeacherAvailable(tid, dia, startMin, endMin, teacherAvail)) continue;
-            if (!isSegmentFree([occupied.teachers, preOccTeachers], `${tid}-${dia}`, startMin, endMin)) continue;
-            if (countConsecBefore(tid, dia, startMin, teacherSessMap) >= MAX_CONSECUTIVE) continue;
-            selectedTid = tid;
-            break;
-          }
-          if (selectedTid === null) continue;
-        }
+        const selectedTid = pickTeacher(subject.teacherIds, dia, startMin, endMin, teacherAvail,
+          occupied.teachers, preOccTeachers, teacherSessMap);
+        if (subject.teacherIds.length > 0 && selectedTid === null) continue;
 
         occupySegment(occupied.aulas, ak, startMin, endMin);
         if (selectedTid !== null) {
@@ -356,20 +363,13 @@ function solveCSP(allSessions, validAulasBySubject, startTimes, finMin, teacherA
     const { subject, dur } = allSessions[idx];
     const sid = subject.id;
     const validAulas = validAulasBySubject[sid];
-    const placedDays = subject.transversal
-      ? new Set()
-      : new Set((subjectSessions[sid] || []).map(s => s.dia));
+    const placedDays   = new Set((subjectSessions[sid] || []).map(s => s.dia));
     const orderedSlots = getOrderedSlots(startTimes, subject, dur, duracion, partialMins, avoidDays, placedDays);
 
     for (const { dia, startMin } of orderedSlots) {
       if (timedOut) return false;
       const endMin = startMin + dur;
       if (endMin > finMin) continue;
-
-      if (subject.year === 1 && subject.semester === 1) {
-        if (subject.transversal && dia !== 4) continue;
-        if (!subject.transversal && dia === 4 && subject.groupLetter !== 'E') continue;
-      }
 
       const gk = subject.groupKey ? `${subject.groupKey}-${dia}` : null;
       if (gk && !isSegmentFree([occupied.groups], gk, startMin, endMin)) continue;
@@ -378,13 +378,20 @@ function solveCSP(allSessions, validAulasBySubject, startTimes, finMin, teacherA
         const ak = `${aula.id}-${dia}`;
         if (!isSegmentFree([occupied.aulas, preOccClassrooms], ak, startMin, endMin)) continue;
 
+        // Candidatos preferentes (respetan disponibilidad) primero; resto como fallback blando
+        const preferred = subject.teacherIds.filter(tid =>
+          isTeacherAvailable(tid, dia, startMin, endMin, teacherAvail) &&
+          isSegmentFree([occupied.teachers, preOccTeachers], `${tid}-${dia}`, startMin, endMin) &&
+          countConsecBefore(tid, dia, startMin, teacherSessMap) < MAX_CONSECUTIVE
+        );
+        const fallback = subject.teacherIds.filter(tid =>
+          !preferred.includes(tid) &&
+          isSegmentFree([occupied.teachers, preOccTeachers], `${tid}-${dia}`, startMin, endMin) &&
+          countConsecBefore(tid, dia, startMin, teacherSessMap) < MAX_CONSECUTIVE
+        );
         const teacherCandidates = subject.teacherIds.length === 0
           ? [null]
-          : subject.teacherIds.filter(tid =>
-              isTeacherAvailable(tid, dia, startMin, endMin, teacherAvail) &&
-              isSegmentFree([occupied.teachers, preOccTeachers], `${tid}-${dia}`, startMin, endMin) &&
-              countConsecBefore(tid, dia, startMin, teacherSessMap) < MAX_CONSECUTIVE
-            );
+          : [...preferred, ...fallback];
 
         for (const selectedTid of teacherCandidates) {
           occupySegment(occupied.aulas, ak, startMin, endMin);

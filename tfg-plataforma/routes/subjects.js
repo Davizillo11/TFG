@@ -24,33 +24,40 @@ router.get("/", requireAuth, (req, res) => {
 
 // POST create
 router.post("/", requireAdmin, (req, res) => {
-  const { name, code, degree, year, semester, students, hours_week, teacher_ids } = req.body;
+  const { name, code, degree, year, semester, students, hours_week, teacher_ids, room_type, session_type, theory_hours, lab_hours } = req.body;
   if (!name) return res.status(400).json({ error: "Nombre requerido" });
   const bilingual = req.body.bilingual ? 1 : 0;
   const ids = Array.isArray(teacher_ids) ? teacher_ids.filter(Boolean) : [];
+  const hw = parseInt(hours_week) || 4;
+  const th = theory_hours != null ? parseInt(theory_hours) : hw - 2;
+  const lh = lab_hours    != null ? parseInt(lab_hours)    : 2;
 
   db.run(
-    "INSERT INTO subjects (name, code, degree, year, semester, students, hours_week, bilingual) VALUES (?,?,?,?,?,?,?,?)",
+    "INSERT INTO subjects (name, code, degree, year, semester, students, hours_week, bilingual, room_type, session_type, theory_hours, lab_hours) VALUES (?,?,?,?,?,?,?,?,?,?,?,?)",
     [name, code || null, degree || null, year || null, semester || null,
-     students || null, hours_week || 4, bilingual],
+     students || null, hw, bilingual, room_type || null, session_type || 'teoria', th, lh],
     function (err) {
       if (err) return res.status(500).json({ error: err.message });
       const subjectId = this.lastID;
       for (const tid of ids) {
         db.run("INSERT INTO subject_teachers (subject_id, teacher_id) VALUES (?,?)", [subjectId, tid], () => {});
       }
-      res.json({ id: subjectId, name, code, degree, year, semester, students, hours_week, bilingual });
+      res.json({ id: subjectId, name, code, degree, year, semester, students, hours_week: hw, bilingual, room_type, session_type, theory_hours: th, lab_hours: lh });
     }
   );
 });
 
 // PUT update
 router.put("/:id", requireAdmin, (req, res) => {
-  const { name, code, degree, year, semester, students, hours_week, teacher_ids } = req.body;
+  const { name, code, degree, year, semester, students, hours_week, teacher_ids, room_type, session_type, theory_hours, lab_hours } = req.body;
   const bilingual = req.body.bilingual ? 1 : 0;
+  const hw = parseInt(hours_week) || 4;
+  const th = theory_hours != null ? parseInt(theory_hours) : hw - 2;
+  const lh = lab_hours    != null ? parseInt(lab_hours)    : 2;
   db.run(
-    "UPDATE subjects SET name=?, code=?, degree=?, year=?, semester=?, students=?, hours_week=?, bilingual=? WHERE id=?",
-    [name, code, degree, year, semester, students, hours_week, bilingual, req.params.id],
+    "UPDATE subjects SET name=?, code=?, degree=?, year=?, semester=?, students=?, hours_week=?, bilingual=?, room_type=?, session_type=?, theory_hours=?, lab_hours=? WHERE id=?",
+    [name, code, degree, year, semester, students, hw, bilingual,
+     room_type || null, session_type || 'teoria', th, lh, req.params.id],
     function (err) {
       if (err) return res.status(500).json({ error: err.message });
       if (this.changes === 0) return res.status(404).json({ error: "No encontrado" });

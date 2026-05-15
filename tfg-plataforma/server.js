@@ -30,6 +30,8 @@ app.use("/api/v1/users",                       require("./routes/users"));
 app.use("/api/v1/stats",                       require("./routes/stats"));
 app.use("/api/v1/schedules",                   require("./routes/schedules"));
 app.use("/api/v1/excel",                       require("./routes/excel"));
+app.use("/api/v1/zone-preferences",            require("./routes/zones"));
+app.use("/api/v1/group-config",                require("./routes/groupconfig"));
 
 // ── Serve app ─────────────────────────────────────
 app.get("/", (req, res) => {

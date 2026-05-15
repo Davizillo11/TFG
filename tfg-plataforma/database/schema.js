@@ -25,11 +25,13 @@ db.serialize(() => {
 
   // Teachers
   db.run(`CREATE TABLE IF NOT EXISTS teachers (
-    id         INTEGER PRIMARY KEY AUTOINCREMENT,
-    name       TEXT NOT NULL,
-    department TEXT,
-    email      TEXT
+    id           INTEGER PRIMARY KEY AUTOINCREMENT,
+    name         TEXT NOT NULL,
+    department   TEXT,
+    email        TEXT,
+    session_type TEXT DEFAULT 'ambos'
   )`);
+  db.run("ALTER TABLE teachers ADD COLUMN session_type TEXT DEFAULT 'ambos'", () => {});
 
   // Subjects
   db.run(`CREATE TABLE IF NOT EXISTS subjects (
@@ -78,6 +80,26 @@ db.serialize(() => {
   db.run("ALTER TABLE schedules ADD COLUMN semester INTEGER", () => {});
   db.run("ALTER TABLE subjects ADD COLUMN bilingual INTEGER DEFAULT 0", () => {});
   db.run("ALTER TABLE schedules ADD COLUMN group_letter TEXT", () => {});
+  db.run("ALTER TABLE subjects ADD COLUMN session_type TEXT DEFAULT 'teoria'", () => {});
+  db.run("ALTER TABLE schedule_sessions ADD COLUMN subgroup INTEGER DEFAULT NULL", () => {});
+  db.run("ALTER TABLE subjects ADD COLUMN theory_hours INTEGER DEFAULT 2", () => {});
+  db.run("ALTER TABLE subjects ADD COLUMN lab_hours INTEGER DEFAULT 2", () => {});
+  db.run(`CREATE TABLE IF NOT EXISTS zone_preferences (
+    id     INTEGER PRIMARY KEY AUTOINCREMENT,
+    degree TEXT    NOT NULL,
+    year   INTEGER NOT NULL,
+    zone   TEXT,
+    UNIQUE(degree, year)
+  )`, () => {});
+
+  db.run(`CREATE TABLE IF NOT EXISTS group_config (
+    degree       TEXT    NOT NULL,
+    year         INTEGER NOT NULL,
+    group_letter TEXT    NOT NULL,
+    afternoon    INTEGER NOT NULL DEFAULT 0,
+    bilingual    INTEGER NOT NULL DEFAULT 0,
+    PRIMARY KEY (degree, year, group_letter)
+  )`, () => {});
 
   // Schedule sessions
   db.run(`CREATE TABLE IF NOT EXISTS schedule_sessions (
