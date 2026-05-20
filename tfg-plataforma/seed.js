@@ -59,6 +59,21 @@ async function seed() {
     day_of_week INTEGER NOT NULL, slot_start TEXT NOT NULL, slot_end TEXT NOT NULL,
     subgroup INTEGER DEFAULT NULL
   )`);
+  await run(`CREATE TABLE IF NOT EXISTS group_config (
+    degree TEXT NOT NULL, year INTEGER NOT NULL, group_letter TEXT NOT NULL,
+    afternoon INTEGER NOT NULL DEFAULT 0, bilingual INTEGER NOT NULL DEFAULT 0,
+    PRIMARY KEY (degree, year, group_letter)
+  )`);
+  await run(`CREATE TABLE IF NOT EXISTS slot_limits (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    degree TEXT NOT NULL, year INTEGER NOT NULL, semester INTEGER NOT NULL,
+    max_parallel INTEGER NOT NULL DEFAULT 2,
+    UNIQUE(degree, year, semester)
+  )`);
+  await run(`CREATE TABLE IF NOT EXISTS degree_groups (
+    degree TEXT NOT NULL, year INTEGER NOT NULL, group_letter TEXT NOT NULL,
+    PRIMARY KEY (degree, year, group_letter)
+  )`);
 
   // ── Limpiar datos ─────────────────────────────────
   await run("DELETE FROM schedule_sessions");
@@ -104,8 +119,8 @@ async function seed() {
         [`${prefix}${i}`, cap, "laboratorio", EPS, zone]);
     }
   }
-  await run("INSERT INTO classrooms (name, capacity, type, building, zone) VALUES (?,?,?,?,?)", ["PL1", 60, "seminario", EPS, "Norte"]);
-  await run("INSERT INTO classrooms (name, capacity, type, building, zone) VALUES (?,?,?,?,?)", ["PL2", 60, "seminario", EPS, "Norte"]);
+  await run("INSERT INTO classrooms (name, capacity, type, building, zone) VALUES (?,?,?,?,?)", ["PL14", 60, "seminario", EPS, "Norte"]);
+  await run("INSERT INTO classrooms (name, capacity, type, building, zone) VALUES (?,?,?,?,?)", ["PL15", 60, "seminario", EPS, "Norte"]);
   console.log("✓ Aulas");
 
   // ── Profesores ────────────────────────────────────
@@ -205,8 +220,8 @@ async function seed() {
     ["TEL-2-FF2",   "Fundamentos Físicos II",            "Teleco", 2, 1, 80, 4],
     ["TEL-2-REDES1","Arquitectura de Redes I",           "Teleco", 2, 1, 80, 4],
     // ── Teleco 4to cuatrimestre ──
-    ["TEL-2-ED",    "Electrónica Digital",               "Teleco", 2, 2, 80, 4],
-    ["TEL-2-EC",    "Electrónica de Circuitos",          "Teleco", 2, 2, 80, 4],
+    ["TEL-2-ED",    "Electrónica Digital",               "Teleco", 2, 2, 80, 5],
+    ["TEL-2-EC",    "Electrónica de Circuitos",          "Teleco", 2, 2, 80, 5],
     ["TEL-2-PPO",   "Propagación de Ondas",              "Teleco", 2, 2, 80, 4],
     ["TEL-2-TC",    "Teoría de la Comunicación",         "Teleco", 2, 2, 80, 4],
     ["TEL-2-REDES2","Arquitectura de Redes II",          "Teleco", 2, 2, 80, 4],
@@ -360,6 +375,10 @@ async function seed() {
   await run(`UPDATE subjects SET lab_hours=0, theory_hours=hours_week WHERE name LIKE '%Transversal%'`);
   // All other subjects: lab=2h, theory=hours_week-2
   await run(`UPDATE subjects SET lab_hours=2, theory_hours=hours_week-2 WHERE name NOT LIKE '%Transversal%'`);
+  // Electrónica de Circuitos: 3h teoría + 2h lab
+  await run(`UPDATE subjects SET lab_hours=2, theory_hours=3 WHERE code='TEL-2-EC'`);
+  // Año 3 y 4: 60 alumnos → 2 subgrupos de prácticas (ceil(60/40)=2)
+  await run(`UPDATE subjects SET students=60 WHERE year >= 3`);
   console.log("✓ Asignaturas");
 
   // ── Asignaciones profesor → asignatura ───────────
@@ -545,25 +564,25 @@ async function seed() {
   }
   console.log("✓ Asignaciones profesor-asignatura");
 
-  // ── Configuración de grupos ───────────────────────
-  await run("DELETE FROM group_config");
-  const groupConfigs = [
-    // Teleco 1º: F = tarde
-    { degree: 'Teleco', year: 1, group_letter: 'F', afternoon: 1, bilingual: 0 },
-    // Teleco 1º: E = bilingüe
-    { degree: 'Teleco', year: 1, group_letter: 'E', afternoon: 0, bilingual: 1 },
-    // Teleco 2º: D = tarde
-    { degree: 'Teleco', year: 2, group_letter: 'D', afternoon: 1, bilingual: 0 },
-    // Teleco 2º: E = bilingüe
-    { degree: 'Teleco', year: 2, group_letter: 'E', afternoon: 0, bilingual: 1 },
+  // ── Grupos existentes por titulación ─────────────
+  await run("DELETE FROM degree_groups");
+  const degreeGroups = [
+    // Teleco 1º: A-F (6 grupos)
+    ...['A','B','C','D','E','F'].map(g => ({ degree: 'Teleco', year: 1, group_letter: g })),
+    // Teleco 2º: A-E (5 grupos)
+    ...['A','B','C','D','E'].map(g => ({ degree: 'Teleco', year: 2, group_letter: g })),
+    // Itinerarios 3º y 4º: un único grupo por titulación (letra según especialidad)
+    ...[ ['GITT','A'], ['GIST','B'], ['GIEC','C'], ['GIT','D'] ].flatMap(([d, g]) =>
+      [3, 4].map(y => ({ degree: d, year: y, group_letter: g }))
+    ),
   ];
-  for (const { degree, year, group_letter, afternoon, bilingual } of groupConfigs) {
+  for (const { degree, year, group_letter } of degreeGroups) {
     await run(
-      `INSERT OR REPLACE INTO group_config (degree, year, group_letter, afternoon, bilingual) VALUES (?,?,?,?,?)`,
-      [degree, year, group_letter, afternoon, bilingual]
+      `INSERT OR IGNORE INTO degree_groups (degree, year, group_letter) VALUES (?,?,?)`,
+      [degree, year, group_letter]
     );
   }
-  console.log("✓ Configuración de grupos");
+  console.log("✓ Grupos existentes por titulación");
 
   console.log("\n✅ Seed completado. Ejecuta: npm start");
   db.close();

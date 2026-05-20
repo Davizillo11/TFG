@@ -7,15 +7,22 @@ const router = express.Router();
 
 // aulas libres en una franja horaria concreta
 router.get("/free", requireAuth, (req, res) => {
-  const { day, start, end } = req.query;
+  const { day, start, end, semester } = req.query;
   if (day === undefined || !start || !end)
     return res.status(400).json({ error: "day, start y end son obligatorios" });
 
+  const semFilter = semester ? `AND sc.semester = ${parseInt(semester)}` : "";
   db.all(`
-    SELECT DISTINCT classroom_id FROM schedule_sessions
-    WHERE day_of_week = ?
-      AND slot_start < ?
-      AND slot_end   > ?
+    SELECT DISTINCT ss.classroom_id FROM schedule_sessions ss
+    JOIN schedules sc ON sc.id = ss.schedule_id
+    WHERE ss.day_of_week = ?
+      AND ss.slot_start < ?
+      AND ss.slot_end   > ?
+      AND sc.id IN (
+        SELECT MAX(id) FROM schedules
+        GROUP BY degree, year, semester, COALESCE(group_letter, '')
+      )
+      ${semFilter}
   `, [parseInt(day), end, start], (err, occupied) => {
     if (err) return res.status(500).json({ error: err.message });
     const occupiedIds = new Set(occupied.map(r => r.classroom_id));

@@ -32,6 +32,8 @@ app.use("/api/v1/schedules",                   require("./routes/schedules"));
 app.use("/api/v1/excel",                       require("./routes/excel"));
 app.use("/api/v1/zone-preferences",            require("./routes/zones"));
 app.use("/api/v1/group-config",                require("./routes/groupconfig"));
+app.use("/api/v1/slot-limits",                 require("./routes/slotlimits"));
+app.use("/api/v1/degree-groups",              require("./routes/degreegroups"));
 
 // ── Serve app ─────────────────────────────────────
 app.get("/", (req, res) => {

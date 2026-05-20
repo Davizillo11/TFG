@@ -11,22 +11,25 @@ function dbRun(sql, p=[]) { return new Promise((ok,ko) => db.run(sql,p,function(
 // GET all
 router.get("/", requireAuth, async (req, res) => {
   try {
-    const rows = await dbAll("SELECT * FROM group_config ORDER BY year, degree, group_letter");
+    const rows = await dbAll("SELECT * FROM slot_limits ORDER BY degree, year, semester");
     res.json(rows);
   } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
-// PUT upsert — crea o actualiza una entrada
+// PUT upsert
 router.put("/", requireAdmin, async (req, res) => {
   try {
-    const { degree, year, group_letter, afternoon = 0, bilingual = 0 } = req.body;
-    if (!degree || year == null || !group_letter)
-      return res.status(400).json({ error: "degree, year y group_letter son obligatorios" });
+    const { degree, year, semester, max_parallel } = req.body;
+    if (!degree || year == null || semester == null)
+      return res.status(400).json({ error: "degree, year y semester son obligatorios" });
+    const mp = parseInt(max_parallel);
+    if (isNaN(mp) || mp < 1)
+      return res.status(400).json({ error: "max_parallel debe ser >= 1" });
     await dbRun(
-      `INSERT INTO group_config (degree, year, group_letter, afternoon, bilingual)
-       VALUES (?,?,?,?,?)
-       ON CONFLICT(degree, year, group_letter) DO UPDATE SET afternoon=excluded.afternoon, bilingual=excluded.bilingual`,
-      [degree, year, group_letter, afternoon ? 1 : 0, bilingual ? 1 : 0]
+      `INSERT INTO slot_limits (degree, year, semester, max_parallel)
+       VALUES (?,?,?,?)
+       ON CONFLICT(degree, year, semester) DO UPDATE SET max_parallel=excluded.max_parallel`,
+      [degree, parseInt(year), parseInt(semester), mp]
     );
     res.json({ ok: true });
   } catch (e) { res.status(500).json({ error: e.message }); }
@@ -35,8 +38,9 @@ router.put("/", requireAdmin, async (req, res) => {
 // DELETE
 router.delete("/", requireAdmin, async (req, res) => {
   try {
-    const { degree, year, group_letter } = req.body;
-    await dbRun("DELETE FROM group_config WHERE degree=? AND year=? AND group_letter=?", [degree, year, group_letter]);
+    const { degree, year, semester } = req.body;
+    await dbRun("DELETE FROM slot_limits WHERE degree=? AND year=? AND semester=?",
+      [degree, parseInt(year), parseInt(semester)]);
     res.json({ ok: true });
   } catch (e) { res.status(500).json({ error: e.message }); }
 });

@@ -110,8 +110,8 @@
           <select id="titulacion" onchange="actualizarCursos()">
             <option value="Teleco">Teleco (1º y 2º)</option>
             <option value="GITT">GITT</option>
-            <option value="GIEC">GIEC</option>
             <option value="GIST">GIST</option>
+            <option value="GIEC">GIEC</option>
             <option value="GIT">GIT</option>
           </select>
         </div>
@@ -282,9 +282,9 @@ function buildPrintHTML(sesiones, title, slotMins, duracion, year, semester, gro
 
     for (const d of dias) {
       if (covered.has(`${d}-${ri}`)) continue;
-      if (isLunch) { cells += `<td style="border:1px solid #000;background:#e8e8e8;"></td>`; continue; }
 
       const sessArr = sesiones.filter(s => s.day === d && tm(s.start) >= rStart && tm(s.start) < rEnd);
+      if (isLunch && !sessArr.length) { cells += `<td style="border:1px solid #000;background:#e8e8e8;"></td>`; continue; }
       if (sessArr.length) {
         const maxEnd = Math.max(...sessArr.map(s => tm(s.end)));
         let span = 0;
@@ -309,7 +309,7 @@ function buildPrintHTML(sesiones, title, slotMins, duracion, year, semester, gro
             </div>`;
           }
         }).join("");
-        cells += `<td rowspan="${span}" style="padding:5px 6px;text-align:center;vertical-align:middle;border:1px solid #000;background:#fff;">
+        cells += `<td rowspan="${span}" style="padding:5px 6px;text-align:center;vertical-align:middle;border:1px solid #000;background:${isLunch ? '#e8e8e8' : '#fff'};">
           <div style="display:flex;flex-direction:column;gap:6px;align-items:center;">${inner}</div>
         </td>`;
       } else {

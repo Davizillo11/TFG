@@ -80,6 +80,7 @@ db.serialize(() => {
   db.run("ALTER TABLE schedules ADD COLUMN semester INTEGER", () => {});
   db.run("ALTER TABLE subjects ADD COLUMN bilingual INTEGER DEFAULT 0", () => {});
   db.run("ALTER TABLE schedules ADD COLUMN group_letter TEXT", () => {});
+  db.run("ALTER TABLE schedules ADD COLUMN generation_id TEXT", () => {});
   db.run("ALTER TABLE subjects ADD COLUMN session_type TEXT DEFAULT 'teoria'", () => {});
   db.run("ALTER TABLE schedule_sessions ADD COLUMN subgroup INTEGER DEFAULT NULL", () => {});
   db.run("ALTER TABLE subjects ADD COLUMN theory_hours INTEGER DEFAULT 2", () => {});
@@ -98,6 +99,22 @@ db.serialize(() => {
     group_letter TEXT    NOT NULL,
     afternoon    INTEGER NOT NULL DEFAULT 0,
     bilingual    INTEGER NOT NULL DEFAULT 0,
+    PRIMARY KEY (degree, year, group_letter)
+  )`, () => {});
+
+  db.run(`CREATE TABLE IF NOT EXISTS slot_limits (
+    id           INTEGER PRIMARY KEY AUTOINCREMENT,
+    degree       TEXT    NOT NULL,
+    year         INTEGER NOT NULL,
+    semester     INTEGER NOT NULL,
+    max_parallel INTEGER NOT NULL DEFAULT 2,
+    UNIQUE(degree, year, semester)
+  )`, () => {});
+
+  db.run(`CREATE TABLE IF NOT EXISTS degree_groups (
+    degree       TEXT    NOT NULL,
+    year         INTEGER NOT NULL,
+    group_letter TEXT    NOT NULL,
     PRIMARY KEY (degree, year, group_letter)
   )`, () => {});
 

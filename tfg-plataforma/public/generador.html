@@ -156,7 +156,7 @@
           <p id="tit-warning" style="color:#e8a838;font-size:13px;text-align:center;display:none;margin-bottom:8px;"></p>
           <p id="tit-info" style="color:rgba(255,255,255,0.65);font-size:13px;text-align:center;margin-bottom:8px;"></p>
           <!-- Lista de asignaturas seleccionables -->
-          <div id="tit-subjects-list" style="display:none;width:100%;background:rgba(0,0,0,0.25);border-radius:8px;padding:8px 10px;margin-bottom:4px;box-sizing:border-box;flex-direction:column;"></div>
+          <div id="tit-subjects-list" style="display:none;width:100%;background:rgba(15,23,42,0.88);border-radius:8px;padding:8px 10px;margin-bottom:4px;box-sizing:border-box;flex-direction:column;border:1px solid rgba(255,255,255,0.12);"></div>
         </div>
         <!-- Botones siempre visibles abajo -->
         <div style="padding:14px 20px;border-top:1px solid rgba(255,255,255,0.1);display:flex;gap:10px;justify-content:center;flex-shrink:0;">
@@ -201,7 +201,7 @@ document.addEventListener("DOMContentLoaded", async () => {
   currentUser = await Auth.init({ requireAuth: true });
   if (!currentUser) return;
   document.getElementById("contenido-generador").style.display = "flex";
-  await Promise.all([loadAulas(), loadAsignaturas(), loadGroupConfig()]);
+  await Promise.all([loadAulas(), loadAsignaturas(), loadGroupConfig(), loadDegreeGroups()]);
 });
 
 function getFranjasPref() {
@@ -251,7 +251,9 @@ function pickHoraFin(needed, dur) {
       }
     return c * 5; // 5 días
   }
-  for (const fin of ["14:00", "17:00", "19:00", "21:00"])
+  // Start at "17:00" so afternoon slots (15:00) are always available as fallback
+  // when morning teachers are blocked by other groups' sessions.
+  for (const fin of ["17:00", "19:00", "21:00"])
     if (needed <= mainSlots(parseInt(fin) * 60)) return fin;
   return "21:00";
 }
@@ -265,17 +267,31 @@ async function generarTodo() {
   const dias     = [0, 1, 2, 3, 4]; // Lun–Vie siempre
   const franjas  = getFranjasPref();
 
+  // Construir combos dinámicamente desde degree_groups
   const combos = [];
-  for (const sem of [1, 2]) {
-    for (const g of ['A','B','C','D','E','F'])
-      combos.push({ degree: 'Teleco', year: 1, sem, group: g });
-    for (const g of ['A','B','C','D','E'])
-      combos.push({ degree: 'Teleco', year: 2, sem, group: g });
+  const seen = new Set();
+  for (const { degree, year } of degreeGroupsData) {
+    const key = `${degree}|${year}`;
+    if (!seen.has(key)) seen.add(key);
   }
-  for (const degree of ['GIT','GITT','GIEC','GIST'])
-    for (const year of [3, 4])
-      for (const sem of [1, 2])
-        combos.push({ degree, year, sem, group: 'A' });
+  for (const key of seen) {
+    const [degree, yearStr] = key.split("|");
+    const year = parseInt(yearStr);
+    const groups = degreeGroupsData
+      .filter(r => r.degree === degree && r.year === year)
+      .map(r => r.group_letter)
+      .sort();
+    for (const sem of [1, 2]) {
+      for (const group of groups) {
+        combos.push({ degree, year, sem, group });
+      }
+    }
+  }
+
+  // Anotar el ID máximo actual para ignorar horarios anteriores en preOccClassrooms
+  const existingList = await fetch("/api/v1/schedules").then(r => r.json()).catch(() => []);
+  const baseScheduleId = existingList.length ? Math.max(...existingList.map(h => h.id)) : 0;
+  const generation_id  = new Date().toISOString();
 
   // Mostrar panel
   document.getElementById("vista-eleccion").style.display = "none";
@@ -323,6 +339,8 @@ async function generarTodo() {
       franjas: { dias, horaInicio, horaFin, duracion },
       meta,
       transversalDay: franjas.transversalDay ?? 4,
+      baseScheduleId,
+      generation_id,
     };
 
     try {
@@ -362,9 +380,10 @@ async function generarTodo() {
 }
 
 // ── Load from DB ──────────────────────────────────
-let aulasData    = [];
-let asigData     = [];
-let groupCfgMap  = {}; // "degree|year|letter" → { afternoon, bilingual }
+let aulasData        = [];
+let asigData         = [];
+let groupCfgMap      = {}; // "degree|year|letter" → { afternoon, bilingual }
+let degreeGroupsData = []; // [{degree, year, group_letter}, ...]
 
 async function loadAulas() {
   const res = await fetch("/api/v1/classrooms");
@@ -381,6 +400,11 @@ async function loadGroupConfig() {
   const rows = await res.json();
   groupCfgMap = {};
   for (const r of rows) groupCfgMap[`${r.degree}|${r.year}|${r.group_letter}`] = r;
+}
+
+async function loadDegreeGroups() {
+  const res = await fetch("/api/v1/degree-groups");
+  degreeGroupsData = await res.json();
 }
 
 // ── Por titulación/curso ──────────────────────────
@@ -422,6 +446,9 @@ function onTitDegreeChange() {
   document.getElementById("tit-btn-generar").disabled = true;
   document.getElementById("tit-info").textContent = "";
   document.getElementById("tit-warning").style.display = "none";
+  const sl = document.getElementById("tit-subjects-list");
+  sl.style.display = "none"; sl.innerHTML = "";
+  updateGrupoSelector(degree, 0);
 
   if (!degree) return;
   const validYears = DEGREE_YEARS[degree] || [...new Set(asigData.filter(s => s.degree === degree).map(s => s.year).filter(Boolean))].sort();
@@ -433,11 +460,13 @@ function onTitYearChange() {
   document.getElementById("tit-btn-generar").disabled = true;
   document.getElementById("tit-info").textContent = "";
   document.getElementById("tit-warning").style.display = "none";
+  const sl = document.getElementById("tit-subjects-list");
+  sl.style.display = "none"; sl.innerHTML = "";
 
   const degree = document.getElementById("tit-degree").value;
   const year   = parseInt(document.getElementById("tit-year").value);
 
-  updateGrupoSelector(year);
+  updateGrupoSelector(degree, year);
 
   if (!degree || !year) return;
 
@@ -449,16 +478,17 @@ function onTitYearChange() {
   }
 }
 
-function updateGrupoSelector(year) {
+function updateGrupoSelector(degree, year) {
   const sel = document.getElementById("tit-grupo");
-  if (year === 1) {
-    sel.innerHTML = ["A","B","C","D","E","F"].map(g => `<option value="${g}">${g}</option>`).join("");
-    sel.style.display = "";
-  } else if (year === 2) {
-    sel.innerHTML = ["A","B","C","D","E"].map(g => `<option value="${g}">${g}</option>`).join("");
+  const groups = degreeGroupsData
+    .filter(r => r.degree === degree && r.year === year)
+    .map(r => r.group_letter)
+    .sort();
+  if (groups.length > 1) {
+    sel.innerHTML = groups.map(g => `<option value="${g}">${g}</option>`).join("");
     sel.style.display = "";
   } else {
-    sel.innerHTML = "";
+    sel.innerHTML = groups.length === 1 ? `<option value="${groups[0]}">${groups[0]}</option>` : "";
     sel.style.display = "none";
   }
   onGrupoChange();
@@ -525,15 +555,15 @@ function onTitSemChange() {
   const sl = document.getElementById("tit-subjects-list");
   sl.style.display = "flex";
   sl.innerHTML = `
-    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;border-bottom:1px solid rgba(255,255,255,0.15);padding-bottom:6px;">
-      <span style="font-size:11px;color:#fff;font-weight:700;text-transform:uppercase;letter-spacing:.5px;">Asignaturas a incluir</span>
-      <button onclick="toggleAllTit()" style="font-size:11px;background:rgba(255,255,255,0.15);border:none;color:#fff;cursor:pointer;padding:3px 8px;border-radius:4px;font-weight:600;">Sel./Desel. todo</button>
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;border-bottom:1px solid rgba(255,255,255,0.25);padding-bottom:6px;">
+      <span style="font-size:11px;color:#e2e8f0;font-weight:700;text-transform:uppercase;letter-spacing:.5px;">Asignaturas a incluir</span>
+      <button onclick="toggleAllTit()" style="font-size:11px;background:rgba(255,255,255,0.2);border:1px solid rgba(255,255,255,0.3);color:#fff;cursor:pointer;padding:3px 8px;border-radius:4px;font-weight:600;">Sel./Desel. todo</button>
     </div>
     ${matching.map(s => `
       <label class="tit-asig-row" data-bilingual="${s.bilingual||0}" style="display:flex;align-items:center;gap:8px;padding:6px 4px;cursor:pointer;border-radius:4px;width:100%;box-sizing:border-box;">
         <input type="checkbox" class="tit-asig-cb" value="${s.id}" checked style="cursor:pointer;accent-color:#7c5ce8;width:15px;height:15px;flex-shrink:0;">
-        <span style="font-size:13px;color:rgba(255,255,255,0.92);flex:1;">${s.name}${s.bilingual ? " 🌐" : ""}</span>
-        <span style="font-size:11px;font-weight:600;color:#fff;background:rgba(255,255,255,0.15);padding:2px 7px;border-radius:10px;white-space:nowrap;">${s.hours_week}h/sem</span>
+        <span style="font-size:13px;color:#f1f5f9;flex:1;">${s.name}${s.bilingual ? " 🌐" : ""}</span>
+        <span style="font-size:11px;font-weight:600;color:#e2e8f0;background:rgba(255,255,255,0.22);padding:2px 7px;border-radius:10px;white-space:nowrap;">${s.hours_week}h/sem</span>
       </label>`).join("")}`;
 
   btn.disabled = false;
@@ -573,7 +603,10 @@ function generarPorTitulacion() {
     meta: { degree, year, semester: sem, group_letter: groupLetter,
             label: `${degree} - ${year}º - ${semLabel}${groupLabel}` },
     transversalDay: franjas.transversalDay ?? 4,
+    generation_id: new Date().toISOString(),
   }));
+  sessionStorage.setItem("generadorFresh", "1");
+  sessionStorage.removeItem("generadorResult");
   window.location.href = "resultado.html";
 }
 

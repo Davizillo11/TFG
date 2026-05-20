@@ -41,7 +41,7 @@
       flex-direction: column;
       gap: 2px;
     }
-    .metric-val { font-size: 1.45rem; font-weight: 700; color: #fff; }
+    .metric-val { font-size: 1.1rem; font-weight: 700; color: #fff; }
     .metric-lbl { font-size: 0.72rem; color: rgba(255,255,255,0.5); text-transform: uppercase; letter-spacing: 0.06em; }
     .metric-sub { font-size: 0.7rem; color: rgba(255,255,255,0.35); }
     .metric-card.warn .metric-val { color: #e5c07b; }
@@ -123,13 +123,30 @@
     .sc-day-cell:last-child { border-right: none; }
     .sc-day-cell.drag-over { background: rgba(255,255,255,0.1) !important; outline: 2px dashed rgba(255,255,255,0.3); outline-offset: -3px; }
 
+    /* Popup de acción tras soltar */
+    #drop-menu {
+      position: fixed; z-index: 9999;
+      background: #1e1e2e; border: 1px solid rgba(255,255,255,0.15);
+      border-radius: 10px; padding: 6px;
+      box-shadow: 0 8px 28px rgba(0,0,0,0.55);
+      display: none; flex-direction: column; gap: 4px; min-width: 170px;
+    }
+    #drop-menu button {
+      background: none; border: none; color: #e0e0e0;
+      padding: 8px 14px; border-radius: 6px;
+      font-size: 0.84rem; cursor: pointer; text-align: left;
+      transition: background 0.12s;
+    }
+    #drop-menu button:hover:not(:disabled) { background: rgba(255,255,255,0.1); }
+    #drop-menu button:disabled { color: rgba(255,255,255,0.25); cursor: not-allowed; }
+
     /* Tarjeta de sesión */
     .sc-card {
-      border-radius: 8px; padding: 8px 10px;
+      border-radius: 8px; padding: 4px 8px;
       border-left: 4px solid var(--sc);
       background: color-mix(in srgb, var(--sc) 22%, rgba(22,22,35,0.95));
       box-shadow: 0 2px 8px rgba(0,0,0,0.35);
-      height: 100%; box-sizing: border-box;
+      height: 100%; box-sizing: border-box; overflow: hidden;
       cursor: grab;
       user-select: none;
       display: flex; flex-direction: column; justify-content: center; align-items: center;
@@ -137,9 +154,9 @@
     }
     .sc-card:active { cursor: grabbing; }
     .sc-card.dragging { opacity: 0.4; }
-    .sc-card .c-subject { font-size: 0.82rem; font-weight: 700; color: #fff; line-height: 1.3; }
-    .sc-card .c-room    { font-size: 0.71rem; color: rgba(255,255,255,0.55); margin-top: 4px; }
-    .sc-card .c-teacher { font-size: 0.67rem; color: rgba(255,255,255,0.35); margin-top: 2px; }
+    .sc-card .c-subject { font-size: 0.76rem; font-weight: 700; color: #fff; line-height: 1.25; }
+    .sc-card .c-room    { font-size: 0.67rem; color: rgba(255,255,255,0.55); margin-top: 2px; }
+    .sc-card .c-teacher { font-size: 0.62rem; color: rgba(255,255,255,0.35); margin-top: 1px; }
     .sc-toggle-btn {
       position: absolute; bottom: 4px; right: 6px;
       background: none; border: none; padding: 0;
@@ -328,6 +345,12 @@
     <!-- Métricas -->
     <div class="stats-bar" id="stats-bar"></div>
 
+    <!-- Popup acción drag & drop -->
+    <div id="drop-menu">
+      <button id="drop-menu-add"  onclick="dropMenuAction('add')">Añadir al slot</button>
+      <button id="drop-menu-swap" onclick="dropMenuAction('swap')">Intercambiar</button>
+    </div>
+
     <!-- Horario -->
     <div class="schedule-wrapper">
       <div id="schedule-grid"></div>
@@ -438,10 +461,12 @@ function buildPrintHTML(sesiones, title, year, semester, groupLetter = '') {
           const grp  = grpTag ? ` - ${grpTag}` : '';
           const room = sess.classroom || '';
           if (isTheory) {
-            return `<div style="font-size:11px;font-weight:700;text-transform:uppercase;color:#1e3a6e;line-height:1.5;${idx>0?'margin-top:6px;':''}">${sess.subject}${grp}${room?`<br><b>(${room})</b>`:''}
+            const tag = grp || room ? `<span style="white-space:nowrap">${grp}${room?` <b>(${room})</b>`:''}</span>` : '';
+            return `<div style="font-size:11px;font-weight:700;text-transform:uppercase;color:#1e3a6e;line-height:1.5;${idx>0?'margin-top:6px;':''}">${sess.subject}${tag}
             </div>`;
           } else {
-            return `<div style="font-size:10px;font-weight:500;color:#333;line-height:1.5;${idx>0?'margin-top:5px;':''}">${sess.subject}${grp}${room?`  (${room})`:''}
+            const tag = grp || room ? `<span style="white-space:nowrap">${grp}${room?` (${room})`:''}</span>` : '';
+            return `<div style="font-size:10px;font-weight:500;color:#333;line-height:1.5;${idx>0?'margin-top:5px;':''}">${sess.subject}${tag}
             </div>`;
           }
         }).join("");
@@ -490,7 +515,18 @@ function exportPDF() {
   const win = window.open("", "_blank", "width=1000,height=700");
   win.document.write(buildPrintHTML(currentSessions, title, currentMeta?.year, currentMeta?.semester, currentMeta?.group_letter || ''));
   win.document.close();
-  win.addEventListener("load", () => { win.focus(); win.print(); });
+  win.addEventListener("load", () => {
+    const body = win.document.body;
+    // A4 landscape @ 96 CSS px/in, minus 6 mm top+bottom margins (2 × 22.7 px ≈ 45 px)
+    const usableH = Math.round(210 * 3.7795) - 45;  // ≈ 749 px
+    const usableW = Math.round(297 * 3.7795) - 45;  // ≈ 1077 px
+    const scaleH = usableH / body.scrollHeight;
+    const scaleW = usableW / body.scrollWidth;
+    const scale  = Math.min(scaleH, scaleW);
+    if (scale < 1) body.style.zoom = scale;
+    win.focus();
+    win.print();
+  });
 }
 
 // ── State ─────────────────────────────────────────
@@ -500,8 +536,10 @@ let currentMeta = null;
 let savedFranjas = null;
 let savedBreaks  = [];
 let currentSlotMins = [];
-let dragIdx      = null;
-let hasUnsaved   = false;
+let dragIdx         = null;
+let pendingDrag     = null;
+let hasUnsaved      = false;
+let currentMaxParallel = 2;
 
 // ── Color map ─────────────────────────────────────
 function buildColorMap(sesiones) {
@@ -617,7 +655,15 @@ function renderTable(sesiones, franjas, colorMap, breaks = [], slotMins = []) {
     const rowStartMin = timeToMin(slotStart);
     const rowEndMin   = timeToMin(slotEnd);
     const durMin      = rowEndMin - rowStartMin;
-    const rowH        = Math.max(52, durMin * 1.2);
+    // Altura dinámica según el número de sesiones apiladas en la celda más llena
+    const maxSessInRow = Math.max(0, ...dias.map(d => (byDay[d] || []).filter(({ s }) => {
+      const sm = timeToMin(s.start);
+      return sm >= rowStartMin && sm < rowEndMin;
+    }).length));
+    const isCompactSlot = maxSessInRow === 0;
+    const rowH = isCompactSlot
+      ? Math.max(36, durMin * 0.5)
+      : Math.max(durMin * 0.75, maxSessInRow * 50);
 
     const cells = dias.map(d => {
       // Find sessions for this day whose start falls within [rowStart, rowEnd)
@@ -645,8 +691,8 @@ function renderTable(sesiones, franjas, colorMap, breaks = [], slotMins = []) {
             <div class="c-room">${s.classroom||''}${grpTag ? ' · '+grpTag : ''}</div>
           </div>`;
         }).join("");
-        return `<td class="sc-day-cell" data-day="${d}" data-start="${slotStart}" style="padding:0;vertical-align:top">
-          <div class="multi-wrapper" style="display:flex;flex-direction:column;gap:2px;padding:2px 5px;box-sizing:border-box;">${cards}</div>
+        return `<td class="sc-day-cell" data-day="${d}" data-start="${slotStart}" style="padding:0;vertical-align:top;position:relative;">
+          <div class="multi-wrapper" style="position:absolute;top:0;bottom:0;left:0;right:0;display:flex;flex-direction:column;gap:2px;padding:2px 5px;box-sizing:border-box;">${cards}</div>
         </td>`;
       }
 
@@ -659,6 +705,9 @@ function renderTable(sesiones, franjas, colorMap, breaks = [], slotMins = []) {
       const sessDur  = timeToMin(s.end) - sessMin;
       const topPx    = Math.round(((sessMin - rowStartMin) / durMin) * rowH);
       const ch       = Math.max(32, Math.round((sessDur / durMin) * rowH) - 8);
+      // For full-slot sessions: cap height to session duration so inflated rows (many lab subgroups)
+      // don't make theory cards enormous. Center the capped card vertically in the cell.
+      const cardH    = Math.min(rowH, Math.round(durMin * 0.82)) - 8;
 
       // Toggle button appears for any short session inside a full-size row.
       const isOffsetable = sessDur < durMin;
@@ -673,9 +722,9 @@ function renderTable(sesiones, franjas, colorMap, breaks = [], slotMins = []) {
       const renderTopPx     = afternoonFringe ? 0 : topPx;
       // flipped=1 → card at top; flipped=0 → card at bottom
       const flippedNow      = isOffsetable && renderTopPx === 0 ? "1" : "0";
-      return `<td class="sc-day-cell" data-day="${d}" data-start="${s.start}" style="padding:0;vertical-align:top">
+      return `<td class="sc-day-cell" data-day="${d}" data-start="${s.start}" style="padding:0;vertical-align:top${isOffsetable ? '' : ';position:relative;'}">
         ${renderTopPx > 0 ? `<div class="sc-offset-spacer" style="height:${renderTopPx}px"></div>` : ""}
-        <div class="sc-card${isOffsetable ? ' sc-offsetable' : ''}" style="--sc:${color};height:${ch}px;margin:0 5px"
+        <div class="sc-card${isOffsetable ? ' sc-offsetable' : ''}" style="--sc:${color};${isOffsetable ? `height:${ch}px;margin:0 5px` : `position:absolute;top:50%;left:5px;right:5px;transform:translateY(-50%);height:${cardH}px;`}"
           draggable="true" data-idx="${idx}"
           ${isOffsetable ? `data-offset="${maxTopPx}" data-flipped="${flippedNow}" data-orig-start="${fringeStart}" data-orig-end="${fringeEnd}" data-top-start="${topStartTime}" data-top-end="${topEndTime}"` : ""}>
           <div class="c-subject">${s.subject}</div>
@@ -823,32 +872,53 @@ function attachDragDrop() {
       const droppedOnIdx  = (droppedOnCard && parseInt(droppedOnCard.dataset.idx) !== dragIdx)
         ? parseInt(droppedOnCard.dataset.idx) : -1;
 
-      // Find which session to swap with. If the drop landed on a specific card (multi-cell),
-      // use that card's index; otherwise fall back to the first session in the target row.
       const targetRowStart = [...currentSlotMins].reverse().find(sm => sm <= timeToMin(targetStart)) ?? timeToMin(targetStart);
       const targetRowIdxSl = currentSlotMins.indexOf(targetRowStart);
       const targetNextSl   = targetRowIdxSl >= 0 ? currentSlotMins[targetRowIdxSl + 1] : undefined;
       const targetRowEnd   = targetNextSl !== undefined
         ? Math.min(targetNextSl, targetRowStart + duracion)
         : Math.min(targetRowStart + duracion, endMin0);
-      const targetIdx = droppedOnIdx >= 0
-        ? droppedOnIdx
-        : currentSessions.findIndex(s => {
-            const sm = timeToMin(s.start);
-            return s.day === targetDay && sm >= targetRowStart && sm < targetRowEnd;
-          });
 
-      if (targetIdx >= 0) {
-        const tgt    = currentSessions[targetIdx];
-        const tgtDur = timeToMin(tgt.end) - timeToMin(tgt.start);
-        // Place the displaced session at the correct fringe/row-start of the source row.
-        const swapStartMin = snapToRow(timeToMin(src.start), tgtDur);
-        if (overflows(swapStartMin, tgtDur)) { dragIdx = null; return; }
-        // Each session keeps its own subgroup — group identity travels with the session
-        currentSessions[targetIdx] = { ...tgt, day: src.day, start: minToTime(swapStartMin), end: minToTime(swapStartMin + tgtDur) };
-        currentSessions[dragIdx]   = { ...src, day: targetDay, start: actualStart, end: newEnd, forceTopHalf: srcAtTop };
-      } else {
+      // Sessions in destination slot (excluding the dragged one)
+      const targetSlotSessions = currentSessions.filter((s, i) => {
+        if (i === dragIdx) return false;
+        const sm = timeToMin(s.start);
+        return s.day === targetDay && sm >= targetRowStart && sm < targetRowEnd;
+      });
+
+      const slotFull = targetSlotSessions.length >= currentMaxParallel;
+
+      if (droppedOnIdx >= 0 && slotFull) {
+        // Slot lleno y hay una tarjeta concreta: ofrecer intercambio (no añadir)
+        pendingDrag = { dragIdx, droppedOnIdx, src, targetDay, actualStart, newEnd, srcAtTop, snapToRow, overflows };
+        const menu = document.getElementById("drop-menu");
+        document.getElementById("drop-menu-add").disabled = true;
+        document.getElementById("drop-menu-swap").disabled = false;
+        menu.style.display = "flex";
+        menu.style.left = (e.clientX + 8) + "px";
+        menu.style.top  = (e.clientY + 8) + "px";
+        dragIdx = null;
+        return;
+      }
+
+      if (droppedOnIdx >= 0 && !slotFull) {
+        // Hay tarjeta debajo pero hay espacio: ofrecer ambas opciones
+        pendingDrag = { dragIdx, droppedOnIdx, src, targetDay, actualStart, newEnd, srcAtTop, snapToRow, overflows };
+        const menu = document.getElementById("drop-menu");
+        document.getElementById("drop-menu-add").disabled = false;
+        document.getElementById("drop-menu-swap").disabled = false;
+        menu.style.display = "flex";
+        menu.style.left = (e.clientX + 8) + "px";
+        menu.style.top  = (e.clientY + 8) + "px";
+        dragIdx = null;
+        return;
+      }
+
+      if (targetSlotSessions.length < currentMaxParallel) {
+        // Celda vacía con espacio: mover directamente sin popup
         currentSessions[dragIdx] = { ...src, day: targetDay, start: actualStart, end: newEnd, forceTopHalf: srcAtTop };
+      } else {
+        dragIdx = null; return;
       }
 
       dragIdx = null;
@@ -861,6 +931,42 @@ function attachDragDrop() {
     });
   });
 }
+
+function dropMenuAction(action) {
+  const menu = document.getElementById("drop-menu");
+  menu.style.display = "none";
+  if (!pendingDrag) return;
+
+  const { dragIdx: di, droppedOnIdx, src, targetDay, actualStart, newEnd, srcAtTop, snapToRow, overflows } = pendingDrag;
+  pendingDrag = null;
+
+  if (action === "swap") {
+    const tgt    = currentSessions[droppedOnIdx];
+    const tgtDur = timeToMin(tgt.end) - timeToMin(tgt.start);
+    const swapStartMin = snapToRow(timeToMin(src.start), tgtDur);
+    if (overflows(swapStartMin, tgtDur)) return;
+    currentSessions[droppedOnIdx] = { ...tgt, day: src.day, start: minToTime(swapStartMin), end: minToTime(swapStartMin + tgtDur) };
+    currentSessions[di]           = { ...src, day: targetDay, start: actualStart, end: newEnd, forceTopHalf: srcAtTop };
+  } else {
+    currentSessions[di] = { ...src, day: targetDay, start: actualStart, end: newEnd, forceTopHalf: srcAtTop };
+  }
+
+  hasUnsaved = true;
+  document.getElementById("btn-save-changes").style.display = "";
+
+  const cm = buildColorMap(currentSessions);
+  renderLegend(cm);
+  renderTable(currentSessions, savedFranjas, cm, savedBreaks, currentSlotMins);
+}
+
+// Cerrar popup al hacer click fuera
+document.addEventListener("click", e => {
+  const menu = document.getElementById("drop-menu");
+  if (menu && menu.style.display !== "none" && !menu.contains(e.target)) {
+    menu.style.display = "none";
+    pendingDrag = null;
+  }
+});
 
 // ── Save manual changes ───────────────────────────
 async function saveChanges() {
@@ -877,6 +983,12 @@ async function saveChanges() {
     });
     if (!res.ok) throw new Error((await res.json()).error);
     hasUnsaved = false;
+    // Actualizar caché para que F5 muestre el horario modificado
+    try {
+      const cached = JSON.parse(sessionStorage.getItem("generadorResult") || "{}");
+      cached.sesiones = currentSessions;
+      sessionStorage.setItem("generadorResult", JSON.stringify(cached));
+    } catch {}
     btn.textContent = "Guardado";
     setTimeout(() => { btn.style.display = "none"; btn.textContent = "Guardar cambios"; btn.disabled = false; }, 1500);
   } catch (err) {
@@ -908,18 +1020,31 @@ document.addEventListener("DOMContentLoaded", async () => {
   savedFranjas = payload.franjas;
   currentMeta  = payload.meta || null;
 
+  // Si es una recarga (no una generación nueva), usar el resultado en caché
+  const isFresh  = sessionStorage.getItem("generadorFresh") === "1";
+  const cachedRaw = sessionStorage.getItem("generadorResult");
+
   let data;
-  try {
-    const resp = await fetch("/api/v1/schedules/generate", {
-      method:  "POST",
-      headers: { "Content-Type": "application/json" },
-      body:    JSON.stringify(payload),
-    });
-    data = await resp.json();
-    if (!resp.ok) throw new Error(data.error || `HTTP ${resp.status}`);
-  } catch (err) {
-    showError(err.message);
-    return;
+  if (!isFresh && cachedRaw) {
+    try { data = JSON.parse(cachedRaw); }
+    catch { /* caché corrupta: regenerar */ }
+  }
+
+  if (!data) {
+    sessionStorage.removeItem("generadorFresh");
+    try {
+      const resp = await fetch("/api/v1/schedules/generate", {
+        method:  "POST",
+        headers: { "Content-Type": "application/json" },
+        body:    JSON.stringify(payload),
+      });
+      data = await resp.json();
+      if (!resp.ok) throw new Error(data.error || `HTTP ${resp.status}`);
+      sessionStorage.setItem("generadorResult", JSON.stringify(data));
+    } catch (err) {
+      showError(err.message);
+      return;
+    }
   }
 
   // Total de sesiones necesarias (lo calcula el backend con la misma lógica del algoritmo)
@@ -954,7 +1079,8 @@ document.addEventListener("DOMContentLoaded", async () => {
       </div>`;
   } else {
     const colorMap = buildColorMap(data.sesiones);
-    currentSlotMins = data.slotMins || [];
+    currentSlotMins    = data.slotMins || [];
+    currentMaxParallel = data.maxParallel ?? 2;
     renderLegend(colorMap);
     renderTable(data.sesiones, payload.franjas, colorMap, savedBreaks, currentSlotMins);
   }

@@ -837,6 +837,26 @@ select:focus {
   background: #e8f7fb;
 }
 
+.btn-small {
+  background: none;
+  border: 1px solid rgba(97,175,239,0.4);
+  color: #61afef;
+  cursor: pointer;
+  font-size: 11px;
+  padding: 2px 7px;
+  border-radius: 4px;
+  transition: 0.2s;
+}
+
+.btn-small:hover {
+  background: rgba(97,175,239,0.1);
+}
+
+.btn-small:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+
 .search-input {
   width: 100%;
   padding: 7px 12px;
@@ -1094,6 +1114,30 @@ select:focus {
   padding-bottom: 10px;
   border-bottom: 2px solid #00b4d8;
 }
+
+.pref-nav {
+  display: flex;
+  gap: 6px;
+  margin-bottom: 18px;
+  flex-wrap: wrap;
+}
+
+.pref-nav-btn {
+  padding: 8px 18px;
+  border: 1px solid #d0d5dd;
+  border-radius: 8px;
+  background: #f5f7fa;
+  cursor: pointer;
+  font-size: 13.5px;
+  font-weight: 600;
+  color: #555;
+  transition: background 0.15s, color 0.15s, border-color 0.15s;
+}
+
+.pref-nav-btn:hover  { background: #e8f4f8; color: #0d1b2a; }
+.pref-nav-btn.active { background: #00b4d8; color: #fff; border-color: #00b4d8; }
+
+.pref-section { animation: fadeIn 0.15s ease; }
 
 .coming-soon {
   text-align: center;

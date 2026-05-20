@@ -60,7 +60,7 @@
       <button class="admin-tab-btn"        onclick="switchTab('asignaturas')">Asignaturas</button>
       <button class="admin-tab-btn"        onclick="switchTab('horarios');loadHorarios()">Horarios</button>
       <button class="admin-tab-btn"        onclick="switchTab('vistas');initVistas()">Vistas</button>
-      <button class="admin-tab-btn"        onclick="switchTab('preferencias');loadZonas();loadGrupos()">Preferencias</button>
+      <button class="admin-tab-btn"        onclick="switchTab('preferencias');loadPreferencias()">Preferencias</button>
     </div>
 
     <!-- ── AULAS ── -->
@@ -239,6 +239,14 @@
         <h3 class="admin-section-title" style="margin-bottom:14px;">Aulas libres en una franja</h3>
         <div style="display:flex;gap:10px;align-items:flex-end;flex-wrap:wrap;margin-bottom:14px;justify-content:center;">
           <div>
+            <label style="font-size:12px;color:rgba(255,255,255,0.55);display:block;margin-bottom:4px;">Cuatrimestre</label>
+            <select id="fl-sem" style="padding:7px 12px;border-radius:6px;border:2px solid #00b4d8;background:#fff;color:#0d1b2a;font-size:13px;">
+              <option value="">Todos</option>
+              <option value="1">C1</option>
+              <option value="2">C2</option>
+            </select>
+          </div>
+          <div>
             <label style="font-size:12px;color:rgba(255,255,255,0.55);display:block;margin-bottom:4px;">Día</label>
             <select id="fl-day" style="padding:7px 12px;border-radius:6px;border:2px solid #00b4d8;background:#fff;color:#0d1b2a;font-size:13px;">
               <option value="0">Lunes</option>
@@ -250,11 +258,27 @@
           </div>
           <div>
             <label style="font-size:12px;color:rgba(255,255,255,0.55);display:block;margin-bottom:4px;">Hora inicio</label>
-            <input type="time" id="fl-start" value="10:00" style="padding:7px 10px;border-radius:6px;border:2px solid #00b4d8;background:#fff;color:#0d1b2a;font-size:13px;">
+            <select id="fl-start" style="padding:7px 12px;border-radius:6px;border:2px solid #00b4d8;background:#fff;color:#0d1b2a;font-size:13px;">
+              <option value="08:00">08:00</option><option value="09:00">09:00</option>
+              <option value="10:00" selected>10:00</option><option value="11:00">11:00</option>
+              <option value="12:00">12:00</option><option value="13:00">13:00</option>
+              <option value="14:00">14:00</option><option value="15:00">15:00</option>
+              <option value="16:00">16:00</option><option value="17:00">17:00</option>
+              <option value="18:00">18:00</option><option value="19:00">19:00</option>
+              <option value="20:00">20:00</option>
+            </select>
           </div>
           <div>
             <label style="font-size:12px;color:rgba(255,255,255,0.55);display:block;margin-bottom:4px;">Hora fin</label>
-            <input type="time" id="fl-end" value="12:00" style="padding:7px 10px;border-radius:6px;border:2px solid #00b4d8;background:#fff;color:#0d1b2a;font-size:13px;">
+            <select id="fl-end" style="padding:7px 12px;border-radius:6px;border:2px solid #00b4d8;background:#fff;color:#0d1b2a;font-size:13px;">
+              <option value="09:00">09:00</option><option value="10:00">10:00</option>
+              <option value="11:00">11:00</option><option value="12:00" selected>12:00</option>
+              <option value="13:00">13:00</option><option value="14:00">14:00</option>
+              <option value="15:00">15:00</option><option value="16:00">16:00</option>
+              <option value="17:00">17:00</option><option value="18:00">18:00</option>
+              <option value="19:00">19:00</option><option value="20:00">20:00</option>
+              <option value="21:00">21:00</option>
+            </select>
           </div>
           <button class="btn-add" onclick="buscarAulasLibres()" style="padding:7px 18px;font-size:13px;">Buscar</button>
         </div>
@@ -268,24 +292,19 @@
         <h3 class="admin-section-title" style="margin:0">Horarios Generados</h3>
         <button class="btn-add" style="background:#e06c75;border:none" onclick="deleteAllHorarios()">🗑 Borrar todos</button>
       </div>
-      <div style="display:flex;align-items:center;gap:10px;margin-bottom:14px;flex-wrap:wrap;">
-        <select id="cf-degree" style="padding:6px 10px;border-radius:6px;border:1px solid #ccc;font-size:13px;">
-          <option value="">Titulación…</option>
-          <option>Teleco</option><option>GIT</option><option>GITT</option>
-          <option>GIEC</option><option>GIST</option>
-        </select>
-        <select id="cf-year" style="padding:6px 10px;border-radius:6px;border:1px solid #ccc;font-size:13px;">
-          <option value="">Año…</option>
-          <option value="1">1º</option><option value="2">2º</option>
-          <option value="3">3º</option><option value="4">4º</option>
-        </select>
-        <select id="cf-sem" style="padding:6px 10px;border-radius:6px;border:1px solid #ccc;font-size:13px;">
-          <option value="">Cuatrimestre…</option>
-          <option value="1">1º</option><option value="2">2º</option>
-        </select>
-        <button class="btn-add" onclick="checkConflicts()" style="padding:6px 16px;font-size:13px;">Verificar conflictos</button>
+      <div style="display:flex;align-items:center;gap:10px;margin-bottom:14px;">
+        <button class="btn-add" onclick="checkConflicts()" style="padding:6px 16px;font-size:13px;">Verificar conflictos de aula</button>
       </div>
       <div id="cf-result" style="display:none;margin-bottom:16px;padding:12px 16px;border-radius:8px;font-size:13px;line-height:1.7;"></div>
+
+      <!-- Generaciones -->
+      <details style="margin-bottom:18px;" id="gen-details">
+        <summary style="cursor:pointer;font-size:13px;color:#abb2bf;user-select:none;padding:6px 2px;list-style:none;display:flex;align-items:center;gap:8px;" onclick="loadGenerations()">
+          <span style="font-size:11px;color:#666;">▶</span>
+          <span>Generaciones anteriores</span>
+        </summary>
+        <div id="generations-list" style="margin-top:8px;font-size:13px;"></div>
+      </details>
 
       <table class="data-table" id="horarios-table">
         <thead><tr><th>Nombre</th><th>Grupo</th><th>Sesiones</th><th>Estado</th><th>Creado por</th><th>Fecha</th><th></th></tr></thead>
@@ -297,47 +316,103 @@
     <!-- ── PREFERENCIAS ── -->
     <div class="admin-tab-content" id="tab-preferencias">
 
-      <h3 class="admin-section-title">Zonas de aulas</h3>
-      <div class="gen-form" style="margin-bottom:14px;flex-wrap:wrap;">
-        <input  type="text"   id="z-degree"  placeholder="Titulación (ej. Teleco)" style="min-width:140px;flex:1" list="z-degree-list">
-        <datalist id="z-degree-list">
-          <option value="Teleco"><option value="GIT"><option value="GITT"><option value="GIEC"><option value="GIST">
-        </datalist>
-        <input  type="number" id="z-year"    placeholder="Curso" style="min-width:80px;flex:0 0 80px" min="1" max="4">
-        <select id="z-zone"                  style="min-width:130px;flex:1">
-          <option value="">Sin preferencia</option>
-          <option value="Este">Este</option>
-          <option value="Sur">Sur</option>
-          <option value="Oeste">Oeste</option>
-          <option value="Norte">Norte</option>
-        </select>
-        <button class="btn-add" onclick="saveZona()">Guardar</button>
+      <!-- ── Barra de secciones ── -->
+      <div class="pref-nav">
+        <button class="pref-nav-btn active" onclick="switchPrefSection('sec-zonas', this)">Zonas de aulas</button>
+        <button class="pref-nav-btn"        onclick="switchPrefSection('sec-grupos',this)">Configuración de grupos</button>
+        <button class="pref-nav-btn"        onclick="switchPrefSection('sec-sl',    this)">Límite por franja</button>
+        <button class="pref-nav-btn"        onclick="switchPrefSection('sec-dg',    this)">Grupos existentes</button>
       </div>
-      <table class="data-table" style="margin-bottom:32px;">
-        <thead><tr><th>Titulación</th><th>Curso</th><th>Zona preferida</th><th></th></tr></thead>
-        <tbody id="tbody-zonas"><tr><td colspan="4" class="empty-msg">Cargando...</td></tr></tbody>
-      </table>
 
-      <h3 class="admin-section-title">Grupos</h3>
-      <div class="gen-form" style="margin-bottom:14px;flex-wrap:nowrap;align-items:center;">
-        <input  type="text"   id="g-degree"  placeholder="Titulación (ej. Teleco)" style="flex:2;min-width:120px;" list="g-degree-list">
-        <datalist id="g-degree-list">
-          <option value="Teleco"><option value="GIT"><option value="GITT"><option value="GIEC"><option value="GIST">
-        </datalist>
-        <input  type="number" id="g-year"    placeholder="Curso" style="flex:0 0 70px;" min="1" max="4">
-        <input  type="text"   id="g-letter"  placeholder="Grupo" style="flex:0 0 70px;text-transform:uppercase;">
-        <label style="display:inline-flex;align-items:center;gap:5px;font-size:0.83rem;cursor:pointer;white-space:nowrap;padding:0 8px;border:1px solid #ccc;border-radius:6px;background:#fff;flex:0 0 auto;align-self:stretch;width:fit-content;">
-          Tarde: <input type="checkbox" id="g-afternoon" style="cursor:pointer;margin:0;margin-left:3px;width:13px;height:13px;flex-shrink:0;">
-        </label>
-        <label style="display:inline-flex;align-items:center;gap:5px;font-size:0.83rem;cursor:pointer;white-space:nowrap;padding:0 8px;border:1px solid #ccc;border-radius:6px;background:#fff;flex:0 0 auto;align-self:stretch;width:fit-content;">
-          Bilingüe: <input type="checkbox" id="g-bilingual" style="cursor:pointer;margin:0;margin-left:3px;width:13px;height:13px;flex-shrink:0;">
-        </label>
-        <button class="btn-add" onclick="saveGrupo()">Guardar</button>
+      <!-- ── Zonas de aulas ── -->
+      <div class="pref-section" id="sec-zonas">
+        <div class="gen-form" style="margin-bottom:14px;flex-wrap:wrap;">
+          <select id="z-degree" style="min-width:140px;flex:1" onchange="onZDegreeChange()">
+            <option value="" disabled selected>Titulación</option>
+          </select>
+          <select id="z-year"   style="min-width:80px;flex:0 0 90px;">
+            <option value="" disabled selected>Curso</option>
+          </select>
+          <select id="z-zone"   style="min-width:130px;flex:1">
+            <option value="">Sin preferencia</option>
+            <option value="Este">Este</option>
+            <option value="Sur">Sur</option>
+            <option value="Oeste">Oeste</option>
+            <option value="Norte">Norte</option>
+          </select>
+          <button class="btn-add" onclick="saveZona()">Guardar</button>
+        </div>
+        <table class="data-table">
+          <thead><tr><th>Titulación</th><th>Curso</th><th>Zona preferida</th><th></th></tr></thead>
+          <tbody id="tbody-zonas"><tr><td colspan="4" class="empty-msg">Cargando...</td></tr></tbody>
+        </table>
       </div>
-      <table class="data-table">
-        <thead><tr><th>Titulación</th><th>Curso</th><th>Grupo</th><th>Tarde</th><th>Bilingüe</th><th></th></tr></thead>
-        <tbody id="tbody-grupos"><tr><td colspan="6" class="empty-msg">Cargando...</td></tr></tbody>
-      </table>
+
+      <!-- ── Grupos existentes ── -->
+      <div class="pref-section" id="sec-dg" style="display:none;">
+        <div class="gen-form" style="margin-bottom:14px;flex-wrap:nowrap;align-items:center;">
+          <select id="dg-degree" style="flex:2;min-width:120px;" onchange="onDGDegreeChange()">
+            <option value="" disabled selected>Titulación</option>
+          </select>
+          <select id="dg-year"   style="flex:0 0 90px;">
+            <option value="" disabled selected>Curso</option>
+          </select>
+          <input  type="text" id="dg-letter" placeholder="Grupo (ej. G)" style="flex:0 0 90px;text-transform:uppercase;">
+          <button class="btn-add" onclick="saveDegreeGroup()">Añadir</button>
+        </div>
+        <table class="data-table">
+          <thead><tr><th>Titulación</th><th>Curso</th><th>Grupo</th><th></th></tr></thead>
+          <tbody id="tbody-degree-groups"><tr><td colspan="4" class="empty-msg">Cargando...</td></tr></tbody>
+        </table>
+      </div>
+
+      <!-- ── Configuración de grupos ── -->
+      <div class="pref-section" id="sec-grupos" style="display:none;">
+        <div class="gen-form" style="margin-bottom:14px;flex-wrap:nowrap;align-items:center;">
+          <select id="g-degree"  style="flex:2;min-width:120px;" onchange="onGDegreeChange()">
+            <option value="" disabled selected>Titulación</option>
+          </select>
+          <select id="g-year"   style="flex:0 0 90px;" onchange="onGYearChange()">
+            <option value="" disabled selected>Curso</option>
+          </select>
+          <select id="g-letter" style="flex:0 0 90px;">
+            <option value="" disabled selected>Grupo</option>
+          </select>
+          <label style="display:inline-flex;align-items:center;gap:5px;font-size:0.83rem;cursor:pointer;white-space:nowrap;padding:0 8px;border:1px solid #ccc;border-radius:6px;background:#fff;flex:0 0 auto;align-self:stretch;width:fit-content;">
+            Tarde: <input type="checkbox" id="g-afternoon" style="cursor:pointer;margin:0;margin-left:3px;width:13px;height:13px;flex-shrink:0;">
+          </label>
+          <label style="display:inline-flex;align-items:center;gap:5px;font-size:0.83rem;cursor:pointer;white-space:nowrap;padding:0 8px;border:1px solid #ccc;border-radius:6px;background:#fff;flex:0 0 auto;align-self:stretch;width:fit-content;">
+            Bilingüe: <input type="checkbox" id="g-bilingual" style="cursor:pointer;margin:0;margin-left:3px;width:13px;height:13px;flex-shrink:0;">
+          </label>
+          <button class="btn-add" onclick="saveGrupo()">Guardar</button>
+        </div>
+        <table class="data-table">
+          <thead><tr><th>Titulación</th><th>Curso</th><th>Grupo</th><th>Tarde</th><th>Bilingüe</th><th></th></tr></thead>
+          <tbody id="tbody-grupos"><tr><td colspan="6" class="empty-msg">Cargando...</td></tr></tbody>
+        </table>
+      </div>
+
+      <!-- ── Límite por franja ── -->
+      <div class="pref-section" id="sec-sl" style="display:none;">
+        <div class="gen-form" style="margin-bottom:14px;flex-wrap:nowrap;align-items:center;">
+          <select id="sl-degree"   style="flex:2;min-width:120px;" onchange="onSLDegreeChange()">
+            <option value="" disabled selected>Titulación</option>
+          </select>
+          <select id="sl-year"     style="flex:0 0 90px;">
+            <option value="" disabled selected>Curso</option>
+          </select>
+          <select id="sl-semester" style="flex:0 0 140px;">
+            <option value="1">Cuatrimestre 1</option>
+            <option value="2">Cuatrimestre 2</option>
+          </select>
+          <input  type="number" id="sl-max" placeholder="Máx./franja" style="flex:0 0 110px;" min="1" max="20" value="2">
+          <button class="btn-add" onclick="saveSlotLimit()">Guardar</button>
+        </div>
+        <table class="data-table">
+          <thead><tr><th>Titulación</th><th>Curso</th><th>Cuatrimestre</th><th>Máx. asig. por franja</th><th></th></tr></thead>
+          <tbody id="tbody-slotlimits"><tr><td colspan="5" class="empty-msg">Cargando...</td></tr></tbody>
+        </table>
+      </div>
 
     </div>
 
@@ -466,7 +541,7 @@ function renderAulas() {
     <tr>
       <td>${a.name}</td>
       <td>${a.capacity}</td>
-      <td>${a.type}</td>
+      <td>${cap(a.type)}</td>
       <td>${a.zone || "—"}</td>
       <td>${a.building || "—"}</td>
       <td>
@@ -965,6 +1040,7 @@ document.getElementById("sched-view-modal").addEventListener("click", e => {
 const ADM_DAY_NAMES = ["Lunes","Martes","Miércoles","Jueves","Viernes"];
 const ADM_PALETTE   = ["#4f8ef7","#e06c75","#98c379","#e5c07b","#c678dd","#56b6c2","#61afef","#d19a66","#f78c6c","#a9b1d6"];
 function admTimeToMin(t) { const [h,m] = t.split(":").map(Number); return h*60+m; }
+function cap(s) { return s ? s.charAt(0).toUpperCase() + s.slice(1) : s; }
 let horariosLoaded = false;
 
 async function loadHorarios() {
@@ -989,6 +1065,7 @@ async function loadHorarios() {
       <td>${new Date(s.created_at).toLocaleDateString("es-ES",{day:"2-digit",month:"short",year:"numeric",hour:"2-digit",minute:"2-digit"})}</td>
       <td>
         <button class="btn-edit" onclick="viewAdminSchedule(${s.id},'${(s.name||"Horario #"+s.id).replace(/'/g,"\\'")}')">Ver</button>
+        <button class="btn-small" onclick="assignScheduleTeachers(${s.id},this)" title="Asignar profesores automáticamente">Prof.</button>
         <button class="btn-remove" onclick="deleteAdminSchedule(${s.id})">✕</button>
       </td>
     </tr>`).join("");
@@ -1048,6 +1125,26 @@ function exportAdminPDF() {
   win.addEventListener("load", () => { win.focus(); win.print(); });
 }
 
+async function assignScheduleTeachers(id, btn) {
+  const orig = btn.textContent;
+  btn.disabled = true;
+  btn.textContent = "…";
+  try {
+    const res  = await fetch(`/api/v1/schedules/${id}/assign-teachers`, { method: "POST" });
+    const data = await res.json();
+    if (res.ok) {
+      btn.textContent = `✓ ${data.assigned}/${data.total}`;
+    } else {
+      btn.textContent = "Error";
+      alert(data.error || "Error al asignar profesores");
+    }
+  } catch (e) {
+    btn.textContent = "Error";
+  }
+  btn.disabled = false;
+  setTimeout(() => { btn.textContent = orig; }, 4000);
+}
+
 async function deleteAdminSchedule(id) {
   if (!confirm("¿Eliminar este horario?")) return;
   const res = await fetch(`/api/v1/schedules/${id}`, { method:"DELETE" });
@@ -1056,43 +1153,71 @@ async function deleteAdminSchedule(id) {
 }
 
 async function checkConflicts() {
-  const degree = document.getElementById("cf-degree").value;
-  const year   = document.getElementById("cf-year").value;
-  const sem    = document.getElementById("cf-sem").value;
-  if (!degree || !year || !sem) return alert("Selecciona titulación, año y cuatrimestre.");
-
-  const res  = await fetch(`/api/v1/schedules/conflicts?degree=${encodeURIComponent(degree)}&year=${year}&semester=${sem}`);
-  const data = await res.json();
-  const box  = document.getElementById("cf-result");
+  const box = document.getElementById("cf-result");
   box.style.display = "block";
+  box.style.cssText = "display:block;margin-bottom:16px;padding:12px 16px;border-radius:8px;font-size:13px;line-height:1.7;background:rgba(97,175,239,0.08);border:1px solid rgba(97,175,239,0.3);color:#eee;";
+  box.innerHTML = "Verificando…";
 
-  const total = data.teachers.length + data.classrooms.length;
+  const res  = await fetch("/api/v1/schedules/conflicts");
+  const data = await res.json();
+  if (data.error) { box.innerHTML = `Error: ${data.error}`; return; }
 
-  if (total === 0) {
-    box.style.cssText = "display:block;margin-bottom:16px;padding:12px 16px;border-radius:8px;font-size:13px;background:rgba(152,195,121,0.15);border:1px solid rgba(152,195,121,0.5);color:#2d6a2d;";
-    box.innerHTML = "✓ Sin conflictos — todos los profesores y aulas son únicos por franja horaria.";
+  if (data.length === 0) {
+    box.style.cssText = "display:block;margin-bottom:16px;padding:12px 16px;border-radius:8px;font-size:13px;background:rgba(152,195,121,0.15);border:1px solid rgba(152,195,121,0.5);color:#98c379;";
+    box.innerHTML = "✓ Sin conflictos de aula — ningún aula coincide en hora entre distintos horarios.";
     return;
   }
 
-  box.style.cssText = "display:block;margin-bottom:16px;padding:12px 16px;border-radius:8px;font-size:13px;background:rgba(224,108,117,0.1);border:1px solid rgba(224,108,117,0.5);color:#7a1a1a;line-height:1.7;";
+  box.style.cssText = "display:block;margin-bottom:16px;padding:12px 16px;border-radius:8px;font-size:13px;background:rgba(224,108,117,0.1);border:1px solid rgba(224,108,117,0.5);color:#e06c75;line-height:1.8;";
   const DAYS = ["Lun","Mar","Mié","Jue","Vie"];
-  let html = `<strong>${total} conflicto(s) detectado(s)</strong><br><br>`;
-
-  if (data.teachers.length) {
-    html += `<u>Profesores (${data.teachers.length}):</u><br>`;
-    html += data.teachers.map(c =>
-      `• <b>${c.entity}</b> — ${DAYS[c.day_of_week]} ${c.slot_start}–${c.slot_end}: ` +
-      `Gr.${c.group_a} (${c.subject_a}) ↔ Gr.${c.group_b} (${c.subject_b})`
-    ).join("<br>") + "<br><br>";
-  }
-  if (data.classrooms.length) {
-    html += `<u>Aulas (${data.classrooms.length}):</u><br>`;
-    html += data.classrooms.map(c =>
-      `• <b>${c.entity}</b> — ${DAYS[c.day_of_week]} ${c.slot_start}–${c.slot_end}: ` +
-      `Gr.${c.group_a} (${c.subject_a}) ↔ Gr.${c.group_b} (${c.subject_b})`
-    ).join("<br>");
-  }
+  let html = `<strong>${data.length} conflicto(s) de aula detectado(s)</strong><br><br>`;
+  html += data.map(c => {
+    const ga = `${c.degree_a} ${c.year_a}º${c.group_a ? ' Gr.'+c.group_a : ''}`;
+    const gb = `${c.degree_b} ${c.year_b}º${c.group_b ? ' Gr.'+c.group_b : ''}`;
+    return `• <b>${c.classroom}</b> — ${DAYS[c.day_of_week]} ${c.slot_start}–${c.slot_end}: ` +
+           `${ga} (${c.subject_a}) ↔ ${gb} (${c.subject_b})`;
+  }).join("<br>");
   box.innerHTML = html;
+}
+
+let generationsLoaded = false;
+async function loadGenerations() {
+  if (generationsLoaded) return;
+  generationsLoaded = true;
+  const box = document.getElementById("generations-list");
+  box.innerHTML = `<span style="color:#888;">Cargando…</span>`;
+  const res = await fetch("/api/v1/schedules/generations");
+  if (!res.ok) { box.innerHTML = `<span style="color:#e06c75;">Error al cargar generaciones.</span>`; return; }
+  const data = await res.json();
+  if (!data.length) { box.innerHTML = `<span style="color:#888;">No hay generaciones registradas.</span>`; return; }
+  const MONTHS = ["ene","feb","mar","abr","may","jun","jul","ago","sep","oct","nov","dic"];
+  box.innerHTML = `<div style="border:1px solid #e8edf2;border-radius:6px;overflow:hidden;margin-bottom:4px;">
+    ${data.map((g, i) => {
+      const d = new Date(g.generation_id);
+      const label = `${d.getDate()} ${MONTHS[d.getMonth()]} ${d.getFullYear()} · ${String(d.getHours()).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')}`;
+      const enc = g.generation_id.replace(/\\/g,"\\\\").replace(/'/g,"\\'");
+      const border = i > 0 ? "border-top:1px solid #f0f0f0;" : "";
+      return `<div style="display:flex;align-items:center;padding:7px 12px;gap:12px;${border}background:#fafbfc;">
+        <span style="flex:1;color:#333;font-size:13px;">${label}</span>
+        <span style="color:#888;font-size:12px;">${g.count} horarios</span>
+        <button class="btn-add" style="padding:3px 12px;font-size:12px;" onclick="restoreGeneration('${enc}', this)">Restaurar</button>
+      </div>`;
+    }).join("")}
+  </div>`;
+}
+
+async function restoreGeneration(genId, btn) {
+  if (!confirm("¿Restaurar esta generación? Se crearán copias de esos horarios como activos.")) return;
+  btn.disabled = true;
+  btn.textContent = "Restaurando…";
+  const res = await fetch(`/api/v1/schedules/generations/${encodeURIComponent(genId)}/restore`, { method: "POST" });
+  const data = await res.json();
+  if (!res.ok) { alert(data.error || "Error al restaurar"); btn.disabled = false; btn.textContent = "Restaurar"; return; }
+  alert(`Generación restaurada: ${data.restored} horario(s) copiado(s).`);
+  horariosLoaded = false;
+  generationsLoaded = false;
+  loadHorarios();
+  loadStats();
 }
 
 async function deleteAllHorarios() {
@@ -1101,6 +1226,10 @@ async function deleteAllHorarios() {
   if (!confirm(`¿Eliminar los ${list.length} horarios? Esta acción no se puede deshacer.`)) return;
   await Promise.all(list.map(h => fetch(`/api/v1/schedules/${h.id}`, { method: "DELETE" })));
   horariosLoaded = false;
+  generationsLoaded = false;
+  document.getElementById("generations-list").innerHTML = `<span style="color:#888;">No hay generaciones registradas.</span>`;
+  const det = document.getElementById("gen-details");
+  if (det) det.removeAttribute("open");
   loadHorarios();
   loadStats();
 }
@@ -1158,7 +1287,7 @@ function buildPrintHTML(sesiones, title, slotMins, duracion, year, semester, gro
             </div>`;
           }
         }).join("");
-        cells += `<td rowspan="${span}" style="padding:5px 6px;text-align:center;vertical-align:middle;border:1px solid #000;background:#fff;">
+        cells += `<td rowspan="${span}" style="padding:5px 6px;text-align:center;vertical-align:middle;border:1px solid #000;background:${lunchRow ? '#ddd' : '#fff'};">
           <div style="display:flex;flex-direction:column;gap:6px;align-items:center;">${inner}</div>
         </td>`;
       } else {
@@ -1261,7 +1390,7 @@ function setVistaMode(mode) {
     ? '<option value="">Selecciona un profesor…</option>'
     : '<option value="">Selecciona un aula…</option>';
   (mode === 'teacher' ? profesores : aulas).forEach(item => {
-    const label = mode === 'teacher' ? item.name : `${item.name} (${item.type})`;
+    const label = mode === 'teacher' ? item.name : `${item.name} (${cap(item.type)})`;
     sel.add(new Option(label, item.id));
   });
   const applyToggle = (id, active) => {
@@ -1279,22 +1408,30 @@ async function buscarAulasLibres() {
   const day   = document.getElementById("fl-day").value;
   const start = document.getElementById("fl-start").value;
   const end   = document.getElementById("fl-end").value;
+  const sem   = document.getElementById("fl-sem").value;
   const el    = document.getElementById("fl-result");
   if (!start || !end || start >= end) {
     el.innerHTML = '<p style="color:#e06c75;font-size:13px;">Hora fin debe ser mayor que hora inicio.</p>';
     return;
   }
   el.innerHTML = '<p style="color:#888;font-size:13px;">Buscando…</p>';
-  const res  = await fetch(`/api/v1/classrooms/free?day=${day}&start=${encodeURIComponent(start)}&end=${encodeURIComponent(end)}`);
+  const semParam = sem ? `&semester=${sem}` : "";
+  const res  = await fetch(`/api/v1/classrooms/free?day=${day}&start=${encodeURIComponent(start)}&end=${encodeURIComponent(end)}${semParam}`);
   const list = await res.json();
+  const total    = aulas.length;
+  const occupied = total - list.length;
+  const summary  = `<p style="font-size:13px;color:#555;margin-bottom:6px;">
+    <strong>${list.length}</strong> libres de <strong>${total}</strong>
+    <span style="color:#e06c75;">(${occupied} ocupadas)</span>
+  </p>`;
   if (!list.length) {
-    el.innerHTML = '<p style="color:#e06c75;font-size:13px;">No hay aulas libres en esa franja.</p>';
+    el.innerHTML = summary + '<p style="color:#e06c75;font-size:13px;">No hay aulas libres en esa franja.</p>';
     return;
   }
-  el.innerHTML = `<table class="data-table" style="margin-top:8px;">
+  el.innerHTML = summary + `<table class="data-table" style="margin-top:4px;">
     <thead><tr><th>Nombre</th><th>Capacidad</th><th>Tipo</th><th>Zona</th><th>Edificio</th></tr></thead>
     <tbody>${list.map(a => `<tr>
-      <td>${a.name}</td><td>${a.capacity}</td><td>${a.type}</td>
+      <td>${a.name}</td><td>${a.capacity}</td><td>${cap(a.type)}</td>
       <td>${a.zone||"—"}</td><td>${a.building||"—"}</td>
     </tr>`).join("")}</tbody>
   </table>`;
@@ -1321,18 +1458,34 @@ function renderZonas() {
     </tr>`).join("");
 }
 
+function populateZDegreeSelect() {
+  const sel     = document.getElementById("z-degree");
+  const degrees = [...new Set(degreeGroupsAdmin.map(r => r.degree))].sort();
+  sel.innerHTML = `<option value="" disabled selected>Titulación</option>` +
+    degrees.map(d => `<option value="${d}">${d}</option>`).join("");
+  document.getElementById("z-year").innerHTML = `<option value="" disabled selected>Curso</option>`;
+}
+
+function onZDegreeChange() {
+  const degree = document.getElementById("z-degree").value;
+  const years  = [...new Set(degreeGroupsAdmin.filter(r => r.degree === degree).map(r => r.year))].sort((a,b)=>a-b);
+  document.getElementById("z-year").innerHTML =
+    `<option value="" disabled selected>Curso</option>` +
+    years.map(y => `<option value="${y}">${y}º</option>`).join("");
+}
+
 async function saveZona() {
-  const degree = document.getElementById("z-degree").value.trim();
+  const degree = document.getElementById("z-degree").value;
   const year   = document.getElementById("z-year").value;
   const zone   = document.getElementById("z-zone").value;
-  if (!degree || !year) return alert("Titulación y curso son obligatorios");
+  if (!degree || !year) return alert("Selecciona titulación y curso");
   const res = await fetch("/api/v1/zone-preferences", {
     method: "POST", headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ degree, year: parseInt(year), zone: zone || null })
   });
   if (res.ok) {
     document.getElementById("z-degree").value = "";
-    document.getElementById("z-year").value   = "";
+    document.getElementById("z-year").innerHTML = `<option value="" disabled selected>Curso</option>`;
     document.getElementById("z-zone").value   = "";
     await loadZonas();
   } else {
@@ -1343,6 +1496,123 @@ async function saveZona() {
 async function deleteZona(id) {
   await fetch(`/api/v1/zone-preferences/${id}`, { method: "DELETE" });
   await loadZonas();
+}
+
+function switchPrefSection(id, btn) {
+  document.querySelectorAll(".pref-section").forEach(s => s.style.display = "none");
+  document.querySelectorAll(".pref-nav-btn").forEach(b => b.classList.remove("active"));
+  document.getElementById(id).style.display = "block";
+  btn.classList.add("active");
+}
+
+async function loadPreferencias() {
+  await loadDegreeGroupsAdmin(); // primero: puebla los selects de todas las secciones
+  await Promise.all([loadZonas(), loadGrupos(), loadSlotLimits()]);
+}
+
+// ── Grupos existentes (degree_groups) ───────────────
+let degreeGroupsAdmin = [];
+
+async function loadDegreeGroupsAdmin() {
+  const res = await fetch("/api/v1/degree-groups");
+  degreeGroupsAdmin = await res.json();
+  renderDegreeGroupsAdmin();
+  populateZDegreeSelect();
+  populateDGDegreeSelect();
+  populateGDegreeSelect();
+}
+
+function populateDGDegreeSelect() {
+  const sel     = document.getElementById("dg-degree");
+  const degrees = [...new Set(degreeGroupsAdmin.map(r => r.degree))].sort();
+  sel.innerHTML = `<option value="" disabled selected>Titulación</option>` +
+    degrees.map(d => `<option value="${d}">${d}</option>`).join("");
+  document.getElementById("dg-year").innerHTML = `<option value="" disabled selected>Curso</option>`;
+}
+
+function onDGDegreeChange() {
+  const degree = document.getElementById("dg-degree").value;
+  const years  = [...new Set(degreeGroupsAdmin.filter(r => r.degree === degree).map(r => r.year))].sort((a,b)=>a-b);
+  document.getElementById("dg-year").innerHTML =
+    `<option value="" disabled selected>Curso</option>` +
+    years.map(y => `<option value="${y}">${y}º</option>`).join("");
+}
+
+function renderDegreeGroupsAdmin() {
+  const tbody = document.getElementById("tbody-degree-groups");
+  if (!degreeGroupsAdmin.length) {
+    tbody.innerHTML = `<tr><td colspan="4" class="empty-msg">Sin grupos definidos</td></tr>`;
+    return;
+  }
+  tbody.innerHTML = degreeGroupsAdmin.map(g => `
+    <tr>
+      <td>${g.degree}</td>
+      <td>${g.year}º</td>
+      <td>${g.group_letter}</td>
+      <td><button class="btn-remove" onclick="deleteDegreeGroup('${g.degree}',${g.year},'${g.group_letter}')">✕</button></td>
+    </tr>`).join("");
+}
+
+async function saveDegreeGroup() {
+  const degree       = document.getElementById("dg-degree").value;
+  const year         = parseInt(document.getElementById("dg-year").value);
+  const group_letter = document.getElementById("dg-letter").value.trim().toUpperCase();
+  if (!degree || !year || !group_letter) return alert("Selecciona titulación, curso e introduce el grupo");
+  const res = await fetch("/api/v1/degree-groups", {
+    method: "PUT", headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ degree, year, group_letter })
+  });
+  if (res.ok) {
+    document.getElementById("dg-degree").value  = "";
+    document.getElementById("dg-year").innerHTML = `<option value="" disabled selected>Curso</option>`;
+    document.getElementById("dg-letter").value  = "";
+    await loadDegreeGroupsAdmin();
+  } else {
+    const d = await res.json(); alert(d.error);
+  }
+}
+
+async function deleteDegreeGroup(degree, year, group_letter) {
+  await fetch("/api/v1/degree-groups", {
+    method: "DELETE", headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ degree, year, group_letter })
+  });
+  await loadDegreeGroupsAdmin();
+}
+
+// Rellena el select de titulación del formulario de config de grupos
+function populateGDegreeSelect() {
+  const sel = document.getElementById("g-degree");
+  const degrees = [...new Set(degreeGroupsAdmin.map(r => r.degree))].sort();
+  const prev = sel.value;
+  sel.innerHTML = `<option value="" disabled>Titulación</option>` +
+    degrees.map(d => `<option value="${d}"${d === prev ? " selected" : ""}>${d}</option>`).join("");
+  if (!degrees.includes(prev)) {
+    document.getElementById("g-year").innerHTML   = `<option value="" disabled selected>Curso</option>`;
+    document.getElementById("g-letter").innerHTML = `<option value="" disabled selected>Grupo</option>`;
+  } else {
+    onGDegreeChange();
+  }
+}
+
+function onGDegreeChange() {
+  const degree = document.getElementById("g-degree").value;
+  const years  = [...new Set(degreeGroupsAdmin.filter(r => r.degree === degree).map(r => r.year))].sort((a,b)=>a-b);
+  const ySel   = document.getElementById("g-year");
+  ySel.innerHTML = `<option value="" disabled selected>Curso</option>` +
+    years.map(y => `<option value="${y}">${y}º</option>`).join("");
+  document.getElementById("g-letter").innerHTML = `<option value="" disabled selected>Grupo</option>`;
+}
+
+function onGYearChange() {
+  const degree = document.getElementById("g-degree").value;
+  const year   = parseInt(document.getElementById("g-year").value);
+  const groups = degreeGroupsAdmin
+    .filter(r => r.degree === degree && r.year === year)
+    .map(r => r.group_letter).sort();
+  const lSel   = document.getElementById("g-letter");
+  lSel.innerHTML = `<option value="" disabled selected>Grupo</option>` +
+    groups.map(g => `<option value="${g}">${g}</option>`).join("");
 }
 
 // ── Grupos ──────────────────────────────────────────
@@ -1372,22 +1642,22 @@ function renderGrupos() {
 }
 
 async function saveGrupo() {
-  const degree      = document.getElementById("g-degree").value.trim();
+  const degree      = document.getElementById("g-degree").value;
   const year        = parseInt(document.getElementById("g-year").value);
-  const group_letter= document.getElementById("g-letter").value.trim().toUpperCase();
+  const group_letter= document.getElementById("g-letter").value;
   const afternoon   = document.getElementById("g-afternoon").checked ? 1 : 0;
   const bilingual   = document.getElementById("g-bilingual").checked ? 1 : 0;
-  if (!degree || !year || !group_letter) return alert("Titulación, curso y grupo son obligatorios");
+  if (!degree || !year || !group_letter) return alert("Selecciona titulación, curso y grupo");
   const res = await fetch("/api/v1/group-config", {
     method: "PUT", headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ degree, year, group_letter, afternoon, bilingual })
   });
   if (res.ok) {
-    document.getElementById("g-degree").value   = "";
-    document.getElementById("g-year").value     = "";
-    document.getElementById("g-letter").value   = "";
-    document.getElementById("g-afternoon").checked = false;
-    document.getElementById("g-bilingual").checked = false;
+    document.getElementById("g-degree").value        = "";
+    document.getElementById("g-year").innerHTML      = `<option value="" disabled selected>Curso</option>`;
+    document.getElementById("g-letter").innerHTML    = `<option value="" disabled selected>Grupo</option>`;
+    document.getElementById("g-afternoon").checked   = false;
+    document.getElementById("g-bilingual").checked   = false;
     await loadGrupos();
   } else {
     const d = await res.json(); alert(d.error);
@@ -1400,6 +1670,82 @@ async function deleteGrupo(degree, year, group_letter) {
     body: JSON.stringify({ degree, year, group_letter })
   });
   await loadGrupos();
+}
+
+// ── Slot Limits ─────────────────────────────────────
+let slotLimits = [];
+
+async function loadSlotLimits() {
+  const res = await fetch("/api/v1/slot-limits");
+  slotLimits = await res.json();
+  renderSlotLimits();
+  populateSLDegreeSelect();
+}
+
+function populateSLDegreeSelect() {
+  const sel     = document.getElementById("sl-degree");
+  const degrees = [...new Set(degreeGroupsAdmin.map(r => r.degree))].sort();
+  const prev    = sel.value;
+  sel.innerHTML = `<option value="" disabled>Titulación</option>` +
+    degrees.map(d => `<option value="${d}"${d === prev ? " selected" : ""}>${d}</option>`).join("");
+  if (!degrees.includes(prev)) {
+    document.getElementById("sl-year").innerHTML = `<option value="" disabled selected>Curso</option>`;
+  } else {
+    onSLDegreeChange();
+  }
+}
+
+function onSLDegreeChange() {
+  const degree = document.getElementById("sl-degree").value;
+  const years  = [...new Set(degreeGroupsAdmin.filter(r => r.degree === degree).map(r => r.year))].sort((a,b)=>a-b);
+  document.getElementById("sl-year").innerHTML =
+    `<option value="" disabled selected>Curso</option>` +
+    years.map(y => `<option value="${y}">${y}º</option>`).join("");
+}
+
+function renderSlotLimits() {
+  const tbody = document.getElementById("tbody-slotlimits");
+  if (!slotLimits.length) {
+    tbody.innerHTML = `<tr><td colspan="5" class="empty-msg">Sin límites configurados (se usa el valor por defecto: 2)</td></tr>`;
+    return;
+  }
+  tbody.innerHTML = slotLimits.map(l => `
+    <tr>
+      <td>${l.degree}</td>
+      <td>${l.year}º</td>
+      <td>${l.semester === 1 ? "1er" : "2º"} cuatrimestre</td>
+      <td style="font-weight:700;">${l.max_parallel}</td>
+      <td><button class="btn-remove" onclick="deleteSlotLimit('${l.degree}',${l.year},${l.semester})">✕</button></td>
+    </tr>`).join("");
+}
+
+async function saveSlotLimit() {
+  const degree   = document.getElementById("sl-degree").value;
+  const year     = parseInt(document.getElementById("sl-year").value);
+  const semester = parseInt(document.getElementById("sl-semester").value);
+  const max      = parseInt(document.getElementById("sl-max").value);
+  if (!degree || !year) return alert("Selecciona titulación y curso");
+  if (isNaN(max) || max < 1) return alert("El máximo debe ser >= 1");
+  const res = await fetch("/api/v1/slot-limits", {
+    method: "PUT", headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ degree, year, semester, max_parallel: max })
+  });
+  if (res.ok) {
+    document.getElementById("sl-year").innerHTML = `<option value="" disabled selected>Curso</option>`;
+    document.getElementById("sl-degree").value   = "";
+    document.getElementById("sl-max").value      = "2";
+    await loadSlotLimits();
+  } else {
+    const d = await res.json(); alert(d.error);
+  }
+}
+
+async function deleteSlotLimit(degree, year, semester) {
+  await fetch("/api/v1/slot-limits", {
+    method: "DELETE", headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ degree, year, semester })
+  });
+  await loadSlotLimits();
 }
 
 async function loadVistaData() {
