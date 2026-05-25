@@ -353,7 +353,7 @@ async function generarTodo() {
       if (!resp.ok) throw new Error(data.error || `HTTP ${resp.status}`);
       const total = data.total_needed ?? data.sesiones?.length ?? 0;
       const asig  = data.sesiones?.length ?? 0;
-      const pct   = total ? Math.round(asig / total * 100) : 100;
+      const pct   = total ? Math.min(100, Math.round(asig / total * 100)) : 100;
       ok++;
       addTodoLog(logEl, label, 'ok', `${asig}/${total} sesiones (${pct}%)`);
     } catch (err) {

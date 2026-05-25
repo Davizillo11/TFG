@@ -178,7 +178,6 @@ function solveLabSessions({ subjects, classroomRows, classroomType, classroomCap
     const subjOcc = subjectSlotOcc.get(subj.id);
 
     for (const slot of shuffleDays(candidateSlots)) {
-      if (transversalDay >= 0 && slot.dia === transversalDay) continue;
       if (slot.dia === theoryDay) continue;
       const theoryOcc = maxParallel > 2
         ? (subjectTheoryTimeOcc.get(subj.id) || new Set())
@@ -279,7 +278,6 @@ function solveLabSessions({ subjects, classroomRows, classroomType, classroomCap
     let moved = false;
     for (const slot of candidateSlots) {
       if (slot.startMin >= sessStartMin) continue; // solo slots anteriores
-      if (transversalDay >= 0 && slot.dia === transversalDay) continue;
       if (slot.dia === theoryDay) continue;
       const theoryOcc = maxParallel > 2
         ? (subjectTheoryTimeOcc.get(sess.subject_id) || new Set())
@@ -352,7 +350,6 @@ function solveLabSessions({ subjects, classroomRows, classroomType, classroomCap
     let moved = false;
     for (const slot of candidateSlots) {
       if (slot.startMin < PREF_LAB_MIN || slot.startMin >= PREF_LAB_MAX) continue;
-      if (transversalDay >= 0 && slot.dia === transversalDay) continue;
       // No bloqueamos el día de teoría entero — solo comprobamos solapamiento horario
       const theoryOcc = maxParallel > 2
         ? (subjectTheoryTimeOcc.get(sess.subject_id) || new Set())
@@ -398,7 +395,8 @@ function solveLabSessions({ subjects, classroomRows, classroomType, classroomCap
   }
   } // fin bucle de pasadas de mejora de labs
 
-  return { labSessions, noAsig };
+  const labNeeded = labSubjects.reduce((sum, ls) => sum + ls.N, 0);
+  return { labSessions, noAsig, labNeeded };
 }
 
 // genera el horario para un grupo/cuatrimestre y lo guarda en BD
@@ -1178,7 +1176,7 @@ router.post("/generate", requireAuth, async (req, res) => {
       subjectLabTeachersMap,
       maxParallel, subjectBranchMap,
     };
-    let labSessions = [], noLab = [];
+    let labSessions = [], noLab = [], labNeeded = 0;
     for (let li = 0; li < 5; li++) {
       const attempt = solveLabSessions(labArgs);
       const badCount = attempt.labSessions.filter(s => timeToMin(s.start) < 10 * 60).length;
@@ -1187,6 +1185,7 @@ router.post("/generate", requireAuth, async (req, res) => {
           (attempt.noAsig.length === noLab.length && badCount < prevBad)) {
         labSessions = attempt.labSessions;
         noLab = attempt.noAsig;
+        labNeeded = attempt.labNeeded;
       }
       if (noLab.length === 0 && labSessions.filter(s => timeToMin(s.start) < 10 * 60).length === 0) break;
     }
@@ -1213,6 +1212,12 @@ router.post("/generate", requireAuth, async (req, res) => {
       (metaDeg && metaYear
         ? `${metaDeg} – ${metaYear}º${semStr ? " – " + semStr : ""}${groupStr} – ${new Date().toLocaleDateString("es-ES")}`
         : `Horario ${new Date().toLocaleDateString("es-ES")}`);
+    await dbRun(
+      `UPDATE schedules SET status='inactive'
+       WHERE status='active'
+         AND degree IS ? AND year IS ? AND semester IS ? AND group_letter IS ?`,
+      [metaDeg, metaYear, metaSem, metaGroup]
+    );
     const sched = await dbRun(
       "INSERT INTO schedules (name, created_by, status, degree, year, semester, group_letter, generation_id) VALUES (?,?,?,?,?,?,?,?)",
       [nameLabel, userId, "active", metaDeg, metaYear, metaSem, metaGroup, generation_id]
@@ -1253,7 +1258,7 @@ router.post("/generate", requireAuth, async (req, res) => {
     const slotMins = [...displayMinsSet].sort((a, b) => a - b);
     await dbRun("UPDATE schedules SET slot_mins=?, duracion=? WHERE id=?", [JSON.stringify(slotMins), duracion, scheduleId]);
 
-    const totalNeeded = allSessions.length + transversalSubjs.reduce((acc, s) => acc + s.sessionDurations.length, 0);
+    const totalNeeded = allSessions.length + transversalSubjs.reduce((acc, s) => acc + s.sessionDurations.length, 0) + labNeeded;
     res.json({ schedule_id: scheduleId, sesiones, no_asignadas: noAsignadas, breaks, perfect, total_needed: totalNeeded, slotMins, maxParallel });
 
   } catch (err) {
@@ -1306,30 +1311,23 @@ router.get("/generations", requireAuth, async (req, res) => {
   } catch (err) { res.status(500).json({ error: err.message }); }
 });
 
-// Restaurar una generación: copia sus horarios como nuevos registros (pasan a ser los más recientes)
+// Restaurar una generación: re-activa in-place los horarios originales (sin crear copias)
 router.post("/generations/:genId/restore", requireAuth, async (req, res) => {
   try {
     const { genId } = req.params;
-    const newGenId  = new Date().toISOString();
     const schedules = await dbAll(`SELECT * FROM schedules WHERE generation_id = ?`, [genId]);
     if (!schedules.length) return res.status(404).json({ error: "Generación no encontrada" });
 
     for (const sc of schedules) {
-      const ins = await dbRun(
-        `INSERT INTO schedules (name, created_by, status, degree, year, semester, group_letter, slot_mins, duracion, generation_id)
-         VALUES (?,?,?,?,?,?,?,?,?,?)`,
-        [sc.name, sc.created_by, "active", sc.degree, sc.year, sc.semester, sc.group_letter, sc.slot_mins, sc.duracion, newGenId]
+      await dbRun(
+        `UPDATE schedules SET status='inactive'
+         WHERE status='active' AND id != ?
+           AND degree IS ? AND year IS ? AND semester IS ? AND group_letter IS ?`,
+        [sc.id, sc.degree, sc.year, sc.semester, sc.group_letter]
       );
-      const sessions = await dbAll(`SELECT * FROM schedule_sessions WHERE schedule_id = ?`, [sc.id]);
-      for (const s of sessions) {
-        await dbRun(
-          `INSERT INTO schedule_sessions (schedule_id, subject_id, teacher_id, classroom_id, day_of_week, slot_start, slot_end, subgroup)
-           VALUES (?,?,?,?,?,?,?,?)`,
-          [ins.lastID, s.subject_id, s.teacher_id, s.classroom_id, s.day_of_week, s.slot_start, s.slot_end, s.subgroup]
-        );
-      }
+      await dbRun(`UPDATE schedules SET status='active' WHERE id = ?`, [sc.id]);
     }
-    res.json({ ok: true, generation_id: newGenId, restored: schedules.length });
+    res.json({ ok: true, restored: schedules.length });
   } catch (err) { res.status(500).json({ error: err.message }); }
 });
 
@@ -1337,11 +1335,6 @@ router.get("/conflicts", requireAuth, async (req, res) => {
   try {
     // Último horario generado por cada combinación única (titulación, año, cuatrimestre, grupo)
     const conflicts = await dbAll(`
-      WITH latest AS (
-        SELECT MAX(id) AS id
-        FROM schedules
-        GROUP BY degree, year, semester, COALESCE(group_letter, '')
-      )
       SELECT c.name  AS classroom,
              a.day_of_week,
              a.slot_start, a.slot_end,
@@ -1354,14 +1347,12 @@ router.get("/conflicts", requireAuth, async (req, res) => {
                AND a.id < b.id
                AND a.slot_start   < b.slot_end
                AND a.slot_end     > b.slot_start
-      JOIN   schedules  sca ON sca.id = a.schedule_id
-      JOIN   schedules  scb ON scb.id = b.schedule_id
+      JOIN   schedules  sca ON sca.id = a.schedule_id AND sca.status = 'active'
+      JOIN   schedules  scb ON scb.id = b.schedule_id AND scb.status = 'active'
       JOIN   subjects   sa  ON  sa.id = a.subject_id
       JOIN   subjects   sb  ON  sb.id = b.subject_id
       JOIN   classrooms c   ON   c.id = a.classroom_id
-      WHERE  a.schedule_id IN (SELECT id FROM latest)
-        AND  b.schedule_id IN (SELECT id FROM latest)
-        AND  sca.semester = scb.semester
+      WHERE  sca.semester = scb.semester
       ORDER  BY c.name, a.day_of_week, a.slot_start
     `);
     res.json(conflicts);

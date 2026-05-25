@@ -83,6 +83,9 @@ async function seed() {
   await run("DELETE FROM teachers");
   await run("DELETE FROM classrooms");
   await run("DELETE FROM users");
+  await run("DELETE FROM group_config");
+  await run("DELETE FROM slot_limits");
+  await run("DELETE FROM degree_groups");
 
   // ── Usuarios ──────────────────────────────────────
   const adminHash = await bcrypt.hash("admin", 12);
@@ -565,7 +568,6 @@ async function seed() {
   console.log("✓ Asignaciones profesor-asignatura");
 
   // ── Grupos existentes por titulación ─────────────
-  await run("DELETE FROM degree_groups");
   const degreeGroups = [
     // Teleco 1º: A-F (6 grupos)
     ...['A','B','C','D','E','F'].map(g => ({ degree: 'Teleco', year: 1, group_letter: g })),
@@ -583,6 +585,30 @@ async function seed() {
     );
   }
   console.log("✓ Grupos existentes por titulación");
+
+  // ── Configuración de grupos ────────────────────────
+  const groupConfigs = [
+    { degree: 'Teleco', year: 1, group_letter: 'F', afternoon: 1, bilingual: 0 },
+    { degree: 'Teleco', year: 1, group_letter: 'E', afternoon: 0, bilingual: 1 },
+    { degree: 'Teleco', year: 2, group_letter: 'D', afternoon: 1, bilingual: 0 },
+    { degree: 'Teleco', year: 2, group_letter: 'E', afternoon: 0, bilingual: 1 },
+    { degree: 'GIT',   year: 4, group_letter: 'D', afternoon: 1, bilingual: 0 },
+    { degree: 'GITT',  year: 4, group_letter: 'A', afternoon: 1, bilingual: 0 },
+  ];
+  for (const { degree, year, group_letter, afternoon, bilingual } of groupConfigs) {
+    await run(
+      `INSERT OR REPLACE INTO group_config (degree, year, group_letter, afternoon, bilingual) VALUES (?,?,?,?,?)`,
+      [degree, year, group_letter, afternoon, bilingual]
+    );
+  }
+  console.log("✓ Configuración de grupos");
+
+  // ── Límites de slots por titulación ───────────────
+  await run(
+    `INSERT OR REPLACE INTO slot_limits (degree, year, semester, max_parallel) VALUES (?,?,?,?)`,
+    ['GITT', 4, 1, 4]
+  );
+  console.log("✓ Límites de slots");
 
   console.log("\n✅ Seed completado. Ejecuta: npm start");
   db.close();

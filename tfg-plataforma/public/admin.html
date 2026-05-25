@@ -58,7 +58,7 @@
       <button class="admin-tab-btn active" onclick="switchTab('aulas')">Aulas</button>
       <button class="admin-tab-btn"        onclick="switchTab('profesores')">Profesores</button>
       <button class="admin-tab-btn"        onclick="switchTab('asignaturas')">Asignaturas</button>
-      <button class="admin-tab-btn"        onclick="switchTab('horarios');loadHorarios()">Horarios</button>
+      <button class="admin-tab-btn"        onclick="horariosLoaded=false;switchTab('horarios');loadHorarios()">Horarios</button>
       <button class="admin-tab-btn"        onclick="switchTab('vistas');initVistas()">Vistas</button>
       <button class="admin-tab-btn"        onclick="switchTab('preferencias');loadPreferencias()">Preferencias</button>
     </div>
@@ -1060,7 +1060,7 @@ async function loadHorarios() {
       <td style="font-weight:600;">${s.name || "Horario #" + s.id}</td>
       <td style="text-align:center;font-weight:700;">${s.group_letter || "—"}</td>
       <td>${s.session_count}</td>
-      <td><span style="display:inline-block;padding:2px 9px;border-radius:20px;font-size:0.72rem;font-weight:700;background:${s.status==="active"?"rgba(152,195,121,0.2)":"rgba(255,255,255,0.07)"};color:${s.status==="active"?"#98c379":"rgba(255,255,255,0.4)"}">${s.status}</span></td>
+      <td><span style="display:inline-block;padding:2px 9px;border-radius:20px;font-size:0.72rem;font-weight:700;background:${s.status==="active"?"rgba(152,195,121,0.2)":"rgba(224,108,117,0.15)"};color:${s.status==="active"?"#98c379":"#e06c75"}">${s.status==="active"?"active":"inactive"}</span></td>
       <td>${s.created_by || "—"}</td>
       <td>${new Date(s.created_at).toLocaleDateString("es-ES",{day:"2-digit",month:"short",year:"numeric",hour:"2-digit",minute:"2-digit"})}</td>
       <td>
@@ -1207,17 +1207,19 @@ async function loadGenerations() {
 }
 
 async function restoreGeneration(genId, btn) {
-  if (!confirm("¿Restaurar esta generación? Se crearán copias de esos horarios como activos.")) return;
+  if (!confirm("¿Restaurar esta generación?")) return;
   btn.disabled = true;
   btn.textContent = "Restaurando…";
   const res = await fetch(`/api/v1/schedules/generations/${encodeURIComponent(genId)}/restore`, { method: "POST" });
   const data = await res.json();
   if (!res.ok) { alert(data.error || "Error al restaurar"); btn.disabled = false; btn.textContent = "Restaurar"; return; }
-  alert(`Generación restaurada: ${data.restored} horario(s) copiado(s).`);
   horariosLoaded = false;
   generationsLoaded = false;
   loadHorarios();
   loadStats();
+  btn.disabled = false;
+  btn.textContent = "Restaurar";
+  alert(`Generación restaurada (${data.restored} horario${data.restored !== 1 ? "s" : ""}).\nVerifica los conflictos de aula por seguridad.`);
 }
 
 async function deleteAllHorarios() {

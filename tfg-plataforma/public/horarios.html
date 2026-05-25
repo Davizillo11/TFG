@@ -212,7 +212,7 @@ async function actualizarHorario() {
     const res  = await fetch(`/api/v1/schedules?degree=${encodeURIComponent(tit)}&year=${curso}&semester=${cuatri}${groupParam}`);
     const list = res.ok ? await res.json() : [];
     if (list.length) {
-      const latest  = list[0];
+      const latest  = list.find(s => s.status === 'active') || list[0];
       const detRes  = await fetch(`/api/v1/schedules/${latest.id}`);
       const data    = detRes.ok ? await detRes.json() : null;
       if (data?.sesiones?.length) {
