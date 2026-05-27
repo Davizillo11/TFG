@@ -80,8 +80,9 @@
   <ul>
     <li><a href="index.html">Inicio</a></li>
     <li><a href="horarios.html">Horarios</a></li>
-    <li><a href="generador.html">Generador</a></li>
+    <li id="generador-li"><a href="generador.html">Generador</a></li>
     <li id="admin-li" style="display:none;"><a href="admin.html">Admin</a></li>
+    <li id="student-li" style="display:none;"><a href="alumno.html">Mi Horario</a></li>
     <li id="login-li"><a class="btn-login" href="login.html">Iniciar sesión</a></li>
   </ul>
 </nav>
@@ -221,20 +222,29 @@ async function actualizarHorario() {
         const iframe = document.createElement("iframe");
         iframe.scrolling = "no";
         iframe.style.cssText = "width:100%;border:none;border-radius:8px;display:block;background:#fff;overflow:hidden;box-shadow:0 4px 20px rgba(0,0,0,0.3);height:0;";
+        overlayTbl.innerHTML = "";
+        overlayGrid.style.zoom = '';
+        overlayGrid.style.display = "block";
+        overlayTbl.appendChild(iframe);
+        // Medir posición antes de que el iframe tenga altura
+        const pageBottom = document.querySelector('.horarios-page').getBoundingClientRect().bottom;
+        const gridTop    = overlayGrid.getBoundingClientRect().top;
+        const available  = pageBottom - gridTop - 8;
         const onMsg = e => {
           if (e.data?.type === 'iframeH' && e.source === iframe.contentWindow) {
-            iframe.style.height = (e.data.h + 2) + 'px';
+            const contentH = e.data.h + 2;
+            iframe.style.height = contentH + 'px';
+            if (contentH > available && available > 50) {
+              overlayGrid.style.zoom = (available / contentH).toFixed(3);
+            }
             window.removeEventListener('message', onMsg);
           }
         };
         window.addEventListener('message', onMsg);
-        overlayTbl.innerHTML = "";
-        overlayTbl.appendChild(iframe);
         iframe.contentDocument.open();
         iframe.contentDocument.write(html);
         iframe.contentDocument.close();
-        img.style.display         = "none";
-        overlayGrid.style.display = "block";
+        img.style.display = "none";
         return;
       }
     }
@@ -254,7 +264,7 @@ function buildPrintHTML(sesiones, title, slotMins, duracion, year, semester, gro
   const fmt = m => `${Math.floor(m/60)}:${pad(m%60)}`; // sin ceros a la izquierda en la hora
 
   const dias = [0, 1, 2, 3, 4];
-  const ROW_PX = 50; // px per hour row
+  const ROW_PX = 36; // px per hour row (compact for on-screen viewer)
 
   // 1-hour grid 8→21, augmented with session boundaries
   const base = [];

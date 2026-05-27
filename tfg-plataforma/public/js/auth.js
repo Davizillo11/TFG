@@ -16,10 +16,18 @@ const Auth = (() => {
     if (adminLi && user.role === "admin") {
       adminLi.style.display = "list-item";
     }
+    const studentLi  = document.getElementById("student-li");
+    const generadorLi = document.getElementById("generador-li");
+    if (studentLi && user.role === "alumno") studentLi.style.display = "list-item";
+    if (generadorLi && user.role === "alumno") generadorLi.style.display = "none";
 
+    const initial = user.username.charAt(0).toUpperCase();
     loginLi.innerHTML = `
       <div class="user-dropdown">
-        <span id="user-btn">Hola, ${user.username}</span>
+        <span id="user-btn">
+          <span class="u-avatar">${initial}</span>
+          <span class="u-name">${user.username}</span>
+        </span>
         <div class="user-dropdown-content">
           <a href="/profile.html" class="dropdown-item">Cambiar contraseña</a>
           <a href="#" id="logout-btn" class="dropdown-item dropdown-item--danger">Cerrar sesión</a>

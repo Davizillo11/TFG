@@ -34,6 +34,7 @@ app.use("/api/v1/zone-preferences",            require("./routes/zones"));
 app.use("/api/v1/group-config",                require("./routes/groupconfig"));
 app.use("/api/v1/slot-limits",                 require("./routes/slotlimits"));
 app.use("/api/v1/degree-groups",              require("./routes/degreegroups"));
+app.use("/api/v1/student",                   require("./routes/student"));
 
 // ── Serve app ─────────────────────────────────────
 app.get("/", (req, res) => {

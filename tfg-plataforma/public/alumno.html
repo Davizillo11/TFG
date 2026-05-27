@@ -1,0 +1,1248 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <title>Mi Horario</title>
+  <link rel="stylesheet" href="css/style.css">
+  <link rel="icon" type="image/png" href="images/icon.png">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <style>
+    body.horarios-body { overflow: hidden; }
+
+    /* Forzar layout horizontal sobre horarios-page (que usa flex-direction:column) */
+    #contenido-alumno {
+      flex-direction: row !important;
+      align-items:    stretch !important;
+      padding:        0 !important;
+      gap:            0 !important;
+      flex:           1;
+      overflow:       hidden;
+      min-height:     0;
+    }
+
+    /* ── Sidebar ─────────────────────────────────────── */
+    .al-sb {
+      width: clamp(200px, 17vw, 255px); min-width: clamp(200px, 17vw, 255px);
+      background: rgba(0,0,0,0.62);
+      border-right: 1px solid rgba(255,255,255,0.08);
+      display: flex; flex-direction: column;
+      overflow: hidden;
+      padding: 16px 14px;
+    }
+    .al-sb-title {
+      font-size: 0.78rem; font-weight: 700; letter-spacing: .1em;
+      color: #c8cdd5; text-transform: uppercase; margin-bottom: 9px;
+    }
+    .al-sel {
+      width: 100%; padding: 7px 10px; margin-bottom: 7px;
+      border-radius: 5px; border: 1px solid rgba(255,255,255,0.15);
+      background: #1e2330; color: #e8eaed;
+      font-size: 0.8rem; cursor: pointer;
+      appearance: none; -webkit-appearance: none;
+      color-scheme: dark;
+      -webkit-tap-highlight-color: transparent;
+      box-shadow: none;
+    }
+    .al-sel:disabled { opacity: .4; cursor: default; }
+    .al-sel:focus, .al-sel:focus-visible { outline: none; box-shadow: none; border-color: rgba(97,175,239,0.5); }
+    .al-sel:active   { outline: none; box-shadow: none; }
+    .al-sel option   { background: #1e2330; color: #e8eaed; }
+    .al-sel option:disabled { color: #5c6370; }
+
+    .al-btn {
+      width: 100%; padding: 8px; border-radius: 5px; border: none;
+      font-size: 0.8rem; font-weight: 600; cursor: pointer; transition: opacity .15s;
+    }
+    .al-btn-add   { background: #61afef; color: #fff; margin-top: 2px; }
+    .al-btn-add:hover { opacity: .85; }
+    .al-btn-clear { background: transparent; border: 1px solid rgba(224,108,117,0.4); color: #e06c75; margin-top: 6px; }
+    .al-btn-clear:hover { background: rgba(224,108,117,0.15); }
+
+    .al-divider { height: 1px; background: rgba(255,255,255,0.07); margin: 14px 0; }
+
+    /* ── Chips ───────────────────────────────────────── */
+    .chip {
+      display: flex; justify-content: space-between; align-items: center;
+      border-left: 3px solid #61afef; border-radius: 5px;
+      background: rgba(255,255,255,0.05); padding: 7px 9px; margin-bottom: 5px;
+    }
+    .chip-name { font-size: 0.78rem; font-weight: 600; color: #e8eaed; display: block; }
+    .chip-meta { font-size: 0.75rem; color: #9aa3b2; margin-top: 1px; display: block; }
+    .chip-warn { font-size: 0.75rem; color: #e5c07b; margin-top: 2px; display: block; }
+    .chip-del  { background: none; border: none; color: #7a8394; cursor: pointer; font-size: 0.9375rem; padding: 0 3px; flex-shrink: 0; }
+    .chip-del:hover { color: #e06c75; }
+    .no-items  { font-size: 0.75rem; color: #9aa3b2; font-style: italic; }
+
+    /* ── Main ────────────────────────────────────────── */
+    .al-main { flex: 1; display: flex; flex-direction: column; min-width: 0; overflow: hidden; }
+
+    /* ── Tab bar ─────────────────────────────────────── */
+    .al-tabbar {
+      display: flex; align-items: center; gap: 6px;
+      padding: 12px 18px 0;
+      border-bottom: 1px solid rgba(255,255,255,0.08);
+      background: rgba(0,0,0,0.25); flex-shrink: 0;
+    }
+    .al-tab {
+      padding: 0.5rem 1.25rem; border-radius: 6px 6px 0 0; cursor: pointer;
+      border: 1px solid transparent; border-bottom: none;
+      font-size: 0.82rem; font-weight: 600; background: transparent; color: #5c6370; transition: all .15s;
+    }
+    .al-tab.active { background: rgba(97,175,239,0.12); border-color: rgba(255,255,255,0.1); color: #61afef; }
+    .al-tab-spacer { flex: 1; }
+    .btn-pdf {
+      padding: 6px 16px; border-radius: 5px; cursor: pointer; font-size: 0.75rem; font-weight: 600;
+      background: rgba(152,195,121,0.12); border: 1px solid rgba(152,195,121,0.35); color: #98c379; margin-bottom: 5px;
+    }
+    .btn-pdf:hover { background: rgba(152,195,121,0.22); }
+
+    /* ── Timetable area ──────────────────────────────── */
+    .al-body { flex: 1; overflow: auto; padding: 16px 20px; background: rgba(18,22,30,0.55); }
+
+    /* ── Conflict ────────────────────────────────────── */
+    .al-conflict {
+      background: rgba(229,192,123,0.12); border: 1px solid rgba(229,192,123,0.35);
+      border-radius: 6px; padding: 9px 13px; color: #e5c07b; font-size: 0.78rem; margin-bottom: 14px;
+    }
+    .al-conflict ul { margin: 4px 0 0 16px; padding: 0; }
+    .al-conflict li { margin-bottom: 2px; }
+
+    /* ── Timetable ───────────────────────────────────── */
+    .al-table {
+      width: 100%; border-collapse: collapse; min-width: 500px;
+      font-size: 0.75rem; table-layout: fixed;
+    }
+    .al-table th {
+      background: rgba(22,28,40,0.92); border: 1px solid rgba(255,255,255,0.08);
+      padding: 8px 4px; text-align: center;
+      font-size: 0.75rem; font-weight: 700; color: #61afef;
+    }
+    .al-table th.th-h { width: 4.5rem; color: #5c6370; }
+    .al-table td { border: 1px solid rgba(255,255,255,0.06); vertical-align: top; padding: 0; }
+    .al-table td.td-h {
+      padding: 8px 7px 8px 4px; color: #6b7280; font-size: 11px;
+      text-align: right; white-space: nowrap; background: rgba(18,24,36,0.88);
+    }
+    .al-table td.td-s  { padding: 3px; background: rgba(18,24,36,0.75); }
+    .al-table td.td-mt { height: 3rem; background: rgba(18,24,36,0.75); }
+
+    /* ── Session block ───────────────────────────────── */
+    .s-block { border-radius: 4px; padding: 7px 9px; margin: 2px; border-left-width: 3px; border-left-style: solid; }
+    .s-name  { display: block; font-size: 0.78rem; font-weight: 700; line-height: 1.3; }
+    .s-meta  { display: block; font-size: 0.68rem; margin-top: 3px; color: #9aa3b2; }
+    .s-time  { display: block; font-size: 0.65rem; margin-top: 2px; color: #6b7280; }
+    .al-empty { color: #5c6370; font-style: italic; font-size: 0.8125rem; padding: 40px 0; text-align: center; }
+
+    /* Session colors — tarjetas oscuras con acento de color */
+    .sc-0 { background: rgba(28,50,74,0.97);  border-left-color:#61afef; }  .sc-0 .s-name { color:#91caff; }
+    .sc-1 { background: rgba(28,52,32,0.97);  border-left-color:#98c379; }  .sc-1 .s-name { color:#b4e08a; }
+    .sc-2 { background: rgba(64,52,24,0.97);  border-left-color:#e5c07b; }  .sc-2 .s-name { color:#f2d090; }
+    .sc-3 { background: rgba(54,30,64,0.97);  border-left-color:#c678dd; }  .sc-3 .s-name { color:#dfa0f0; }
+    .sc-4 { background: rgba(64,28,34,0.97);  border-left-color:#e06c75; }  .sc-4 .s-name { color:#f09aa0; }
+    .sc-5 { background: rgba(22,52,58,0.97);  border-left-color:#56b6c2; }  .sc-5 .s-name { color:#7ed8e4; }
+    .sc-6 { background: rgba(58,42,20,0.97);  border-left-color:#d19a66; }  .sc-6 .s-name { color:#e8bb80; }
+    .sc-7 { background: rgba(40,44,54,0.97);  border-left-color:#abb2bf; }  .sc-7 .s-name { color:#cdd2dc; }
+
+    @media print { body { display: none !important; } }
+
+    /* ── Smart Generator button ─────────────────────── */
+    .btn-smart-gen {
+      padding: 6px 14px; border-radius: 5px; cursor: pointer; font-size: 0.75rem; font-weight: 600;
+      background: rgba(198,120,221,0.13); border: 1px solid rgba(198,120,221,0.4); color: #c678dd;
+      margin-bottom: 5px; transition: background .15s;
+    }
+    .btn-smart-gen:hover { background: rgba(198,120,221,0.24); }
+
+    /* ── Smart Generator modal ───────────────────────── */
+    #sg-overlay {
+      position: fixed; inset: 0; background: rgba(0,0,0,0.78);
+      z-index: 1000; display: none; align-items: center; justify-content: center;
+    }
+    #sg-card {
+      background: #1a1f2b; border: 1px solid rgba(255,255,255,0.1);
+      border-radius: 12px; width: min(920px, 96vw); height: min(640px, 88vh);
+      display: flex; flex-direction: column; overflow: hidden;
+      box-shadow: 0 20px 60px rgba(0,0,0,0.6);
+    }
+    #sg-header {
+      padding: 16px 22px 13px; border-bottom: 1px solid rgba(255,255,255,0.08);
+      display: flex; align-items: center; justify-content: space-between; flex-shrink: 0;
+    }
+    #sg-header h2 { font-size: 1rem; font-weight: 700; color: #c678dd; }
+    .sg-close { background: none; border: none; color: #5c6370; font-size: 1.1rem; cursor: pointer; padding: 2px 6px; border-radius: 4px; }
+    .sg-close:hover { color: #e06c75; background: rgba(224,108,117,0.12); }
+
+    /* Phase 1 */
+    #sg-phase1 { flex: 1; overflow: hidden; padding: 18px 22px; display: flex; gap: 18px; min-height: 0; }
+    .sg-browse { flex: 1; min-width: 0; min-height: 0; overflow: hidden; display: flex; flex-direction: column; gap: 10px; }
+    .sg-filters { display: flex; gap: 8px; flex-wrap: wrap; flex-shrink: 0; }
+    .sg-sel {
+      flex: 1; min-width: 110px; padding: 7px 9px; border-radius: 5px;
+      border: 1px solid rgba(255,255,255,0.14); background: #1e2330;
+      color: #e8eaed; font-size: 0.8rem; cursor: pointer;
+      appearance: none; -webkit-appearance: none;
+      color-scheme: dark;
+      -webkit-tap-highlight-color: transparent;
+      box-shadow: none;
+    }
+    .sg-sel:disabled { opacity: .4; cursor: default; }
+    .sg-sel:focus, .sg-sel:focus-visible { outline: none; box-shadow: none; border-color: rgba(97,175,239,0.5); }
+    .sg-sel:active   { outline: none; box-shadow: none; }
+    .sg-sel option   { background: #1e2330; color: #e8eaed; }
+    .sg-sel option:disabled { color: #5c6370; }
+    .sg-subject-list {
+      flex: 1; overflow-y: auto; border: 1px solid rgba(255,255,255,0.09);
+      border-radius: 6px; padding: 6px 4px; min-height: 0;
+    }
+    .sg-subject-list::-webkit-scrollbar { width: 4px; }
+    .sg-subject-list::-webkit-scrollbar-track { background: transparent; }
+    .sg-subject-list::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.18); border-radius: 2px; }
+    .sg-subject-list::-webkit-scrollbar-thumb:hover { background: rgba(255,255,255,0.35); }
+    .sg-subj-row {
+      display: flex; align-items: center; gap: 8px; padding: 6px 8px;
+      border-radius: 4px; cursor: pointer; transition: background .12s;
+    }
+    .sg-subj-row:hover { background: rgba(255,255,255,0.06); }
+    .sg-subj-row input[type=checkbox] { accent-color: #c678dd; width: 14px; height: 14px; flex-shrink: 0; cursor: pointer; }
+    .sg-subj-label { font-size: 0.79rem; color: #d4d8e0; line-height: 1.3; }
+    .sg-subj-meta  { font-size: 0.68rem; color: #6b7280; }
+    .sg-empty-msg  { font-size: 0.78rem; color: #5c6370; font-style: italic; padding: 16px 8px; }
+
+    .sg-selected-panel { width: 220px; flex-shrink: 0; display: flex; flex-direction: column; gap: 8px; overflow: hidden; min-height: 0; }
+    .sg-panel-title { font-size: 0.78rem; font-weight: 700; color: #c8cdd5; text-transform: uppercase; letter-spacing: .06em; flex-shrink: 0; }
+    .sg-chips { flex: 1; overflow-y: auto; display: flex; flex-direction: column; gap: 5px; min-height: 0; padding-right: 6px; }
+    .sg-chips::-webkit-scrollbar { width: 4px; }
+    .sg-chips::-webkit-scrollbar-track { background: transparent; }
+    .sg-chips::-webkit-scrollbar-thumb { background: rgba(198,120,221,0.35); border-radius: 2px; }
+    .sg-chips::-webkit-scrollbar-thumb:hover { background: rgba(198,120,221,0.6); }
+    .sg-chip {
+      display: flex; justify-content: space-between; align-items: flex-start;
+      background: rgba(198,120,221,0.1); border-left: 3px solid #c678dd;
+      border-radius: 4px; padding: 6px 8px; gap: 6px;
+    }
+    .sg-chip-name { font-size: 0.76rem; font-weight: 600; color: #dfa0f0; display: block; }
+    .sg-chip-meta { font-size: 0.68rem; color: #9aa3b2; margin-top: 1px; display: block; }
+    .sg-chip-del  { background: none; border: none; color: #5c6370; cursor: pointer; font-size: 0.85rem; padding: 0; flex-shrink: 0; }
+    .sg-chip-del:hover { color: #e06c75; }
+    .sg-no-sel { font-size: 0.76rem; color: #5c6370; font-style: italic; }
+    .sg-calc-btn {
+      width: 100%; padding: 9px; border-radius: 6px; border: none; cursor: pointer;
+      background: #c678dd; color: #fff; font-size: 0.82rem; font-weight: 700;
+      transition: background .15s; margin-top: 4px; flex-shrink: 0;
+    }
+    .sg-calc-btn:hover:not(:disabled) { background: #b060c8; }
+    .sg-calc-btn:disabled { opacity: .4; cursor: not-allowed; }
+
+    /* Phase 2 */
+    #sg-phase2 { flex: 1; overflow: auto; padding: 16px 22px; display: none; flex-direction: column; gap: 14px; min-height: 0; }
+    .sg-back-btn {
+      align-self: flex-start; padding: 5px 14px; border-radius: 5px; border: 1px solid rgba(255,255,255,0.15);
+      background: transparent; color: #9aa3b2; font-size: 0.78rem; cursor: pointer; flex-shrink: 0;
+    }
+    .sg-back-btn:hover { background: rgba(255,255,255,0.06); color: #e8eaed; }
+    .sg-results-title { font-size: 0.82rem; color: #c8cdd5; font-weight: 600; }
+    .sg-tab-btn {
+      padding: 6px 18px; border-radius: 20px; border: 1px solid rgba(255,255,255,0.15);
+      background: transparent; color: #9aa3b2; font-size: 0.78rem; font-weight: 600;
+      cursor: pointer; transition: all .15s;
+    }
+    .sg-tab-btn:hover { background: rgba(255,255,255,0.06); color: #e8eaed; }
+    .sg-tab-btn.sg-tab-active { background: #c678dd; border-color: #c678dd; color: #fff; }
+
+    .sg-result-card {
+      border: 1px solid rgba(255,255,255,0.09); border-radius: 8px;
+      background: rgba(255,255,255,0.03); padding: 14px 16px; display: flex; flex-direction: column; gap: 10px;
+    }
+    .sg-result-card.sg-best { border-color: rgba(152,195,121,0.4); background: rgba(152,195,121,0.04); }
+    .sg-result-header { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+    .sg-result-num { font-size: 0.8rem; font-weight: 700; color: #c8cdd5; }
+    .sg-score-tag {
+      display: inline-block; padding: 2px 9px; border-radius: 20px; font-size: 0.7rem; font-weight: 700;
+    }
+    .sg-score-ok   { background: rgba(152,195,121,0.18); color: #98c379; border: 1px solid rgba(152,195,121,0.35); }
+    .sg-score-warn { background: rgba(229,192,123,0.18); color: #e5c07b; border: 1px solid rgba(229,192,123,0.35); }
+    .sg-score-bad  { background: rgba(224,108,117,0.18); color: #e06c75; border: 1px solid rgba(224,108,117,0.35); }
+    .sg-assign-table { width: 100%; border-collapse: collapse; font-size: 0.77rem; }
+    .sg-assign-table td { padding: 4px 8px; border-bottom: 1px solid rgba(255,255,255,0.05); color: #d4d8e0; }
+    .sg-assign-table td:last-child { color: #61afef; font-weight: 700; text-align: right; }
+    .sg-assign-table tr:last-child td { border-bottom: none; }
+    .sg-daygrid { display: grid; grid-template-columns: 52px repeat(5, 1fr); font-size: 0.68rem; border: 1px solid rgba(255,255,255,0.06); border-radius: 5px; overflow: hidden; }
+    .sg-dg-hdr { background: rgba(22,28,40,0.9); color: #61afef; font-weight: 700; padding: 4px 3px; text-align: center; border-right: 1px solid rgba(255,255,255,0.06); }
+    .sg-dg-hdr:last-child { border-right: none; }
+    .sg-dg-cell { border-top: 1px solid rgba(255,255,255,0.04); border-right: 1px solid rgba(255,255,255,0.06); padding: 3px; min-height: 28px; background: rgba(18,24,36,0.6); vertical-align: top; }
+    .sg-dg-cell:last-child { border-right: none; }
+    .sg-dg-time { background: rgba(18,24,36,0.85); color: #6b7280; padding: 3px 4px; text-align: right; border-right: 1px solid rgba(255,255,255,0.06); white-space: nowrap; }
+    .sg-sess { border-radius: 3px; padding: 2px 4px; margin-bottom: 2px; font-size: 0.65rem; line-height: 1.25; border-left: 2px solid; }
+    .sg-apply-btn {
+      align-self: flex-end; padding: 7px 20px; border-radius: 6px; border: none; cursor: pointer;
+      background: #61afef; color: #fff; font-size: 0.8rem; font-weight: 700; transition: background .15s;
+    }
+    .sg-apply-btn:hover { background: #4d9fd8; }
+  </style>
+</head>
+<body class="horarios-body">
+
+<nav>
+  <div class="logo">
+    <a href="index.html" class="no-hover">
+      <img src="images/icon.png" alt="Logo">
+      <h1>TFG Plataforma</h1>
+    </a>
+  </div>
+  <ul>
+    <li><a href="index.html">Inicio</a></li>
+    <li><a href="horarios.html">Horarios</a></li>
+    <li><a href="alumno.html">Mi Horario</a></li>
+    <li id="login-li"><a class="btn-login" href="login.html">Iniciar sesión</a></li>
+  </ul>
+</nav>
+
+<div class="horarios-page" id="acceso-denegado" style="display:none;">
+  <div class="horarios-card acceso-card">
+    <h2>Acceso restringido</h2>
+    <p>Esta sección es exclusiva para alumnos. Inicia sesión con tu cuenta de alumno.</p>
+    <a class="btn" href="login.html">Iniciar sesión</a>
+  </div>
+</div>
+
+<div class="horarios-page" id="contenido-alumno" style="display:none;">
+
+  <!-- Sidebar -->
+  <aside class="al-sb">
+    <div class="al-sb-title">Añadir asignatura</div>
+
+    <select id="sel-grado"  class="al-sel"><option value="" disabled selected>— Grado —</option></select>
+    <select id="sel-anio"   class="al-sel" disabled><option value="" disabled selected>— Año —</option></select>
+    <select id="sel-asig"   class="al-sel" disabled><option value="" disabled selected>— Asignatura —</option></select>
+    <select id="sel-grupo"  class="al-sel" disabled><option value="" disabled selected>— Grupo —</option></select>
+    <select id="sel-subg"   class="al-sel" disabled><option value="">— Subgrupo (opcional) —</option></select>
+
+    <button class="al-btn al-btn-add" onclick="addItem()">+ Añadir</button>
+
+    <div class="al-divider"></div>
+
+    <div class="al-sb-title" id="sb-list-title">Mis asignaturas — C1</div>
+    <div id="items-list" style="flex:1; overflow-y:auto;">
+      <p class="no-items">Sin asignaturas</p>
+    </div>
+    <button class="al-btn al-btn-clear" onclick="clearSemester()" style="margin-top:10px;">Limpiar cuatrimestre</button>
+  </aside>
+
+  <!-- Main -->
+  <div class="al-main">
+    <div class="al-tabbar">
+      <button class="al-tab active" id="tab-c1" onclick="switchSem(1)">1er Cuatrimestre</button>
+      <button class="al-tab"        id="tab-c2" onclick="switchSem(2)">2º Cuatrimestre</button>
+      <div class="al-tab-spacer"></div>
+      <button class="btn-smart-gen" onclick="openSg()">✦ Generador Inteligente</button>
+      <button class="btn-pdf" onclick="printAlumno()">Descargar PDF</button>
+    </div>
+    <div class="al-body">
+      <div id="conflict-banner" class="al-conflict" style="display:none;"></div>
+      <div id="timetable"></div>
+    </div>
+  </div>
+</div>
+
+<!-- ── Smart Generator Modal ─────────────────────────────── -->
+<div id="sg-overlay" onclick="sgOverlayClick(event)">
+  <div id="sg-card">
+    <div id="sg-header">
+      <h2>✦ Generador Inteligente de Horario</h2>
+      <button class="sg-close" onclick="closeSg()" title="Cerrar">✕</button>
+    </div>
+
+    <!-- Fase 1: Selección -->
+    <div id="sg-phase1">
+      <div class="sg-browse">
+        <div style="font-size:0.78rem;color:#9aa3b2;margin-bottom:2px;flex-shrink:0;">Selecciona las asignaturas que quieres cursar y el sistema encontrará la mejor combinación de grupos.</div>
+        <div class="sg-filters">
+          <select id="sg-grado" class="sg-sel" onchange="sgOnGrado()">
+            <option value="" disabled selected>— Grado —</option>
+          </select>
+          <select id="sg-anio" class="sg-sel" disabled onchange="sgOnAnio()">
+            <option value="" disabled selected>— Año —</option>
+          </select>
+          <select id="sg-sem" class="sg-sel" disabled onchange="sgLoadSubjects()">
+            <option value="" disabled selected>— Cuatrimestre —</option>
+            <option value="1">1er Cuatrimestre</option>
+            <option value="2">2º Cuatrimestre</option>
+          </select>
+        </div>
+        <div id="sg-subject-list" class="sg-subject-list">
+          <p class="sg-empty-msg">Elige grado, año y cuatrimestre para ver las asignaturas.</p>
+        </div>
+      </div>
+
+      <div class="sg-selected-panel">
+        <div class="sg-panel-title">Asignaturas elegidas</div>
+        <div id="sg-chips" class="sg-chips">
+          <span class="sg-no-sel">Ninguna seleccionada</span>
+        </div>
+        <button id="sg-calc-btn" class="sg-calc-btn" disabled onclick="sgCalcular()">Calcular mejor combinación</button>
+      </div>
+    </div>
+
+    <!-- Fase 2: Resultados -->
+    <div id="sg-phase2">
+      <button class="sg-back-btn" onclick="sgBack()">← Cambiar asignaturas</button>
+      <div class="sg-results-title" id="sg-results-title"></div>
+      <div id="sg-sem-tabs" style="display:none;gap:6px;margin-bottom:14px;"></div>
+      <div id="sg-results"></div>
+    </div>
+  </div>
+</div>
+
+<script src="js/auth.js"></script>
+<script>
+const NPAL = 8;
+const DAYS = ['Lunes','Martes','Miércoles','Jueves','Viernes'];
+
+let allItems     = [];
+let allSchedules = [];
+let currentSem   = 1;
+let colorIdx     = {};   // item.id → 0..7
+let cachedSes    = [];   // sesiones del schedule actualmente elegido en el selector
+
+// ── Init ────────────────────────────────────────────
+document.addEventListener("DOMContentLoaded", async () => {
+  const user = await Auth.init({ requireAuth: true });
+  if (!user) return;
+  if (user.role !== 'alumno') { window.location.href = '/generador.html'; return; }
+  document.getElementById("contenido-alumno").style.display = "flex";
+
+  allSchedules = await fetch('/api/v1/schedules').then(r => r.json());
+  populateGrados();
+  await refreshItems();
+});
+
+// ── Helpers ─────────────────────────────────────────
+const active = () => allSchedules.filter(s => s.status === 'active');
+
+// ── Dropdowns ───────────────────────────────────────
+function sortDegreesTelocoFirst(degrees) {
+  return [...degrees].sort((a, b) => {
+    if (a === 'Teleco') return -1;
+    if (b === 'Teleco') return 1;
+    return a.localeCompare(b);
+  });
+}
+
+function populateGrados() {
+  const degrees = sortDegreesTelocoFirst([...new Set(active().map(s => s.degree))]);
+  const sel = document.getElementById('sel-grado');
+  sel.innerHTML = '<option value="" disabled selected>— Grado —</option>'
+    + degrees.map(d => `<option value="${d}">${d}</option>`).join('');
+  resetFrom('anio');
+}
+
+function populateAnios() {
+  const deg = document.getElementById('sel-grado').value;
+  const years = [...new Set(active().filter(s => s.degree === deg).map(s => s.year))].sort((a,b)=>a-b);
+  const sel = document.getElementById('sel-anio');
+  sel.innerHTML = '<option value="" disabled selected>— Año —</option>'
+    + years.map(y => `<option value="${y}">${y}º</option>`).join('');
+  sel.disabled = !deg;
+  resetFrom('asig');
+}
+
+// Año cambia → carga asignaturas de todos los grupos activos del grado+año+cuatrimestre
+async function populateAsignaturas() {
+  const deg  = document.getElementById('sel-grado').value;
+  const year = parseInt(document.getElementById('sel-anio').value);
+  const sel  = document.getElementById('sel-asig');
+  sel.innerHTML = '<option value="">— Asignatura —</option>';
+  sel.disabled = true;
+  cachedSes = [];
+  resetFrom('grupo');
+  if (!deg || !year) return;
+
+  const schedsForDegYear = active().filter(s =>
+    s.degree === deg && s.year === year && Number(s.semester) === currentSem
+  );
+  if (!schedsForDegYear.length) return;
+
+  const allData = await Promise.all(
+    schedsForDegYear.map(s => fetch(`/api/v1/schedules/${s.id}`).then(r => r.json()))
+  );
+  // Guardar sesiones con el grupo de cada horario para filtrar después
+  cachedSes = allData.flatMap((data, i) =>
+    (data.sesiones || []).map(s => ({ ...s, _group: schedsForDegYear[i].group_letter }))
+  );
+
+  const seen = {};
+  cachedSes.forEach(s => { if (s.subject_id && !seen[s.subject_id]) seen[s.subject_id] = s.subject; });
+
+  sel.innerHTML = '<option value="">— Asignatura —</option>'
+    + Object.entries(seen).sort((a,b) => a[1].localeCompare(b[1]))
+        .map(([id, name]) => `<option value="${id}">${name}</option>`).join('');
+  sel.disabled = false;
+}
+
+// Asignatura cambia → carga los grupos que tienen esa asignatura
+function populateGrupos() {
+  const subjectId = parseInt(document.getElementById('sel-asig').value);
+  const sel = document.getElementById('sel-grupo');
+  if (!subjectId) { resetFrom('grupo'); return; }
+
+  const groups = [...new Set(
+    cachedSes.filter(s => s.subject_id === subjectId).map(s => s._group)
+  )].sort();
+
+  sel.innerHTML = '<option value="">— Grupo —</option>'
+    + groups.map(g => `<option value="${g}">${g}</option>`).join('');
+  sel.disabled = !groups.length;
+  resetFrom('subg');
+}
+
+// Grupo cambia → carga subgrupos de esa asignatura en ese grupo
+function populateSubgrupos() {
+  const subjectId = parseInt(document.getElementById('sel-asig').value);
+  const group = document.getElementById('sel-grupo').value;
+  const sel = document.getElementById('sel-subg');
+  if (!subjectId || !group) { resetFrom('subg'); return; }
+
+  const sgs = [...new Set(
+    cachedSes.filter(s => s.subject_id === subjectId && s._group === group && s.subgroup != null)
+      .map(s => s.subgroup)
+  )].sort((a,b) => a-b);
+
+  if (sgs.length) {
+    sel.innerHTML = '<option value="">Todos los subgrupos</option>'
+      + sgs.map(sg => `<option value="${sg}">Subgrupo ${sg}</option>`).join('');
+    sel.disabled = false;
+  } else {
+    sel.innerHTML = '<option value="">Sin subgrupos</option>';
+    sel.disabled = true;
+  }
+}
+
+function resetFrom(level) {
+  const levels = ['anio','asig','grupo','subg'];
+  const labels = ['Año','Asignatura','Grupo','Subgrupo'];
+  const idx = levels.indexOf(level);
+  for (let i = idx; i < levels.length; i++) {
+    const s = document.getElementById('sel-' + levels[i]);
+    s.innerHTML = `<option value="">— ${labels[i]} —</option>`;
+    s.disabled  = true;
+  }
+}
+
+document.getElementById('sel-grado').addEventListener('change', populateAnios);
+document.getElementById('sel-anio' ).addEventListener('change', populateAsignaturas);
+document.getElementById('sel-asig' ).addEventListener('change', populateGrupos);
+document.getElementById('sel-grupo').addEventListener('change', populateSubgrupos);
+
+// ── Add ─────────────────────────────────────────────
+async function addItem() {
+  const deg       = document.getElementById('sel-grado').value;
+  const year      = parseInt(document.getElementById('sel-anio').value);
+  const group     = document.getElementById('sel-grupo').value;
+  const subjectId = parseInt(document.getElementById('sel-asig').value);
+  const subgVal   = document.getElementById('sel-subg').value;
+  const subgroup  = subgVal !== '' ? parseInt(subgVal) : null;
+
+  if (!deg || !year || !group || !subjectId) {
+    alert('Selecciona grado, año, grupo y asignatura'); return;
+  }
+
+  const res = await fetch('/api/v1/student/items', {
+    method:  'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body:    JSON.stringify({ subject_id: subjectId, degree: deg, year, semester: currentSem, group_letter: group, subgroup })
+  });
+  if (res.ok) await refreshItems();
+  else { const d = await res.json(); alert(d.error || 'Error'); }
+}
+
+// ── Delete / Clear ───────────────────────────────────
+async function deleteItem(id) {
+  await fetch(`/api/v1/student/items/${id}`, { method: 'DELETE' });
+  await refreshItems();
+}
+
+async function clearSemester() {
+  const label = currentSem === 1 ? '1er Cuatrimestre' : '2º Cuatrimestre';
+  if (!confirm(`¿Borrar todas las asignaturas del ${label}?`)) return;
+  await fetch(`/api/v1/student/items?semester=${currentSem}`, { method: 'DELETE' });
+  await refreshItems();
+}
+
+// ── Tab switch ───────────────────────────────────────
+function switchSem(sem) {
+  currentSem = sem;
+  document.getElementById('tab-c1').classList.toggle('active', sem === 1);
+  document.getElementById('tab-c2').classList.toggle('active', sem === 2);
+  document.getElementById('sb-list-title').textContent = `Mis asignaturas — ${sem===1?'C1':'C2'}`;
+  // Recargar asignaturas porque cambia el cuatrimestre filtrado
+  if (document.getElementById('sel-anio').value) populateAsignaturas();
+  else resetFrom('asig');
+  renderCurrentSem();
+}
+
+// ── Data refresh ─────────────────────────────────────
+async function refreshItems() {
+  allItems = await fetch('/api/v1/student/items').then(r => r.json());
+  colorIdx = {};
+  let i = 0;
+  allItems.forEach(item => { colorIdx[item.id] = i++ % NPAL; });
+  renderCurrentSem();
+}
+
+// ── Render ───────────────────────────────────────────
+function renderCurrentSem() {
+  const items = allItems.filter(it => it.semester === currentSem);
+
+  // Chip list
+  const listEl = document.getElementById('items-list');
+  if (!items.length) {
+    listEl.innerHTML = '<p class="no-items">Sin asignaturas en este cuatrimestre.</p>';
+  } else {
+    listEl.innerHTML = [...items].reverse().map(it => {
+      const ci   = colorIdx[it.id] ?? 0;
+      const bdr  = borderColor(ci);
+      const sgLbl = it.chosen_subgroup != null ? ` · Sg.${it.chosen_subgroup}` : '';
+      const warn  = !it.sessions.length ? '<span class="chip-warn">Sin sesiones activas</span>' : '';
+      return `<div class="chip" style="border-left-color:${bdr}">
+        <div>
+          <span class="chip-name">${it.subject_name}</span>
+          <span class="chip-meta">${it.degree} ${it.year}º · Gr.${it.group_letter}${sgLbl}</span>
+          ${warn}
+        </div>
+        <button class="chip-del" onclick="deleteItem(${it.id})" title="Quitar">✕</button>
+      </div>`;
+    }).join('');
+  }
+
+  document.getElementById('timetable').innerHTML = buildTimetable(items);
+  renderConflicts(items);
+}
+
+// ── Timetable ────────────────────────────────────────
+function buildTimetable(items) {
+  const sessions = [];
+  items.forEach(it => {
+    it.sessions.forEach(s => sessions.push({
+      ...s, subject_name: it.subject_name,
+      group_letter: it.group_letter, ci: colorIdx[it.id] ?? 0
+    }));
+  });
+
+  if (!sessions.length)
+    return '<p class="al-empty">Añade asignaturas desde el panel izquierdo para ver tu horario.</p>';
+
+  const slots = [...new Set(sessions.map(s => s.slot_start))].sort();
+  let html = '<table class="al-table"><thead><tr><th class="th-h"></th>';
+  DAYS.forEach(d => html += `<th>${d}</th>`);
+  html += '</tr></thead><tbody>';
+
+  slots.forEach(slot => {
+    const slotEnd = sessions.find(s => s.slot_start === slot)?.slot_end || '';
+    html += `<tr><td class="td-h">${slot}<br><span style="font-size:10px;opacity:.45;">${slotEnd}</span></td>`;
+    for (let d = 0; d < 5; d++) {
+      const ds = sessions.filter(s => s.slot_start === slot && s.day_of_week === d);
+      if (ds.length) {
+        html += '<td class="td-s">';
+        ds.forEach(s => {
+          const sg = s.subgroup != null ? ` Sg.${s.subgroup}` : '';
+          html += `<div class="s-block sc-${s.ci}">
+            <span class="s-name">${s.subject_name}</span>
+            <span class="s-meta">Gr.${s.group_letter}${sg} &nbsp;·&nbsp; ${s.classroom_name||'—'}</span>
+            <span class="s-time">${s.slot_start} – ${s.slot_end}</span>
+          </div>`;
+        });
+        html += '</td>';
+      } else {
+        html += '<td class="td-mt"></td>';
+      }
+    }
+    html += '</tr>';
+  });
+  html += '</tbody></table>';
+  return html;
+}
+
+// ── Conflicts ────────────────────────────────────────
+function toMins(t) { const [h,m]=t.split(':').map(Number); return h*60+m; }
+
+function renderConflicts(items) {
+  const sessions = [];
+  items.forEach(it => it.sessions.forEach(s =>
+    sessions.push({ ...s, label:`${it.subject_name} Gr.${it.group_letter}` })
+  ));
+
+  const seen = new Set(), out = [];
+  for (let i = 0; i < sessions.length; i++)
+    for (let j = i+1; j < sessions.length; j++) {
+      const a = sessions[i], b = sessions[j];
+      if (a.day_of_week !== b.day_of_week) continue;
+      if (toMins(a.slot_start)<toMins(b.slot_end) && toMins(b.slot_start)<toMins(a.slot_end)) {
+        const key = [a.label,b.label,a.day_of_week].sort().join('|');
+        if (!seen.has(key)) { seen.add(key); out.push(`<strong>${a.label}</strong> y <strong>${b.label}</strong> — ${DAYS[a.day_of_week]}, ${a.slot_start}–${a.slot_end}`); }
+      }
+    }
+
+  const el = document.getElementById('conflict-banner');
+  el.style.display = out.length ? 'block' : 'none';
+  if (out.length) el.innerHTML = `Solapamientos detectados:<ul>${out.map(c=>`<li>${c}</li>`).join('')}</ul>`;
+}
+
+// ── Color helpers ────────────────────────────────────
+const BORDERS = ['#61afef','#98c379','#e5c07b','#c678dd','#e06c75','#56b6c2','#d19a66','#abb2bf'];
+function borderColor(ci) { return BORDERS[ci % NPAL]; }
+
+// ── PDF (mismo formato que admin/horarios) ────────────
+function buildPrintHTML(sesiones, title, slotMins, duracion, year, semester, groupLetter = '') {
+  const DAY_NMS = ["Lunes","Martes","Miércoles","Jueves","Viernes"];
+  function tm(t) { const [h,m] = t.split(":").map(Number); return h*60+m; }
+  const dias = [0, 1, 2, 3, 4];
+  const FIXED_BOUNDS = [8*60, 10*60, 12*60, 14*60, 15*60, 17*60, 19*60, 21*60];
+  const sessBounds = sesiones.flatMap(s => [tm(s.start), tm(s.end)]);
+  const allBounds = [...new Set([...FIXED_BOUNDS, ...sessBounds])]
+    .filter(b => b >= 8*60 && b <= 21*60).sort((a,b) => a-b);
+  const rowBounds = [];
+  for (let i = 0; i < allBounds.length - 1; i++) rowBounds.push([allBounds[i], allBounds[i+1]]);
+  const pad = n => String(n).padStart(2,"0");
+  const fmt = m => `${pad(Math.floor(m/60))}:${pad(m%60)}`;
+  const covered = new Set();
+  const hdr = `<tr>
+    <th style="width:64px;padding:9px 5px;background:#1e3a6e;color:#fff;border:1px solid #000;font-size:12px;font-weight:700;text-align:center;">HORA</th>
+    ${dias.map(d=>`<th style="padding:9px 6px;font-size:14px;font-weight:700;text-align:center;background:#1e3a6e;color:#fff;border:1px solid #000;text-transform:uppercase;">${DAY_NMS[d]}</th>`).join("")}
+  </tr>`;
+  let rows = "";
+  for (let ri = 0; ri < rowBounds.length; ri++) {
+    const [rStart, rEnd] = rowBounds[ri];
+    const lunchRow = rStart === 840;
+    const cellBg   = lunchRow ? '#ddd' : '#fff';
+    let cells = `<td style="padding:5px 6px;text-align:center;vertical-align:middle;background:#f5f5f5;border:1px solid #000;white-space:nowrap;font-size:12px;">
+      <span style="display:block;font-weight:700;">${fmt(rStart)}</span>
+      <span style="display:block;color:#555;font-size:10px;">${fmt(rEnd)}</span>
+    </td>`;
+    for (const d of dias) {
+      if (covered.has(`${d}-${ri}`)) continue;
+      const sessArr = sesiones.filter(s => s.day === d && tm(s.start) >= rStart && tm(s.start) < rEnd);
+      if (sessArr.length) {
+        const maxEnd = Math.max(...sessArr.map(s => tm(s.end)));
+        let span = 0;
+        for (let j = ri; j < rowBounds.length && rowBounds[j][0] < maxEnd; j++) { span++; covered.add(`${d}-${j}`); }
+        const inner = sessArr.map((sess, i) => {
+          const isTheory = sess.subgroup == null;
+          const meta = sess.classroom ? `(${sess.classroom})` : '';
+          const sep  = i > 0 ? 'border-top:1px solid #ddd;padding-top:5px;width:100%;' : '';
+          if (isTheory) {
+            return `<div style="${sep}line-height:1.3;">
+              <div style="font-size:12px;font-weight:700;text-transform:uppercase;">${sess.subject}</div>
+              ${meta ? `<div style="font-size:10px;font-weight:700;margin-top:3px;opacity:.75;">${meta}</div>` : ''}
+            </div>`;
+          } else {
+            return `<div style="${sep}line-height:1.3;">
+              <div style="font-size:10.5px;font-weight:600;">${sess.subject}</div>
+              ${meta ? `<div style="font-size:9.5px;font-weight:700;margin-top:2px;opacity:.75;">${meta}</div>` : ''}
+            </div>`;
+          }
+        }).join("");
+        cells += `<td rowspan="${span}" style="padding:5px 6px;text-align:center;vertical-align:middle;border:1px solid #000;background:${lunchRow ? '#ddd' : '#fff'};">
+          <div style="display:flex;flex-direction:column;gap:6px;align-items:center;">${inner}</div>
+        </td>`;
+      } else {
+        cells += `<td style="border:1px solid #000;background:${cellBg};"></td>`;
+      }
+    }
+    rows += `<tr style="height:${Math.round((rEnd-rStart)/60*45)}px;">${cells}</tr>`;
+  }
+  const now = new Date();
+  const fecha = now.toLocaleDateString("es-ES",{day:"2-digit",month:"long",year:"numeric"});
+  const anyo  = now.getFullYear();
+  const curso  = `Curso ${anyo}/${anyo+1}`;
+  const semStr = semester === 1 ? "1er" : semester === 2 ? "2º" : null;
+  const leftTitle  = semStr ? `${semStr} CUATRIMESTRE` : title;
+  const rightTitle = semStr ? `${semStr} Cuatrimestre – Mi Horario Personal` : title;
+  return `<!DOCTYPE html><html lang="es"><head><meta charset="UTF-8"><title>${title}</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+html,body{height:auto;overflow:hidden}
+body{font-family:Arial,Helvetica,sans-serif;background:#fff;color:#000;padding:10px 14px}
+@media print{@page{margin:8mm;size:A4 landscape}body{padding:0}*{-webkit-print-color-adjust:exact;print-color-adjust:exact}}
+</style></head><body>
+<table style="width:100%;border:2px solid #000;border-collapse:collapse;margin-bottom:0;">
+  <tr>
+    <td style="padding:9px 14px;border:1px solid #000;font-size:13px;font-weight:700;width:38%;">${leftTitle}</td>
+    <td style="padding:9px 14px;border:1px solid #000;font-size:13px;font-weight:700;text-align:center;width:28%;">${curso}</td>
+    <td style="padding:9px 14px;border:1px solid #000;font-size:13px;font-weight:700;text-align:right;width:34%;">${rightTitle}</td>
+  </tr>
+</table>
+<table style="width:100%;border-collapse:collapse;border:2px solid #000;border-top:none;">
+  <thead>${hdr}</thead><tbody>${rows}</tbody>
+</table>
+<div style="font-size:10px;color:#555;margin-top:8px;margin-bottom:10px;text-align:center;font-style:italic;">Generado el ${fecha} &nbsp;·&nbsp; TFG Plataforma &nbsp;·&nbsp; Universidad de Alcalá</div>
+</body></html>`;
+}
+
+// ══════════════════════════════════════════════════════════
+// ── GENERADOR INTELIGENTE ─────────────────────────────────
+// ══════════════════════════════════════════════════════════
+
+const SG_DAYS  = ['L','M','X','J','V'];
+const SG_COLORS = ['#61afef','#98c379','#e5c07b','#c678dd','#e06c75','#56b6c2','#d19a66','#abb2bf'];
+
+let _sgSelected    = [];   // [{ subject_id, subject_name, degree, year, semester }]
+let _sgSubjCache   = {};   // "deg|year|sem" → [{ id, name, degree, year, semester }]
+
+function openSg() {
+  const ov = document.getElementById('sg-overlay');
+  ov.style.display = 'flex';
+  // Poblar grados con los del selector principal
+  const grados = sortDegreesTelocoFirst([...new Set(active().map(s => s.degree))]);
+  const sgGrado = document.getElementById('sg-grado');
+  sgGrado.innerHTML = '<option value="" disabled selected>— Grado —</option>'
+    + grados.map(d => `<option value="${d}">${d}</option>`).join('');
+  sgPhase(1);
+}
+
+function closeSg() {
+  document.getElementById('sg-overlay').style.display = 'none';
+}
+
+function sgOverlayClick(e) {
+  if (e.target === document.getElementById('sg-overlay')) closeSg();
+}
+
+function sgPhase(n) {
+  document.getElementById('sg-phase1').style.display = n === 1 ? 'flex'  : 'none';
+  document.getElementById('sg-phase2').style.display = n === 2 ? 'flex'  : 'none';
+}
+
+function sgBack() { sgPhase(1); }
+
+// ── Dropdowns del modal ───────────────────────────────────
+function sgOnGrado() {
+  const deg = document.getElementById('sg-grado').value;
+  const anioSel = document.getElementById('sg-anio');
+  anioSel.innerHTML = '<option value="" disabled selected>— Año —</option>';
+  anioSel.disabled = !deg;
+  document.getElementById('sg-sem').disabled = true;
+  document.getElementById('sg-sem').value    = '';
+  document.getElementById('sg-subject-list').innerHTML = '<p class="sg-empty-msg">Elige año y cuatrimestre.</p>';
+  if (!deg) return;
+  const years = [...new Set(active().filter(s => s.degree === deg).map(s => s.year))].sort((a,b)=>a-b);
+  anioSel.innerHTML = '<option value="" disabled selected>— Año —</option>'
+    + years.map(y => `<option value="${y}">${y}º</option>`).join('');
+}
+
+function sgOnAnio() {
+  const anio = document.getElementById('sg-anio').value;
+  const semSel = document.getElementById('sg-sem');
+  semSel.disabled = !anio;
+  semSel.value = '';
+  document.getElementById('sg-subject-list').innerHTML = '<p class="sg-empty-msg">Elige cuatrimestre.</p>';
+}
+
+async function sgLoadSubjects() {
+  const deg  = document.getElementById('sg-grado').value;
+  const year = parseInt(document.getElementById('sg-anio').value);
+  const sem  = parseInt(document.getElementById('sg-sem').value);
+  const listEl = document.getElementById('sg-subject-list');
+  if (!deg || !year || !sem) return;
+
+  const cacheKey = `${deg}|${year}|${sem}`;
+  listEl.innerHTML = '<p class="sg-empty-msg">Cargando…</p>';
+
+  if (!_sgSubjCache[cacheKey]) {
+    const scheds = active().filter(s => s.degree === deg && s.year === year && Number(s.semester) === sem);
+    if (!scheds.length) {
+      listEl.innerHTML = '<p class="sg-empty-msg">No hay horarios activos para esta combinación.</p>';
+      return;
+    }
+    const allData = await Promise.all(scheds.map(s => fetch(`/api/v1/schedules/${s.id}`).then(r => r.json())));
+    const seen = {};
+    allData.forEach((data, i) => {
+      (data.sesiones || []).forEach(s => {
+        if (s.subject_id && !seen[s.subject_id])
+          seen[s.subject_id] = { id: s.subject_id, name: s.subject, degree: deg, year, semester: sem };
+      });
+    });
+    _sgSubjCache[cacheKey] = Object.values(seen).sort((a,b) => a.name.localeCompare(b.name));
+  }
+
+  const subjects = _sgSubjCache[cacheKey];
+  if (!subjects.length) {
+    listEl.innerHTML = '<p class="sg-empty-msg">Sin asignaturas disponibles.</p>';
+    return;
+  }
+  listEl.innerHTML = subjects.map(s => {
+    const already = _sgSelected.some(x => x.subject_id === s.id);
+    return `<label class="sg-subj-row">
+      <input type="checkbox" ${already ? 'checked' : ''} onchange="sgToggle(${s.id},'${s.name.replace(/'/g,"\\'")}','${deg}',${year},${sem},this)">
+      <div>
+        <span class="sg-subj-label">${s.name}</span>
+        <span class="sg-subj-meta">${deg} ${year}º · C${sem}</span>
+      </div>
+    </label>`;
+  }).join('');
+}
+
+function sgToggle(id, name, degree, year, semester, chk) {
+  if (chk.checked) {
+    if (!_sgSelected.some(x => x.subject_id === id))
+      _sgSelected.push({ subject_id: id, subject_name: name, degree, year, semester });
+  } else {
+    _sgSelected = _sgSelected.filter(x => x.subject_id !== id);
+  }
+  sgRenderChips();
+}
+
+function sgRemove(id) {
+  _sgSelected = _sgSelected.filter(x => x.subject_id !== id);
+  sgRenderChips();
+  // Desmarcar checkbox si está visible
+  const chk = document.querySelector(`#sg-subject-list input[onchange*="sgToggle(${id},"]`);
+  if (chk) chk.checked = false;
+}
+
+function sgRenderChips() {
+  const el  = document.getElementById('sg-chips');
+  const btn = document.getElementById('sg-calc-btn');
+  if (!_sgSelected.length) {
+    el.innerHTML = '<span class="sg-no-sel">Ninguna seleccionada</span>';
+    btn.disabled = true;
+    return;
+  }
+  btn.disabled = _sgSelected.length < 2;
+  el.innerHTML = [..._sgSelected].reverse().map(s => `
+    <div class="sg-chip">
+      <div>
+        <span class="sg-chip-name">${s.subject_name}</span>
+        <span class="sg-chip-meta">${s.degree} ${s.year}º · C${s.semester}</span>
+      </div>
+      <button class="sg-chip-del" onclick="sgRemove(${s.subject_id})" title="Quitar">✕</button>
+    </div>`).join('');
+}
+
+// ── Algoritmo ─────────────────────────────────────────────
+function sgToMins(t) { const [h,m]=t.split(':').map(Number); return h*60+m; }
+
+function sgScoreCombo(assignments) {
+  const allSess = assignments.flatMap(a => a.sessions.map(s => ({ ...s, label: a.subject_name })));
+  const byDay = {};
+  for (const s of allSess) {
+    if (!byDay[s.day]) byDay[s.day] = [];
+    byDay[s.day].push(s);
+  }
+  let conflicts = 0, span = 0, gaps = 0;
+  for (const day of Object.values(byDay)) {
+    day.sort((a,b) => sgToMins(a.start) - sgToMins(b.start));
+    for (let i = 0; i < day.length; i++)
+      for (let j = i+1; j < day.length; j++)
+        if (sgToMins(day[i].start) < sgToMins(day[j].end) && sgToMins(day[j].start) < sgToMins(day[i].end))
+          conflicts++;
+    const dayEnd = Math.max(...day.map(s => sgToMins(s.end)));
+    span += dayEnd - sgToMins(day[0].start);
+    for (let i = 1; i < day.length; i++) {
+      const g = sgToMins(day[i].start) - sgToMins(day[i-1].end);
+      if (g > 0) gaps += g;
+    }
+  }
+  // equilibrio: varianza del número de clases por día (los 5 días, contando ceros)
+  const ideal = allSess.length / 5;
+  let balance = 0;
+  for (let d = 0; d < 5; d++) balance += ((byDay[d]?.length ?? 0) - ideal) ** 2;
+
+  const days = Object.keys(byDay).length;
+  return { conflicts, balance, span, gaps, days };
+}
+
+function sgCartesian(arrays) {
+  return arrays.reduce((acc, cur) => acc.flatMap(combo => cur.map(item => [...combo, item])), [[]]);
+}
+
+function sgGreedy(choices) {
+  const N = choices.length;
+  const identity = Array.from({ length: N }, (_, i) => i);
+
+  function runGreedy(order) {
+    const placed = new Array(N);
+    const partial = [];
+    for (const idx of order) {
+      const opts = choices[idx];
+      let best = opts[0], bestScore = Infinity;
+      for (const opt of opts) {
+        const { conflicts, balance, span, gaps } = sgScoreCombo([...partial, opt]);
+        const s = conflicts * 1e9 + balance * 1e6 + span * 1e3 + gaps;
+        if (s < bestScore) { bestScore = s; best = opt; }
+      }
+      placed[idx] = best;
+      partial.push(best);
+    }
+    return placed;
+  }
+
+  const results = [runGreedy(identity)];
+  for (let run = 1; run < 60; run++) {
+    const order = [...identity];
+    for (let i = N - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [order[i], order[j]] = [order[j], order[i]];
+    }
+    results.push(runGreedy(order));
+  }
+  return results;
+}
+
+function sgFindBest(subjectOptions, maxResults = 5) {
+  // Para cada asignatura, expande a pares (grupo, subgrupo):
+  // - si tiene subgrupos: un choice por cada (grupo × subgrupo), con teoría + lab combinados
+  // - si no tiene subgrupos: un choice por grupo con solo teoría
+  const choices = subjectOptions.map(s =>
+    Object.entries(s.groups).flatMap(([grp, data]) => {
+      const theory = data.theory || [];
+      const sgEntries = Object.entries(data.subgroups || {});
+      if (!sgEntries.length) {
+        return [{ subject_id: s.subject_id, subject_name: s.subject_name,
+                  degree: s.degree, year: s.year, semester: s.semester,
+                  group: grp, subgroup: null, sessions: theory }];
+      }
+      return sgEntries.map(([sg, labSess]) => ({
+        subject_id: s.subject_id, subject_name: s.subject_name,
+        degree: s.degree, year: s.year, semester: s.semester,
+        group: grp, subgroup: Number(sg), sessions: [...theory, ...labSess]
+      }));
+    })
+  );
+  const total = choices.reduce((acc, c) => acc * c.length, 1);
+  const combos = total <= 300000 ? sgCartesian(choices) : sgGreedy(choices);
+
+  const scored = combos.map(combo => ({ combo, ...sgScoreCombo(combo) }));
+  // 1º sin conflictos, 2º distribución más uniforme por día, 3º menos tiempo en uni, 4º menos huecos
+  scored.sort((a,b) => a.conflicts - b.conflicts || a.balance - b.balance || a.span - b.span || a.gaps - b.gaps);
+
+  const seen = new Set(), unique = [];
+  for (const r of scored) {
+    const key = r.combo.map(a => `${a.subject_id}:${a.group}:${a.subgroup ?? ''}`).sort().join('|');
+    if (!seen.has(key)) { seen.add(key); unique.push(r); }
+    if (unique.length >= maxResults) break;
+  }
+  return unique;
+}
+
+// ── Calcular ──────────────────────────────────────────────
+let _sgHtmlBySem = {};
+
+async function sgCalcular() {
+  const btn = document.getElementById('sg-calc-btn');
+  btn.disabled = true; btn.textContent = 'Calculando…';
+
+  try {
+    const ids = _sgSelected.map(s => s.subject_id).join(',');
+    const data = await fetch(`/api/v1/student/smart-options?subject_ids=${ids}`).then(r => r.json());
+
+    const bySem = {};
+    for (const s of _sgSelected) {
+      (bySem[s.semester] = bySem[s.semester] || []).push(s);
+    }
+    const semesters = Object.keys(bySem).map(Number).sort();
+    const multiSem  = semesters.length > 1;
+
+    sgPhase(2);
+    const titleEl  = document.getElementById('sg-results-title');
+    const resEl    = document.getElementById('sg-results');
+    const tabsEl   = document.getElementById('sg-sem-tabs');
+
+    _sgHtmlBySem = {};
+    let totalResults = 0;
+    const noGroupsAll = [];
+
+    for (const sem of semesters) {
+      const semData  = data.filter(d => bySem[sem].some(s => s.subject_id === d.subject_id));
+      const noGroups = bySem[sem].filter(s => !semData.find(d => d.subject_id === s.subject_id));
+      noGroupsAll.push(...noGroups);
+
+      const results = sgFindBest(semData);
+      totalResults += results.length;
+
+      _sgHtmlBySem[sem] = results.length
+        ? results.map((r, idx) => sgRenderResult(r, idx)).join('')
+        : `<p style="color:#6b7280;font-size:0.8rem;font-style:italic;padding:8px 0;">Sin combinaciones disponibles.</p>`;
+    }
+
+    if (totalResults === 0) {
+      titleEl.textContent = 'No se encontraron combinaciones posibles.';
+      resEl.innerHTML = '';
+      tabsEl.style.display = 'none';
+      return;
+    }
+
+    titleEl.textContent = multiSem
+      ? 'Mejores combinaciones por cuatrimestre — ordenadas de mejor a peor'
+      : `${totalResults} combinación${totalResults > 1 ? 'es' : ''} encontrada${totalResults > 1 ? 's' : ''} — ordenadas de mejor a peor`;
+    if (noGroupsAll.length) {
+      titleEl.innerHTML += `<br><span style="font-size:0.72rem;color:#e5c07b;">Sin datos activos: ${noGroupsAll.map(s=>s.subject_name).join(', ')}</span>`;
+    }
+
+    if (multiSem) {
+      tabsEl.style.display = 'flex';
+      tabsEl.innerHTML = semesters.map(s =>
+        `<button id="sg-tab-${s}" class="sg-tab-btn${s === semesters[0] ? ' sg-tab-active' : ''}"
+          onclick="sgSwitchTab(${s})">${s === 1 ? '1er Cuatrimestre' : '2º Cuatrimestre'}</button>`
+      ).join('');
+      resEl.innerHTML = _sgHtmlBySem[semesters[0]];
+    } else {
+      tabsEl.style.display = 'none';
+      resEl.innerHTML = _sgHtmlBySem[semesters[0]];
+    }
+  } finally {
+    btn.disabled = false; btn.textContent = 'Calcular mejor combinación';
+  }
+}
+
+function sgSwitchTab(sem) {
+  document.querySelectorAll('.sg-tab-btn').forEach(b => b.classList.remove('sg-tab-active'));
+  document.getElementById(`sg-tab-${sem}`).classList.add('sg-tab-active');
+  document.getElementById('sg-results').innerHTML = _sgHtmlBySem[sem] || '';
+}
+
+function sgRenderResult({ combo, conflicts, gaps, days }, idx) {
+  const isBest   = idx === 0;
+  const scoreTag = conflicts === 0
+    ? `<span class="sg-score-tag sg-score-ok">Sin conflictos</span>`
+    : `<span class="sg-score-tag sg-score-bad">${conflicts} conflicto${conflicts>1?'s':''}</span>`;
+  const gapTag   = gaps > 0
+    ? `<span class="sg-score-tag sg-score-warn">${gaps} min huecos</span>`
+    : `<span class="sg-score-tag sg-score-ok">Sin huecos</span>`;
+  const daysTag  = `<span style="font-size:0.7rem;color:#6b7280;">${days} día${days!==1?'s':''}/semana</span>`;
+
+  // Tabla de asignaciones
+  const assignRows = combo.map((a, i) => {
+    const col = SG_COLORS[i % SG_COLORS.length];
+    const sgLabel = a.subgroup != null ? ` · Sg.${a.subgroup}` : '';
+    return `<tr>
+      <td style="color:${col};font-weight:600;">${a.subject_name}</td>
+      <td>Grupo ${a.group}${sgLabel}</td>
+    </tr>`;
+  }).join('');
+
+  // Mini grid de días × franjas
+  const grid = sgBuildMiniGrid(combo);
+
+  // JSON del combo para el botón Aplicar
+  const comboJson = JSON.stringify(combo.map(a => ({
+    subject_id: a.subject_id, subject_name: a.subject_name,
+    degree: a.degree, year: a.year, semester: a.semester, group: a.group,
+    subgroup: a.subgroup ?? null
+  }))).replace(/"/g,'&quot;');
+
+  return `<div class="sg-result-card${isBest ? ' sg-best' : ''}">
+    <div class="sg-result-header">
+      <span class="sg-result-num">Opción ${idx+1}${isBest ? ' ★' : ''}</span>
+      ${scoreTag} ${gapTag} ${daysTag}
+    </div>
+    <table class="sg-assign-table">${assignRows}</table>
+    ${grid}
+    <button class="sg-apply-btn" onclick="sgApply('${comboJson.replace(/'/g,"\\'")}',this)">Aplicar esta combinación</button>
+  </div>`;
+}
+
+function sgBuildMiniGrid(combo) {
+  // Recopilar todos los slots usados
+  const allSess = combo.flatMap((a, i) =>
+    a.sessions.map(s => ({ ...s, name: a.subject_name, grp: a.group, ci: i }))
+  );
+  if (!allSess.length) return '';
+
+  const usedSlots = [...new Set(allSess.map(s => s.start))].sort();
+
+  let html = `<div class="sg-daygrid">
+    <div class="sg-dg-hdr">Hora</div>
+    ${SG_DAYS.map(d => `<div class="sg-dg-hdr">${d}</div>`).join('')}`;
+
+  for (const slot of usedSlots) {
+    const slotSess = allSess.filter(s => s.start === slot);
+    const slotEnd  = slotSess[0]?.end || '';
+    html += `<div class="sg-dg-time">${slot}<br><span style="font-size:0.6rem;opacity:.55;">${slotEnd}</span></div>`;
+    for (let d = 0; d < 5; d++) {
+      const ds = slotSess.filter(s => s.day === d);
+      html += `<div class="sg-dg-cell">`;
+      ds.forEach(s => {
+        const col = SG_COLORS[s.ci % SG_COLORS.length];
+        html += `<div class="sg-sess" style="background:${col}18;border-left-color:${col};color:${col};">
+          ${s.name.split(' ').slice(0,2).join(' ')} G${s.grp}
+        </div>`;
+      });
+      html += `</div>`;
+    }
+  }
+  html += '</div>';
+  return html;
+}
+
+// ── Aplicar combinación ───────────────────────────────────
+async function sgApply(comboJson, btn) {
+  let combo;
+  try { combo = JSON.parse(comboJson.replace(/&quot;/g,'"')); }
+  catch { return alert('Error al leer la combinación'); }
+
+  const sems = [...new Set(combo.map(a => a.semester))];
+
+  const existing = allItems.filter(it => sems.includes(it.semester));
+  if (existing.length) {
+    const semLabels = sems.map(s => s === 1 ? '1er cuatrimestre' : '2º cuatrimestre').join(' y ');
+    const ok = confirm(`Ya tienes ${existing.length} asignatura${existing.length > 1 ? 's' : ''} en el ${semLabels}. ¿Quieres reemplazarlas con esta combinación?`);
+    if (!ok) return;
+  }
+
+  if (btn) { btn.disabled = true; btn.textContent = 'Aplicando…'; }
+
+  for (const sem of sems) {
+    await fetch(`/api/v1/student/items?semester=${sem}`, { method: 'DELETE' });
+  }
+  for (const a of combo) {
+    await fetch('/api/v1/student/items', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        subject_id:   a.subject_id,
+        degree:       a.degree,
+        year:         a.year,
+        semester:     a.semester,
+        group_letter: a.group,
+        subgroup:     a.subgroup ?? null
+      })
+    });
+  }
+
+  // Actualizar allItems en segundo plano sin cerrar el modal
+  await refreshItems();
+
+  if (btn) {
+    btn.textContent = '✓ Aplicado';
+    btn.style.background = '#98c379';
+    btn.disabled = false;
+  }
+}
+
+// ─────────────────────────────────────────────────────────
+function printAlumno() {
+  const items = allItems.filter(it => it.semester === currentSem);
+  if (!items.length) { alert('No hay asignaturas en este cuatrimestre'); return; }
+  const sesiones = [];
+  items.forEach(it => {
+    it.sessions.forEach(s => {
+      sesiones.push({
+        day:      s.day_of_week,
+        start:    s.slot_start,
+        end:      s.slot_end,
+        subject:  it.subject_name,
+        classroom: [s.classroom_name, `Gr.${it.group_letter}${s.subgroup != null ? ' Sg.'+s.subgroup : ''}`].filter(Boolean).join(' · '),
+        subgroup: s.subgroup ?? null,
+      });
+    });
+  });
+  const semLabel = currentSem === 1 ? '1er Cuatrimestre' : '2º Cuatrimestre';
+  const win = window.open('', '_blank');
+  if (!win) { alert('Permite ventanas emergentes para descargar el PDF'); return; }
+  win.document.write(buildPrintHTML(sesiones, `Mi Horario – ${semLabel}`, [], 120, null, currentSem, ''));
+  win.document.close();
+  win.addEventListener('load', () => { win.focus(); win.print(); });
+}
+</script>
+
+</body>
+</html>

@@ -11,7 +11,9 @@ router.get("/free", requireAuth, (req, res) => {
   if (day === undefined || !start || !end)
     return res.status(400).json({ error: "day, start y end son obligatorios" });
 
-  const semFilter = semester ? `AND sc.semester = ${parseInt(semester)}` : "";
+  const semFilter = semester ? "AND sc.semester = ?" : "";
+  const params    = [parseInt(day), end, start];
+  if (semester) params.push(parseInt(semester));
   db.all(`
     SELECT DISTINCT ss.classroom_id FROM schedule_sessions ss
     JOIN schedules sc ON sc.id = ss.schedule_id
@@ -23,7 +25,7 @@ router.get("/free", requireAuth, (req, res) => {
         GROUP BY degree, year, semester, COALESCE(group_letter, '')
       )
       ${semFilter}
-  `, [parseInt(day), end, start], (err, occupied) => {
+  `, params, (err, occupied) => {
     if (err) return res.status(500).json({ error: err.message });
     const occupiedIds = new Set(occupied.map(r => r.classroom_id));
     db.all("SELECT * FROM classrooms ORDER BY type, name", (err2, all) => {
@@ -85,12 +87,13 @@ router.get("/:id/sessions", requireAuth, (req, res) => {
     SELECT ss.day_of_week, ss.slot_start, ss.slot_end,
            s.name  AS subject,
            sc.degree, sc.year, sc.semester, sc.group_letter,
+           ss.subgroup,
            t.name  AS teacher
     FROM schedule_sessions ss
     JOIN schedules  sc ON sc.id = ss.schedule_id
     JOIN subjects    s ON  s.id = ss.subject_id
     LEFT JOIN teachers t ON  t.id = ss.teacher_id
-    WHERE ss.classroom_id = ?
+    WHERE ss.classroom_id = ? AND sc.status = 'active'
     ORDER BY ss.day_of_week, ss.slot_start, sc.degree, sc.year, sc.semester
   `, [req.params.id], (err, rows) => {
     if (err) return res.status(500).json({ error: err.message });

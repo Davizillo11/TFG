@@ -172,14 +172,12 @@ function getOrderedSlots(startTimes, subject, dur, duracion, partialMins, avoidD
   const late     = mainPref.filter(t => !isPreferredTime(t) && !t.isExtreme && !t.isLate);
   if (needsAdjSort) late.sort((a, b) => a.startMin - b.startMin);
   const veryLate = mainPref.filter(t => t.isLate);
-  // Morning groups: pref (10-14) → extreme (8:00) → late (15:00+, only if 8:00 also unavailable)
+  // Morning groups: pref (10-14) → late (15:00+) → extreme (8:00, último recurso)
   return [
     ...pref.filter(t => !av(t) && !used(t)),
     ...pref.filter(t => !av(t) &&  used(t)),
     ...pref.filter(t =>  av(t) && !used(t)),
     ...pref.filter(t =>  av(t) &&  used(t)),
-    ...extr.filter(t => !used(t)),
-    ...extr.filter(t =>  used(t)),
     ...late.filter(t => !av(t) && !used(t)),
     ...late.filter(t => !av(t) &&  used(t)),
     ...late.filter(t =>  av(t) && !used(t)),
@@ -188,6 +186,8 @@ function getOrderedSlots(startTimes, subject, dur, duracion, partialMins, avoidD
     ...veryLate.filter(t => !av(t) &&  used(t)),
     ...veryLate.filter(t =>  av(t) && !used(t)),
     ...veryLate.filter(t =>  av(t) &&  used(t)),
+    ...extr.filter(t => !used(t)),
+    ...extr.filter(t =>  used(t)),
   ];
 }
 

@@ -57,12 +57,13 @@ router.get("/:id/sessions", requireAuth, (req, res) => {
     SELECT ss.day_of_week, ss.slot_start, ss.slot_end,
            s.name  AS subject,
            sc.degree, sc.year, sc.semester, sc.group_letter,
+           ss.subgroup,
            c.name  AS classroom
     FROM schedule_sessions ss
     JOIN schedules  sc ON sc.id = ss.schedule_id
     JOIN subjects    s ON  s.id = ss.subject_id
     JOIN classrooms  c ON  c.id = ss.classroom_id
-    WHERE ss.teacher_id = ?
+    WHERE ss.teacher_id = ? AND sc.status = 'active'
     ORDER BY ss.day_of_week, ss.slot_start, sc.degree, sc.year, sc.semester
   `, [req.params.id], (err, rows) => {
     if (err) return res.status(500).json({ error: err.message });

@@ -6,11 +6,92 @@
   <link rel="stylesheet" href="css/style.css">
   <link rel="icon" type="image/png" href="images/icon.png">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <style>
+    /* ── Centrado visual entre nav y footer ── */
+    .login-body {
+      padding-top: 56px;
+      padding-bottom: 84px;
+    }
+
+    /* ── Glassmorphism card ── */
+    .login-container {
+      margin-top: 14px;
+      background: rgb(13, 27, 42);
+      border: 1px solid rgba(255,255,255,0.12);
+      backdrop-filter: blur(16px);
+      -webkit-backdrop-filter: blur(16px);
+      color: #fff;
+      border-radius: 18px;
+      box-shadow: 0 20px 60px rgba(0,0,0,0.55), 0 0 0 1px rgba(0,180,216,0.08);
+    }
+
+    /* ── Logo block ── */
+    .login-logo {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 10px;
+      margin-bottom: 1.4rem;
+    }
+    .login-logo img {
+      width: 54px;
+      height: 54px;
+      filter: drop-shadow(0 0 14px rgba(0,180,216,0.55));
+    }
+    .login-container h2 {
+      color: #fff;
+      font-size: 1.2rem;
+      margin-bottom: 0;
+      text-align: center;
+    }
+    .login-tagline {
+      display: block;
+      text-align: center;
+      font-size: 0.75rem;
+      color: rgba(255,255,255,0.42);
+      margin-top: 4px;
+      margin-bottom: 0;
+    }
+
+    /* ── Divider ── */
+    .login-divider {
+      height: 1px;
+      background: linear-gradient(90deg, transparent, rgba(0,180,216,0.45), transparent);
+      margin: 1.3rem 0 1.3rem;
+    }
+
+    /* ── Inputs ── */
+    .login-container input {
+      background: rgba(255,255,255,0.06);
+      border: 1px solid rgba(255,255,255,0.14);
+      color: #fff;
+      border-radius: 8px;
+    }
+    .login-container input::placeholder { color: rgba(255,255,255,0.75); }
+    .login-container input:focus {
+      background: rgba(0,180,216,0.08);
+      border-color: #00b4d8;
+      box-shadow: 0 0 0 3px rgba(0,180,216,0.18);
+      outline: none;
+    }
+
+    /* ── Button ── */
+    .login-container button {
+      background: linear-gradient(135deg, #00b4d8 0%, #0089b8 100%);
+      border-radius: 8px;
+      letter-spacing: 0.04em;
+      box-shadow: 0 4px 16px rgba(0,180,216,0.35);
+      transition: 0.2s;
+    }
+    .login-container button:hover {
+      background: linear-gradient(135deg, #00c8ef 0%, #0096c7 100%);
+      box-shadow: 0 6px 22px rgba(0,180,216,0.5);
+      transform: translateY(-1px);
+    }
+  </style>
 </head>
 <body class="login-body">
 
-
-<!-- NAVBAR -->
 <nav>
   <div class="logo">
     <a href="index.html" class="no-hover">
@@ -24,12 +105,19 @@
 </nav>
 
 <div class="login-container">
-  <h2>Plataforma Inteligente Universitaria</h2>
+  <div class="login-logo">
+    <img src="images/icon.png" alt="Logo">
+    <h2>Plataforma Inteligente Universitaria</h2>
+    <span class="login-tagline">Universidad de Alcalá · Gestión de Horarios</span>
+  </div>
 
-<div id="loginForm" autocomplete="off">
-  <input type="text"     id="tfg-user" placeholder="Usuario"     autocomplete="off" spellcheck="false">
-  <input type="text" id="tfg-pass" placeholder="Contraseña" autocomplete="off" class="masked-input">
-  <button id="login-btn">Iniciar sesión</button>
+  <div class="login-divider"></div>
+
+  <div id="loginForm" autocomplete="off">
+    <input type="text" id="tfg-user" placeholder="Usuario" autocomplete="off" spellcheck="false">
+    <input type="text" id="tfg-pass" placeholder="Contraseña" autocomplete="off" class="masked-input">
+    <button id="login-btn">Iniciar sesión</button>
+  </div>
 </div>
 
 <script>
@@ -53,7 +141,8 @@ async function doLogin() {
   });
 
   if (res.ok) {
-    window.location.href = returnUrl;
+    const data = await res.json();
+    window.location.href = data.user?.role === "alumno" ? "/alumno.html" : returnUrl;
   } else {
     const data = await res.json();
     alert(data.error || "Credenciales incorrectas");
@@ -61,11 +150,16 @@ async function doLogin() {
 }
 
 document.getElementById("login-btn").addEventListener("click", doLogin);
-
 document.getElementById("tfg-pass").addEventListener("keydown", e => {
   if (e.key === "Enter") doLogin();
 });
 </script>
+
+<footer>
+  <p>Trabajo de Fin de Grado — Plataforma Web Inteligente Para Automatizacion de Procesos Universitarios</p>
+  <p>Ingenieria Telematica — Universidad de Alcala</p>
+  <p>Autor: David Paluso Corral</p>
+</footer>
 
 </body>
 </html>

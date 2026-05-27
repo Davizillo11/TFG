@@ -130,6 +130,19 @@ db.serialize(() => {
     slot_end     TEXT    NOT NULL
   )`);
 
+  db.run("ALTER TABLE student_schedule_items ADD COLUMN subgroup INTEGER DEFAULT NULL", () => {});
+
+  db.run(`CREATE TABLE IF NOT EXISTS student_schedule_items (
+    id           INTEGER PRIMARY KEY AUTOINCREMENT,
+    user_id      INTEGER NOT NULL,
+    subject_id   INTEGER NOT NULL,
+    degree       TEXT    NOT NULL,
+    year         INTEGER NOT NULL,
+    semester     INTEGER NOT NULL,
+    group_letter TEXT    NOT NULL,
+    UNIQUE(user_id, subject_id, degree, year, semester, group_letter)
+  )`, () => {});
+
   // Default admin user (bcrypt, cost 12)
   db.get("SELECT id FROM users WHERE username = 'admin'", async (err, row) => {
     if (!row) {

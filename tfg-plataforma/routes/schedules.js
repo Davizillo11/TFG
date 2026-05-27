@@ -1,6 +1,7 @@
-const express     = require("express");
-const db          = require("../database/db");
-const requireAuth = require("../middleware/auth");
+const express      = require("express");
+const db           = require("../database/db");
+const requireAuth  = require("../middleware/auth");
+const requireAdmin = require("../middleware/adminOnly");
 
 const router = express.Router();
 
@@ -151,6 +152,8 @@ function solveLabSessions({ subjects, classroomRows, classroomType, classroomCap
   }
   // Por asignatura: slots ya ocupados → evita que dos subgrupos de la misma asignatura coincidan
   const subjectSlotOcc = new Map();
+  // Por número de subgrupo: slots ocupados → prefiere que sg1 de distintas asignaturas no coincidan
+  const subgroupSlotOcc = new Map();
 
   // Shuffle days within each time band → each task tries days in a different order
   // so subjects don't all compete for the same first-choice slot.
@@ -176,8 +179,16 @@ function solveLabSessions({ subjects, classroomRows, classroomType, classroomCap
 
     if (!subjectSlotOcc.has(subj.id)) subjectSlotOcc.set(subj.id, new Set());
     const subjOcc = subjectSlotOcc.get(subj.id);
+    if (!subgroupSlotOcc.has(k)) subgroupSlotOcc.set(k, new Set());
+    const sgOcc = subgroupSlotOcc.get(k);
+    // Ordenar candidatos: primero los que no tienen aún otro sg-k colocado (soft constraint)
+    const _shuffled = shuffleDays(candidateSlots);
+    const _orderedSlots = [
+      ..._shuffled.filter(s => !sgOcc.has(`${s.dia}-${s.startMin}`)),
+      ..._shuffled.filter(s =>  sgOcc.has(`${s.dia}-${s.startMin}`)),
+    ];
 
-    for (const slot of shuffleDays(candidateSlots)) {
+    for (const slot of _orderedSlots) {
       if (slot.dia === theoryDay) continue;
       const theoryOcc = maxParallel > 2
         ? (subjectTheoryTimeOcc.get(subj.id) || new Set())
@@ -219,6 +230,7 @@ function solveLabSessions({ subjects, classroomRows, classroomType, classroomCap
         occupySegment(roomOcc, `${freeRoom.id}-${slot.dia}`, slot.startMin, slot.startMin + LAB_DUR);
         slotLabCount.set(slotKey, (slotLabCount.get(slotKey) || 0) + 1);
         subjOcc.add(slotKey);
+        sgOcc.add(slotKey);
         if (branch && maxParallel > 2) {
           if (!branchOcc.has(slotKey)) branchOcc.set(slotKey, new Set());
           branchOcc.get(slotKey).add(branch);
@@ -549,9 +561,11 @@ router.post("/generate", requireAuth, async (req, res) => {
       : [];
 
     // orden de prioridad: mañana → tarde → extremo → fringe
+    // Con duracion=60 todos los slots son de 1h — los fringe/extreme antes de las 10:00 no son necesarios
+    const useFringe     = duracion > 60;
     const morningMain   = shuffle(mainSlots.filter(t => t.startMin < LUNCH_START));
     const afternoonMain = shuffle(mainSlots.filter(t => t.startMin >= LUNCH_END));
-    const startTimes    = [...morningMain, ...afternoonMain, ...shuffle(extremeSlots), ...morningFallbackSlots, ...eveningExtremeSlots, ...partialSlots];
+    const startTimes    = [...morningMain, ...afternoonMain, ...(useFringe ? shuffle(extremeSlots) : []), ...morningFallbackSlots, ...eveningExtremeSlots, ...(useFringe ? partialSlots : [])];
 
     // enriquecer asignaturas con metadatos de BD
     let subjects = asignaturas.map(s => {
@@ -1245,7 +1259,7 @@ router.post("/generate", requireAuth, async (req, res) => {
     // calcular slotMins para el display de la tabla
     const uniqueMainMins = [...new Set(mainSlots.map(t => t.startMin))].sort((a, b) => a - b);
     const displayMinsSet = new Set(uniqueMainMins);
-    if (morningFringeOK) displayMinsSet.add(Math.max(startMin0, firstMain - duracion));
+    if (morningFringeOK && duracion > 60) displayMinsSet.add(Math.max(startMin0, firstMain - duracion));
     if (afternoonFringeOK && !isAfternoonGroup) {
       // Para grupos de tarde no añadir fringeBMin=20:00 — crea un gap 19:00-20:00 en el display.
       // El slot 19:00 se añade más abajo como eveningExtremeSlot.
@@ -1280,9 +1294,10 @@ router.get("/", async (req, res) => {
 
     const rows = await dbAll(`
       SELECT s.id, s.name, s.created_at, s.status, s.degree, s.year,
-             s.group_letter,
+             s.semester, s.group_letter,
              u.username AS created_by,
-             COUNT(ss.id) AS session_count
+             COUNT(ss.id) AS session_count,
+             COUNT(CASE WHEN ss.teacher_id IS NOT NULL THEN 1 END) AS teacher_count
       FROM schedules s
       LEFT JOIN users u ON u.id = s.created_by
       LEFT JOIN schedule_sessions ss ON ss.schedule_id = s.id
@@ -1361,89 +1376,127 @@ router.get("/conflicts", requireAuth, async (req, res) => {
   }
 });
 
+// función interna reutilizable — asigna profesores a un horario concreto
+async function assignTeachersForSchedule(schedId) {
+  const schedRows = await dbAll("SELECT * FROM schedules WHERE id=?", [schedId]);
+  if (!schedRows.length) throw new Error("Horario no encontrado");
+  const sched = schedRows[0];
+
+  const sessRows = await dbAll("SELECT * FROM schedule_sessions WHERE schedule_id=?", [schedId]);
+  if (!sessRows.length) return { assigned: 0, total: 0 };
+
+  const [teacherRows, stRows, availRows] = await Promise.all([
+    dbAll("SELECT id, session_type FROM teachers"),
+    dbAll("SELECT subject_id, teacher_id FROM subject_teachers"),
+    dbAll("SELECT teacher_id, day_of_week, slot_start, slot_end FROM teacher_availability WHERE available=1"),
+  ]);
+
+  const teacherSessionType = Object.fromEntries(teacherRows.map(r => [r.id, r.session_type || 'ambos']));
+  const subjectTheoryTeachers = {};
+  const subjectLabTeachers    = {};
+  for (const r of stRows) {
+    const st = teacherSessionType[r.teacher_id] || 'ambos';
+    if (st === 'ambos' || st === 'teoria')
+      (subjectTheoryTeachers[r.subject_id] = subjectTheoryTeachers[r.subject_id] || []).push(r.teacher_id);
+    if (st === 'ambos' || st === 'laboratorio')
+      (subjectLabTeachers[r.subject_id] = subjectLabTeachers[r.subject_id] || []).push(r.teacher_id);
+  }
+
+  const teacherAvail = {};
+  for (const r of availRows) {
+    if (!teacherAvail[r.teacher_id]) teacherAvail[r.teacher_id] = {};
+    if (!teacherAvail[r.teacher_id][r.day_of_week]) teacherAvail[r.teacher_id][r.day_of_week] = [];
+    teacherAvail[r.teacher_id][r.day_of_week].push([timeToMin(r.slot_start), timeToMin(r.slot_end)]);
+  }
+
+  const preOccTeachers = new Set();
+  if (sched.semester != null) {
+    const crossRows = await dbAll(`
+      SELECT ss.teacher_id, ss.day_of_week, ss.slot_start, ss.slot_end
+      FROM schedule_sessions ss
+      JOIN schedules sc ON sc.id = ss.schedule_id
+      WHERE sc.semester = ? AND sc.id != ? AND ss.teacher_id IS NOT NULL
+        AND sc.id IN (
+          SELECT MAX(sc2.id) FROM schedules sc2
+          WHERE sc2.semester = ? AND sc2.id != ?
+          GROUP BY sc2.degree, sc2.year, sc2.semester, COALESCE(sc2.group_letter,'')
+        )
+    `, [sched.semester, schedId, sched.semester, schedId]);
+    for (const r of crossRows) {
+      const sMin = timeToMin(r.slot_start), eMin = timeToMin(r.slot_end);
+      occupySegment(preOccTeachers, `${r.teacher_id}-${r.day_of_week}`, sMin, eMin);
+    }
+  }
+
+  const sessions = sessRows.map(r => ({
+    session_id:        r.id,
+    subject_id:        r.subject_id,
+    day:               r.day_of_week,
+    start:             r.slot_start,
+    end:               r.slot_end,
+    subgroup:          r.subgroup,
+    teacherCandidates: r.subgroup != null
+      ? (subjectLabTeachers[r.subject_id]    || [])
+      : (subjectTheoryTeachers[r.subject_id] || []),
+  }));
+
+  await dbRun("UPDATE schedule_sessions SET teacher_id=NULL WHERE schedule_id=?", [schedId]);
+  assignTeachers(sessions, teacherAvail, preOccTeachers);
+
+  let assigned = 0;
+  for (const s of sessions) {
+    if (s.teacher_id != null) {
+      await dbRun("UPDATE schedule_sessions SET teacher_id=? WHERE id=?", [s.teacher_id, s.session_id]);
+      assigned++;
+    }
+  }
+  return { assigned, total: sessions.length };
+}
+
+// asignar profesores a todos los horarios activos de un cuatrimestre
+router.post("/assign-semester", requireAuth, async (req, res) => {
+  try {
+    const { semester } = req.body;
+    if (semester == null) return res.status(400).json({ error: "semester requerido" });
+    const schedules = await dbAll(
+      "SELECT id FROM schedules WHERE status='active' AND semester=?", [parseInt(semester)]
+    );
+    if (!schedules.length) return res.json({ ok: true, assigned: 0, total: 0, count: 0 });
+    let totalAssigned = 0, totalSessions = 0;
+    for (const sc of schedules) {
+      const r = await assignTeachersForSchedule(sc.id);
+      totalAssigned += r.assigned;
+      totalSessions += r.total;
+    }
+    res.json({ ok: true, assigned: totalAssigned, total: totalSessions, count: schedules.length });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// editar el profesor de una sesión concreta
+router.patch("/sessions/:id/teacher", requireAdmin, async (req, res) => {
+  try {
+    const { teacher_id } = req.body;
+    await dbRun(
+      "UPDATE schedule_sessions SET teacher_id=? WHERE id=?",
+      [teacher_id ?? null, req.params.id]
+    );
+    res.json({ ok: true });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
 // asignar profesores a un horario ya generado (acción manual desde admin)
 router.post("/:id/assign-teachers", requireAuth, async (req, res) => {
   try {
     const schedId = parseInt(req.params.id);
-    const schedRows = await dbAll("SELECT * FROM schedules WHERE id=?", [schedId]);
-    if (!schedRows.length) return res.status(404).json({ error: "Horario no encontrado" });
-    const sched = schedRows[0];
-
-    const sessRows = await dbAll("SELECT * FROM schedule_sessions WHERE schedule_id=?", [schedId]);
-    if (!sessRows.length) return res.json({ ok: true, assigned: 0, total: 0 });
-
-    const [teacherRows, stRows, availRows] = await Promise.all([
-      dbAll("SELECT id, session_type FROM teachers"),
-      dbAll("SELECT subject_id, teacher_id FROM subject_teachers"),
-      dbAll("SELECT teacher_id, day_of_week, slot_start, slot_end FROM teacher_availability WHERE available=1"),
-    ]);
-
-    const teacherSessionType = Object.fromEntries(teacherRows.map(r => [r.id, r.session_type || 'ambos']));
-    const subjectTheoryTeachers = {};
-    const subjectLabTeachers    = {};
-    for (const r of stRows) {
-      const st = teacherSessionType[r.teacher_id] || 'ambos';
-      if (st === 'ambos' || st === 'teoria')
-        (subjectTheoryTeachers[r.subject_id] = subjectTheoryTeachers[r.subject_id] || []).push(r.teacher_id);
-      if (st === 'ambos' || st === 'laboratorio')
-        (subjectLabTeachers[r.subject_id] = subjectLabTeachers[r.subject_id] || []).push(r.teacher_id);
-    }
-
-    const teacherAvail = {};
-    for (const r of availRows) {
-      if (!teacherAvail[r.teacher_id]) teacherAvail[r.teacher_id] = {};
-      if (!teacherAvail[r.teacher_id][r.day_of_week]) teacherAvail[r.teacher_id][r.day_of_week] = [];
-      teacherAvail[r.teacher_id][r.day_of_week].push([timeToMin(r.slot_start), timeToMin(r.slot_end)]);
-    }
-
-    // pre-ocupación de profesores en otros horarios del mismo cuatrimestre
-    const preOccTeachers = new Set();
-    if (sched.semester != null) {
-      const crossRows = await dbAll(`
-        SELECT ss.teacher_id, ss.day_of_week, ss.slot_start, ss.slot_end
-        FROM schedule_sessions ss
-        JOIN schedules sc ON sc.id = ss.schedule_id
-        WHERE sc.semester = ? AND sc.id != ? AND ss.teacher_id IS NOT NULL
-          AND sc.id IN (
-            SELECT MAX(sc2.id) FROM schedules sc2
-            WHERE sc2.semester = ? AND sc2.id != ?
-            GROUP BY sc2.degree, sc2.year, sc2.semester, COALESCE(sc2.group_letter,'')
-          )
-      `, [sched.semester, schedId, sched.semester, schedId]);
-      for (const r of crossRows) {
-        const sMin = timeToMin(r.slot_start), eMin = timeToMin(r.slot_end);
-        occupySegment(preOccTeachers, `${r.teacher_id}-${r.day_of_week}`, sMin, eMin);
-      }
-    }
-
-    const sessions = sessRows.map(r => ({
-      session_id:        r.id,
-      subject_id:        r.subject_id,
-      day:               r.day_of_week,
-      start:             r.slot_start,
-      end:               r.slot_end,
-      subgroup:          r.subgroup,
-      teacherCandidates: r.subgroup != null
-        ? (subjectLabTeachers[r.subject_id]    || [])
-        : (subjectTheoryTeachers[r.subject_id] || []),
-    }));
-
-    // limpiar asignaciones previas
-    await dbRun("UPDATE schedule_sessions SET teacher_id=NULL WHERE schedule_id=?", [schedId]);
-
-    assignTeachers(sessions, teacherAvail, preOccTeachers);
-
-    let assigned = 0;
-    for (const s of sessions) {
-      if (s.teacher_id != null) {
-        await dbRun("UPDATE schedule_sessions SET teacher_id=? WHERE id=?", [s.teacher_id, s.session_id]);
-        assigned++;
-      }
-    }
-
-    res.json({ ok: true, assigned, total: sessions.length });
+    const result  = await assignTeachersForSchedule(schedId);
+    res.json({ ok: true, ...result });
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    const status = err.message === "Horario no encontrado" ? 404 : 500;
+    res.status(status).json({ error: err.message });
   }
 });
 
@@ -1456,7 +1509,7 @@ router.get("/:id", async (req, res) => {
 
     const sessions = await dbAll(`
       SELECT ss.id AS session_id, ss.day_of_week AS day, ss.slot_start AS start, ss.slot_end AS end,
-             ss.subgroup,
+             ss.subgroup, ss.teacher_id,
              sub.name AS subject, sub.degree, sub.id AS subject_id,
              c.name AS classroom, c.id AS classroom_id,
              t.name AS teacher

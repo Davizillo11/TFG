@@ -86,6 +86,7 @@ async function seed() {
   await run("DELETE FROM group_config");
   await run("DELETE FROM slot_limits");
   await run("DELETE FROM degree_groups");
+  await run("DELETE FROM student_schedule_items");
 
   // ── Usuarios ──────────────────────────────────────
   const adminHash = await bcrypt.hash("admin", 12);
