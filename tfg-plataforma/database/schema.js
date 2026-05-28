@@ -9,8 +9,10 @@ db.serialize(() => {
     username   TEXT    UNIQUE NOT NULL,
     password   TEXT    NOT NULL,
     role       TEXT    NOT NULL DEFAULT 'user',
+    teacher_id INTEGER REFERENCES teachers(id),
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP
   )`);
+  db.run("ALTER TABLE users ADD COLUMN teacher_id INTEGER REFERENCES teachers(id)", () => {});
 
   // Classrooms
   db.run(`CREATE TABLE IF NOT EXISTS classrooms (
@@ -60,8 +62,10 @@ db.serialize(() => {
     day_of_week INTEGER NOT NULL,
     slot_start  TEXT    NOT NULL,
     slot_end    TEXT    NOT NULL,
-    available   INTEGER DEFAULT 1
+    available   INTEGER DEFAULT 1,
+    semester    INTEGER DEFAULT NULL
   )`);
+  db.run("ALTER TABLE teacher_availability ADD COLUMN semester INTEGER DEFAULT NULL", () => {});
 
   // Generated schedules
   db.run(`CREATE TABLE IF NOT EXISTS schedules (

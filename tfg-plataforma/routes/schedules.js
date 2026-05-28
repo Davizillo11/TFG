@@ -429,9 +429,17 @@ router.post("/generate", requireAuth, async (req, res) => {
       dbAll("SELECT degree, year, group_letter, afternoon FROM group_config"),
     ]);
 
+    // aplicar fallback de cuatrimestre: usar filas específicas del C si existen, si no las generales
+    const _semRows  = availRows.filter(r => r.semester === (meta.semester ?? null));
+    const _nullRows = availRows.filter(r => r.semester == null);
+    const _withSpec = new Set(_semRows.map(r => r.teacher_id));
+    const effectiveAvailRows = meta.semester != null
+      ? [..._semRows, ..._nullRows.filter(r => !_withSpec.has(r.teacher_id))]
+      : _nullRows;
+
     // disponibilidad de cada profesor: fusionar intervalos adyacentes una sola vez aquí
     const teacherAvailRaw = {};
-    for (const r of availRows) {
+    for (const r of effectiveAvailRows) {
       if (!teacherAvailRaw[r.teacher_id]) teacherAvailRaw[r.teacher_id] = {};
       const d = teacherAvailRaw[r.teacher_id];
       if (!d[r.day_of_week]) d[r.day_of_week] = [];
@@ -1388,7 +1396,7 @@ async function assignTeachersForSchedule(schedId) {
   const [teacherRows, stRows, availRows] = await Promise.all([
     dbAll("SELECT id, session_type FROM teachers"),
     dbAll("SELECT subject_id, teacher_id FROM subject_teachers"),
-    dbAll("SELECT teacher_id, day_of_week, slot_start, slot_end FROM teacher_availability WHERE available=1"),
+    dbAll("SELECT teacher_id, day_of_week, slot_start, slot_end, semester FROM teacher_availability WHERE available=1"),
   ]);
 
   const teacherSessionType = Object.fromEntries(teacherRows.map(r => [r.id, r.session_type || 'ambos']));
@@ -1402,11 +1410,33 @@ async function assignTeachersForSchedule(schedId) {
       (subjectLabTeachers[r.subject_id] = subjectLabTeachers[r.subject_id] || []).push(r.teacher_id);
   }
 
+  // aplicar fallback de cuatrimestre
+  const _semR  = availRows.filter(r => r.semester === (sched.semester ?? null));
+  const _nullR = availRows.filter(r => r.semester == null);
+  const _ws    = new Set(_semR.map(r => r.teacher_id));
+  const effRows = sched.semester != null
+    ? [..._semR, ..._nullR.filter(r => !_ws.has(r.teacher_id))]
+    : _nullR;
+
+  const teacherAvailRaw2 = {};
+  for (const r of effRows) {
+    if (!teacherAvailRaw2[r.teacher_id]) teacherAvailRaw2[r.teacher_id] = {};
+    if (!teacherAvailRaw2[r.teacher_id][r.day_of_week]) teacherAvailRaw2[r.teacher_id][r.day_of_week] = [];
+    teacherAvailRaw2[r.teacher_id][r.day_of_week].push([timeToMin(r.slot_start), timeToMin(r.slot_end)]);
+  }
   const teacherAvail = {};
-  for (const r of availRows) {
-    if (!teacherAvail[r.teacher_id]) teacherAvail[r.teacher_id] = {};
-    if (!teacherAvail[r.teacher_id][r.day_of_week]) teacherAvail[r.teacher_id][r.day_of_week] = [];
-    teacherAvail[r.teacher_id][r.day_of_week].push([timeToMin(r.slot_start), timeToMin(r.slot_end)]);
+  for (const [tid, byDay] of Object.entries(teacherAvailRaw2)) {
+    teacherAvail[+tid] = {};
+    for (const [day, intervals] of Object.entries(byDay)) {
+      intervals.sort((a, b) => a[0] - b[0]);
+      const merged = [intervals[0].slice()];
+      for (let i = 1; i < intervals.length; i++) {
+        const last = merged[merged.length - 1];
+        if (intervals[i][0] <= last[1]) last[1] = Math.max(last[1], intervals[i][1]);
+        else merged.push(intervals[i].slice());
+      }
+      teacherAvail[+tid][+day] = merged;
+    }
   }
 
   const preOccTeachers = new Set();

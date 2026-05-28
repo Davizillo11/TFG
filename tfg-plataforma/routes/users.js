@@ -7,7 +7,12 @@ const router = express.Router();
 
 // GET all (never return password)
 router.get("/", requireAdmin, (req, res) => {
-  db.all("SELECT id, username, role, created_at FROM users ORDER BY id", (err, rows) => {
+  db.all(`
+    SELECT u.id, u.username, u.role, u.teacher_id, u.created_at, t.name AS teacher_name
+    FROM users u
+    LEFT JOIN teachers t ON t.id = u.teacher_id
+    ORDER BY u.id
+  `, (err, rows) => {
     if (err) return res.status(500).json({ error: err.message });
     res.json(rows);
   });
@@ -15,16 +20,17 @@ router.get("/", requireAdmin, (req, res) => {
 
 // POST create
 router.post("/", requireAdmin, async (req, res) => {
-  const { username, password, role } = req.body;
+  const { username, password, role, teacher_id } = req.body;
   if (!username || !password) return res.status(400).json({ error: "Usuario y contraseña requeridos" });
 
   const hash = await bcrypt.hash(password, 12);
+  const tid  = (role === "profesor" && teacher_id) ? parseInt(teacher_id) : null;
   db.run(
-    "INSERT INTO users (username, password, role) VALUES (?,?,?)",
-    [username, hash, role || "user"],
+    "INSERT INTO users (username, password, role, teacher_id) VALUES (?,?,?,?)",
+    [username, hash, role || "user", tid],
     function (err) {
       if (err) return res.status(500).json({ error: "Usuario ya existe o error en DB" });
-      res.json({ id: this.lastID, username, role: role || "user" });
+      res.json({ id: this.lastID, username, role: role || "user", teacher_id: tid });
     }
   );
 });

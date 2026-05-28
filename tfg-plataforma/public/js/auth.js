@@ -16,10 +16,12 @@ const Auth = (() => {
     if (adminLi && user.role === "admin") {
       adminLi.style.display = "list-item";
     }
-    const studentLi  = document.getElementById("student-li");
+    const studentLi   = document.getElementById("student-li");
     const generadorLi = document.getElementById("generador-li");
-    if (studentLi && user.role === "alumno") studentLi.style.display = "list-item";
+    const profeLi     = document.getElementById("profe-li");
+    if (studentLi  && user.role === "alumno") studentLi.style.display  = "list-item";
     if (generadorLi && user.role === "alumno") generadorLi.style.display = "none";
+    if (profeLi    && user.role === "profesor")  profeLi.style.display    = "list-item";
 
     const initial = user.username.charAt(0).toUpperCase();
     loginLi.innerHTML = `

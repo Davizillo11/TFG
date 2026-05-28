@@ -1,0 +1,446 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <title>Mi Portal — Profesor</title>
+  <link rel="stylesheet" href="css/style.css">
+  <link rel="icon" type="image/png" href="images/icon.png">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <style>
+    body.horarios-body { overflow: hidden; }
+
+    #contenido-profe {
+      flex-direction: row !important;
+      align-items: stretch !important;
+      padding: 0 !important; gap: 0 !important;
+      flex: 1; overflow: hidden; min-height: 0;
+    }
+
+    /* Sidebar */
+    .pr-sb {
+      width: clamp(180px, 15vw, 230px); min-width: clamp(180px, 15vw, 230px);
+      background: rgba(13,27,42,0.55);
+      border-right: 1px solid rgba(255,255,255,0.07);
+      display: flex; flex-direction: column;
+      padding: 20px 16px; gap: 8px;
+    }
+    .pr-sb-name { font-size: 0.9rem; font-weight: 700; color: #e8eaed; }
+    .pr-sb-dept { font-size: 0.75rem; color: #9aa3b2; margin-top: 2px; }
+    .pr-sb-divider { height: 1px; background: rgba(255,255,255,0.08); margin: 12px 0; }
+
+    /* Main */
+    .pr-main { flex: 1; display: flex; flex-direction: column; min-width: 0; overflow: hidden; }
+
+    /* Sidebar PDF buttons */
+    .pr-sb-pdf {
+      width: 100%; padding: 7px 12px; border-radius: 6px; border: none;
+      background: rgba(0,180,216,0.15); color: #00b4d8; font-size: 0.78rem; font-weight: 600;
+      cursor: pointer; text-align: left; transition: all .15s; margin-top: 2px;
+    }
+    .pr-sb-pdf:hover { background: rgba(0,180,216,0.28); }
+
+    /* Sidebar nav buttons */
+    .pr-sb-nav {
+      width: 100%; padding: 9px 12px; border-radius: 6px; border: none;
+      background: transparent; color: #9aa3b2; font-size: 0.82rem; font-weight: 600;
+      cursor: pointer; text-align: left; transition: all .15s;
+    }
+    .pr-sb-nav:hover   { background: rgba(255,255,255,0.08); color: #e8eaed; }
+    .pr-sb-nav.active  { background: rgba(0,180,216,0.18);  color: #00b4d8; }
+
+    /* Body area */
+    .pr-body { flex: 1; overflow: auto; padding: 24px 28px; background: #f4f6f9; }
+
+    /* Disponibilidad: sin scroll, todo en pantalla */
+    #pr-panel-disponibilidad {
+      display: flex; flex-direction: column; overflow: hidden;
+      padding: 14px 20px; gap: 0;
+    }
+    #pr-panel-disponibilidad .avail-tab-bar  { flex-shrink: 0; margin-bottom: 0; }
+    #pr-panel-disponibilidad #pr-avail-grid  { flex: 1; min-height: 0; margin: 14px 0; grid-auto-rows: 1fr; }
+    #pr-panel-disponibilidad #pr-avail-grid .avail-cell,
+    #pr-panel-disponibilidad #pr-avail-grid .avail-hour { height: unset; }
+    #pr-panel-disponibilidad #pr-avail-grid .avail-header { height: unset; padding: 3px 0; }
+    #pr-panel-disponibilidad .avail-save-wrap { flex-shrink: 0; padding-bottom: 4px; }
+
+    /* Availability grid */
+    .avail-tab-bar { display: flex; gap: 6px; align-items: center; flex-wrap: wrap; margin-bottom: 12px; }
+    .avail-tab-bar button { padding: 4px 12px; border-radius: 5px; border: none; font-size: 0.78rem; font-weight: 600; cursor: pointer; }
+    .avail-save-btn {
+      padding: 8px 22px; border-radius: 6px; border: none; background: #00b4d8;
+      color: #fff; font-size: 0.82rem; font-weight: 700; cursor: pointer; transition: background .15s;
+    }
+    .avail-save-btn:hover { background: #0096c7; }
+    .avail-actions { display: flex; gap: 8px; margin-bottom: 10px; flex-wrap: wrap; align-items: center; }
+
+    /* Cards */
+    .pr-card { background: #fff; border-radius: 10px; padding: 20px 24px; box-shadow: 0 2px 8px rgba(0,0,0,0.07); }
+
+    /* Session table wrapper — ocupa toda la altura disponible */
+    .pr-sessions-wrap { background: #fff; flex: 1; overflow-y: auto; }
+  </style>
+</head>
+<body class="horarios-body">
+
+<nav>
+  <div class="logo">
+    <a href="index.html" class="no-transition">
+      <img src="images/icon.png" alt="Logo">
+      <h1>TFG Plataforma</h1>
+    </a>
+  </div>
+  <ul>
+    <li><a href="index.html">Inicio</a></li>
+    <li><a href="horarios.html">Horarios</a></li>
+    <li id="profe-li" style="display:none;"><a href="profesor.html">Mi Horario</a></li>
+    <li id="admin-li" style="display:none;"><a href="admin.html">Admin</a></li>
+    <li id="student-li" style="display:none;"></li>
+    <li id="generador-li" style="display:none;"></li>
+    <li id="login-li"><a class="btn-login" href="login.html">Iniciar sesión</a></li>
+  </ul>
+</nav>
+
+<div class="horarios-page" id="acceso-denegado" style="display:none;">
+  <div class="horarios-card acceso-card">
+    <h2>Acceso restringido</h2>
+    <p>Esta sección es exclusiva para profesores.</p>
+    <a class="btn" href="login.html">Iniciar sesión</a>
+  </div>
+</div>
+
+<div class="horarios-page" id="contenido-profe" style="display:none;">
+
+  <!-- Sidebar -->
+  <aside class="pr-sb">
+    <div class="pr-sb-name" id="pr-name">—</div>
+    <div class="pr-sb-dept" id="pr-dept">—</div>
+    <div class="pr-sb-divider"></div>
+    <button class="pr-sb-nav active" id="ptab-horario"        onclick="prSwitchTab('horario')">📅 Mi Horario</button>
+    <button class="pr-sb-nav"        id="ptab-disponibilidad" onclick="prSwitchTab('disponibilidad')">🕐 Mi Disponibilidad</button>
+    <div class="pr-sb-divider"></div>
+    <button class="pr-sb-pdf" onclick="printProfesor(1)">⬇ PDF C1</button>
+    <button class="pr-sb-pdf" onclick="printProfesor(2)">⬇ PDF C2</button>
+  </aside>
+
+  <!-- Main -->
+  <div class="pr-main">
+
+    <!-- Tab: Mi Horario -->
+    <div class="pr-body" id="pr-panel-horario" style="flex-direction:column;padding:20px 24px 0;">
+      <div id="pr-sessions" style="flex:1;display:flex;flex-direction:column;">
+        <p style="color:#888;font-style:italic;font-size:0.82rem;padding:24px;">Cargando sesiones…</p>
+      </div>
+    </div>
+
+    <!-- Tab: Mi Disponibilidad -->
+    <div class="pr-body" id="pr-panel-disponibilidad" style="display:none;">
+      <div class="avail-tab-bar" style="margin-bottom:8px;">
+        <button id="pr-avail-tab-null" onclick="prSwitchAvailTab(null)" style="background:#007bff;color:#fff;">General</button>
+        <button id="pr-avail-tab-1"    onclick="prSwitchAvailTab(1)"    style="background:#6c757d;color:#fff;">C1</button>
+        <button id="pr-avail-tab-2"    onclick="prSwitchAvailTab(2)"    style="background:#6c757d;color:#fff;">C2</button>
+        <div style="width:1px;background:#ccc;align-self:stretch;margin:0 4px;"></div>
+        <button class="btn-add" style="font-size:0.78rem;padding:4px 12px;background:#4caf7d;border:none;" onclick="prAvailAll()">Marcar todo</button>
+        <button class="btn-add" style="font-size:0.78rem;padding:4px 12px;background:#e06c75;border:none;" onclick="prAvailNone()">Limpiar todo</button>
+        <span id="pr-avail-hint" style="font-size:0.72rem;color:#666;margin-left:4px;"></span>
+      </div>
+      <div class="avail-grid" id="pr-avail-grid"></div>
+      <div class="avail-save-wrap">
+        <button class="avail-save-btn" onclick="prSaveAvailability()">Guardar cambios</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script src="js/auth.js"></script>
+<script>
+const DAYS_PR  = ["Lunes","Martes","Miércoles","Jueves","Viernes"];
+const DAYS_LONG_PR = DAYS_PR;
+const SLOTS_PR = [
+  ["08:00","09:00"],["09:00","10:00"],["10:00","11:00"],["11:00","12:00"],
+  ["12:00","13:00"],["13:00","14:00"],["14:00","15:00"],["15:00","16:00"],
+  ["16:00","17:00"],["17:00","18:00"],["18:00","19:00"],["19:00","20:00"],["20:00","21:00"],
+];
+
+let _prUser      = null;
+let _prTeacher   = null;
+let _prSessions  = [];
+let _prAvailRows = [];
+let _prAvailTab  = null;
+let _prDragging  = false;
+let _prDragVal   = null;
+
+// ── Init ──────────────────────────────────────────────
+document.addEventListener("DOMContentLoaded", async () => {
+  const user = await Auth.init({ requireAuth: true });
+  if (!user) return;
+  if (user.role !== "profesor") { window.location.href = "/generador.html"; return; }
+  _prUser = user;
+  document.getElementById("contenido-profe").style.display = "flex";
+  await prLoadTeacherInfo();
+  await prLoadSessions();
+});
+
+async function prLoadTeacherInfo() {
+  const res = await fetch(`/api/v1/teachers/${_prUser.teacher_id}`);
+  if (!res.ok) return;
+  _prTeacher = await res.json();
+  document.getElementById("pr-name").textContent = _prTeacher.name || "—";
+  document.getElementById("pr-dept").textContent = _prTeacher.department || "—";
+}
+
+// ── Tabs ──────────────────────────────────────────────
+function prSwitchTab(tab) {
+  document.getElementById("pr-panel-horario").style.display        = tab === "horario"        ? "flex" : "none";
+  document.getElementById("pr-panel-disponibilidad").style.display = tab === "disponibilidad" ? "flex" : "none";
+  document.querySelectorAll(".pr-sb-nav").forEach(b => b.classList.remove("active"));
+  document.getElementById(`ptab-${tab}`).classList.add("active");
+  if (tab === "disponibilidad" && !_prAvailRows.length) prLoadAvailability();
+}
+
+// ── Mi Horario ────────────────────────────────────────
+async function prLoadSessions() {
+  const el  = document.getElementById("pr-sessions");
+  const res = await fetch(`/api/v1/teachers/${_prUser.teacher_id}/sessions`);
+  if (!res.ok) { el.innerHTML = '<p style="color:#e06c75;">Error cargando sesiones.</p>'; return; }
+  _prSessions = await res.json();
+  el.innerHTML = prBuildSessionsTable(_prSessions);
+}
+
+function printProfesor(sem) {
+  const rows = _prSessions.filter(r => r.semester === sem);
+  if (!rows.length) { alert(`Sin sesiones en el ${sem === 1 ? '1er' : '2º'} cuatrimestre`); return; }
+  const sesiones = rows.map(r => ({
+    day:       r.day_of_week,
+    start:     r.slot_start,
+    end:       r.slot_end,
+    subject:   r.subject,
+    group:     r.group_letter || '',
+    subgroup:  r.subgroup ?? null,
+    classroom: r.classroom || '',
+  }));
+  const semLabel = sem === 1 ? '1er Cuatrimestre' : '2º Cuatrimestre';
+  const title    = `${_prTeacher?.name || 'Profesor'} – ${semLabel}`;
+  const win = window.open('', '_blank');
+  if (!win) { alert('Permite ventanas emergentes para descargar el PDF'); return; }
+  win.document.write(buildPrintHTML(sesiones, title, [], 120, null, sem, ''));
+  win.document.close();
+  win.addEventListener('load', () => { win.focus(); win.print(); });
+}
+
+function prBuildSessionsTable(rows) {
+  if (!rows.length) return '<p style="color:#9aa3b2;font-style:italic;font-size:0.82rem;">Sin sesiones asignadas todavía.</p>';
+
+  const sem1 = rows.filter(r => r.semester === 1);
+  const sem2 = rows.filter(r => r.semester === 2);
+  const mixed = sem1.length > 0 && sem2.length > 0;
+
+  function renderBlock(semRows, label, bgColor, textColor, borderColor) {
+    const byDay = {};
+    semRows.forEach(r => {
+      if (!byDay[r.day_of_week]) byDay[r.day_of_week] = [];
+      byDay[r.day_of_week].push(r);
+    });
+    let out = "";
+    if (mixed) {
+      out += `<tr><td colspan="5" style="padding:10px 16px;background:${bgColor};border-top:2px solid ${borderColor};border-bottom:2px solid ${borderColor};font-size:12px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:${textColor};">${label}</td></tr>`;
+    }
+    [0,1,2,3,4].forEach(d => {
+      const dayRows = byDay[d]; if (!dayRows) return;
+      dayRows.forEach((r, i) => {
+        const isFirst = i === 0;
+        const borderT = isFirst ? "2px solid #d0e8f0" : "1px solid #eee";
+        const borderB = i === dayRows.length - 1 ? "2px solid #d0e8f0" : "none";
+        out += `<tr>
+          <td style="font-weight:700;color:#0077a8;border-top:${borderT};border-bottom:${borderB};padding:7px 10px;">${isFirst ? DAYS_LONG_PR[d] : ""}</td>
+          <td style="white-space:nowrap;border-top:${borderT};border-bottom:${borderB};padding:7px 10px;">${r.slot_start}–${r.slot_end}</td>
+          <td style="border-top:${borderT};border-bottom:${borderB};padding:7px 10px;">${r.subject}</td>
+          <td style="font-size:11px;border-top:${borderT};border-bottom:${borderB};padding:7px 10px;">${r.degree} ${r.year}º</td>
+          <td style="text-align:center;border-top:${borderT};border-bottom:${borderB};padding:7px 10px;font-weight:700;">${r.group_letter ? `${r.group_letter}${r.subgroup != null ? ` · ${r.subgroup}` : ""}` : "—"}</td>
+        </tr>`;
+      });
+    });
+    return out;
+  }
+
+  let html = `<div class="pr-sessions-wrap"><table class="data-table" style="font-size:12.5px;border-collapse:collapse;width:100%;height:100%;">
+    <thead><tr>
+      <th>Día</th><th>Hora</th><th>Asignatura</th><th>Titulación</th><th>Grupo</th>
+    </tr></thead><tbody>`;
+  if (sem1.length) html += renderBlock(sem1, "1er Cuatrimestre", "#dbeafe", "#1d4ed8", "#93c5fd");
+  if (sem2.length) html += renderBlock(sem2, "2º Cuatrimestre",  "#fde8d8", "#c2410c", "#fdba74");
+  html += "</tbody></table></div>";
+  return html;
+}
+
+// ── Mi Disponibilidad ─────────────────────────────────
+async function prLoadAvailability() {
+  const res = await fetch(`/api/v1/teachers/${_prUser.teacher_id}/availability`);
+  _prAvailRows = await res.json();
+  prSwitchAvailTab(null);
+}
+
+function prSwitchAvailTab(sem) {
+  _prAvailTab = sem;
+  [null, 1, 2].forEach(s => {
+    const id  = `pr-avail-tab-${s === null ? "null" : s}`;
+    const btn = document.getElementById(id);
+    if (btn) btn.style.background = s === sem ? "#007bff" : "#6c757d";
+  });
+  const hint = document.getElementById("pr-avail-hint");
+  if (sem !== null) {
+    const hasSpecific = _prAvailRows.some(r => r.semester === sem);
+    hint.textContent = hasSpecific ? "" : "(vacío — hereda disponibilidad General)";
+  } else { hint.textContent = ""; }
+
+  const tabRows     = _prAvailRows.filter(r => r.semester === sem);
+  const generalRows = _prAvailRows.filter(r => r.semester === null);
+  let marked;
+  if (tabRows.length === 0) {
+    if (generalRows.length === 0) {
+      marked = new Set();
+      SLOTS_PR.forEach(([s]) => { for (let d = 0; d < 5; d++) marked.add(`${d}-${s}`); });
+    } else { marked = prExpandSlots(generalRows); }
+  } else { marked = prExpandSlots(tabRows); }
+  prBuildGrid(marked);
+}
+
+function prExpandSlots(dbRows) {
+  const toMin = t => t.split(":").reduce((h, m) => h * 60 + +m, 0);
+  const set = new Set();
+  for (const r of dbRows) {
+    const rS = toMin(r.slot_start), rE = toMin(r.slot_end);
+    for (const [s, e] of SLOTS_PR) {
+      if (toMin(s) >= rS && toMin(e) <= rE) set.add(`${r.day_of_week}-${s}`);
+    }
+  }
+  return set;
+}
+
+function prBuildGrid(markedSet) {
+  const grid = document.getElementById("pr-avail-grid");
+  let html = `<div class="avail-hour"></div>`;
+  DAYS_PR.forEach((d, di) => {
+    html += `<div class="avail-header avail-day-hdr" data-di="${di}">${d}</div>`;
+  });
+  SLOTS_PR.forEach(([start, end]) => {
+    const lbl = `${parseInt(start)}–${parseInt(end)}`;
+    html += `<div class="avail-hour avail-slot-lbl" data-start="${start}" data-end="${end}" title="Clic: fila completa">${lbl}</div>`;
+    DAYS_PR.forEach((_, di) => {
+      const on = markedSet.has(`${di}-${start}`) ? "on" : "";
+      html += `<div class="avail-cell ${on}" data-day="${di}" data-start="${start}" data-end="${end}"></div>`;
+    });
+  });
+  grid.innerHTML = html;
+  prInitGridListeners();
+}
+
+function prInitGridListeners() {
+  const grid = document.getElementById("pr-avail-grid");
+  grid.querySelectorAll(".avail-cell").forEach(cell => {
+    cell.addEventListener("mousedown", e => {
+      _prDragging = true; _prDragVal = !cell.classList.contains("on");
+      cell.classList.toggle("on", _prDragVal); e.preventDefault();
+    });
+    cell.addEventListener("mouseover", () => { if (_prDragging) cell.classList.toggle("on", _prDragVal); });
+  });
+  grid.querySelectorAll(".avail-day-hdr").forEach(hdr => {
+    hdr.addEventListener("click", () => {
+      const di = hdr.dataset.di;
+      const cells = grid.querySelectorAll(`.avail-cell[data-day="${di}"]`);
+      const allOn = [...cells].every(c => c.classList.contains("on"));
+      cells.forEach(c => c.classList.toggle("on", !allOn));
+    });
+  });
+  grid.querySelectorAll(".avail-slot-lbl").forEach(lbl => {
+    lbl.addEventListener("click", () => {
+      const s = lbl.dataset.start;
+      const cells = grid.querySelectorAll(`.avail-cell[data-start="${s}"]`);
+      const allOn = [...cells].every(c => c.classList.contains("on"));
+      cells.forEach(c => c.classList.toggle("on", !allOn));
+    });
+  });
+  document.addEventListener("mouseup", () => { _prDragging = false; });
+}
+
+function prAvailAll()  { document.querySelectorAll("#pr-avail-grid .avail-cell").forEach(c => c.classList.add("on")); }
+function prAvailNone() { document.querySelectorAll("#pr-avail-grid .avail-cell").forEach(c => c.classList.remove("on")); }
+
+async function prSaveAvailability() {
+  const slots = [];
+  document.querySelectorAll("#pr-avail-grid .avail-cell.on").forEach(cell => {
+    slots.push({ day_of_week: parseInt(cell.dataset.day), slot_start: cell.dataset.start, slot_end: cell.dataset.end });
+  });
+  const res = await fetch(`/api/v1/teachers/${_prUser.teacher_id}/availability`, {
+    method: "PUT", headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ slots, semester: _prAvailTab })
+  });
+  if (res.ok) {
+    const r2 = await fetch(`/api/v1/teachers/${_prUser.teacher_id}/availability`);
+    _prAvailRows = await r2.json();
+    const sem = _prAvailTab;
+    const label = sem === null ? "general" : `C${sem}`;
+    alert(`✓ Disponibilidad ${label} guardada`);
+    prSwitchAvailTab(_prAvailTab);
+  } else {
+    const d = await res.json(); alert(d.error);
+  }
+}
+
+// ── PDF (mismo formato que alumno/horarios) ───────────
+function buildPrintHTML(sesiones, title, slotMins, duracion, year, semester, groupLetter = '') {
+  const DAY_NMS = ["Lunes","Martes","Miércoles","Jueves","Viernes"];
+  function tm(t) { const [h,m] = t.split(":").map(Number); return h*60+m; }
+  const dias = [0,1,2,3,4];
+  const FIXED_BOUNDS = [8*60,10*60,12*60,14*60,15*60,17*60,19*60,21*60];
+  const sessBounds = sesiones.flatMap(s => [tm(s.start), tm(s.end)]);
+  const allBounds = [...new Set([...FIXED_BOUNDS, ...sessBounds])].filter(b => b >= 8*60 && b <= 21*60).sort((a,b) => a-b);
+  const rowBounds = [];
+  for (let i = 0; i < allBounds.length - 1; i++) rowBounds.push([allBounds[i], allBounds[i+1]]);
+  const pad = n => String(n).padStart(2,"0");
+  const fmt = m => `${pad(Math.floor(m/60))}:${pad(m%60)}`;
+  const covered = new Set();
+  const hdr = `<tr><th style="width:64px;padding:9px 5px;background:#1e3a6e;color:#fff;border:1px solid #000;font-size:12px;font-weight:700;text-align:center;">HORA</th>${dias.map(d=>`<th style="padding:9px 6px;font-size:14px;font-weight:700;text-align:center;background:#1e3a6e;color:#fff;border:1px solid #000;text-transform:uppercase;">${DAY_NMS[d]}</th>`).join("")}</tr>`;
+  let rows = "";
+  for (let ri = 0; ri < rowBounds.length; ri++) {
+    const [rStart, rEnd] = rowBounds[ri];
+    const lunchRow = rStart === 840;
+    const cellBg = lunchRow ? '#ddd' : '#fff';
+    let cells = `<td style="padding:5px 6px;text-align:center;vertical-align:middle;background:#f5f5f5;border:1px solid #000;white-space:nowrap;font-size:12px;"><span style="display:block;font-weight:700;">${fmt(rStart)}</span><span style="display:block;color:#555;font-size:10px;">${fmt(rEnd)}</span></td>`;
+    for (const d of dias) {
+      if (covered.has(`${d}-${ri}`)) continue;
+      const sessArr = sesiones.filter(s => s.day === d && tm(s.start) >= rStart && tm(s.start) < rEnd);
+      if (sessArr.length) {
+        const maxEnd = Math.max(...sessArr.map(s => tm(s.end)));
+        let span = 0;
+        for (let j = ri; j < rowBounds.length && rowBounds[j][0] < maxEnd; j++) { span++; covered.add(`${d}-${j}`); }
+        const inner = sessArr.map((sess, i) => {
+          const isTheory = sess.subgroup == null;
+          const meta = sess.classroom ? `(${sess.classroom})` : '';
+          const grp  = sess.group ? `Gr. ${sess.group}${sess.subgroup != null ? ` · Sg. ${sess.subgroup}` : ''}` : (sess.subgroup != null ? `Sg. ${sess.subgroup}` : '');
+          const sep = i > 0 ? 'border-top:1px solid #ddd;padding-top:5px;width:100%;' : '';
+          return `<div style="${sep}line-height:1.3;"><div style="font-size:${isTheory?12:10.5}px;font-weight:${isTheory?700:600};${isTheory?'text-transform:uppercase;':''}}">${sess.subject}</div>${grp ? `<div style="font-size:10px;font-weight:700;margin-top:2px;color:#444;">${grp}</div>` : ''}${meta ? `<div style="font-size:${isTheory?10:9.5}px;font-weight:700;margin-top:2px;opacity:.75;">${meta}</div>` : ''}</div>`;
+        }).join("");
+        cells += `<td rowspan="${span}" style="padding:5px 6px;text-align:center;vertical-align:middle;border:1px solid #000;background:${lunchRow?'#ddd':'#fff'};"><div style="display:flex;flex-direction:column;gap:6px;align-items:center;">${inner}</div></td>`;
+      } else {
+        cells += `<td style="border:1px solid #000;background:${cellBg};"></td>`;
+      }
+    }
+    rows += `<tr style="height:${Math.round((rEnd-rStart)/60*45)}px;">${cells}</tr>`;
+  }
+  const now = new Date();
+  const fecha = now.toLocaleDateString("es-ES",{day:"2-digit",month:"long",year:"numeric"});
+  const anyo = now.getFullYear();
+  const semStr = semester === 1 ? "1er" : semester === 2 ? "2º" : null;
+  const leftTitle = semStr ? `${semStr} CUATRIMESTRE` : title;
+  const rightTitle = semStr ? `${semStr} Cuatrimestre – ${title}` : title;
+  return `<!DOCTYPE html><html lang="es"><head><meta charset="UTF-8"><title>${title}</title><style>*{margin:0;padding:0;box-sizing:border-box}html,body{height:auto;overflow:hidden}body{font-family:Arial,Helvetica,sans-serif;background:#fff;color:#000;padding:10px 14px}@media print{@page{margin:8mm;size:A4 landscape}body{padding:0}*{-webkit-print-color-adjust:exact;print-color-adjust:exact}}</style></head><body><table style="width:100%;border:2px solid #000;border-collapse:collapse;margin-bottom:0;"><tr><td style="padding:9px 14px;border:1px solid #000;font-size:13px;font-weight:700;width:38%;">${leftTitle}</td><td style="padding:9px 14px;border:1px solid #000;font-size:13px;font-weight:700;text-align:center;width:28%;">Curso ${anyo}/${anyo+1}</td><td style="padding:9px 14px;border:1px solid #000;font-size:13px;font-weight:700;text-align:right;width:34%;">${rightTitle}</td></tr></table><table style="width:100%;border-collapse:collapse;border:2px solid #000;border-top:none;"><thead>${hdr}</thead><tbody>${rows}</tbody></table><div style="font-size:10px;color:#555;margin-top:8px;text-align:center;font-style:italic;">Generado el ${fecha} · TFG Plataforma · Universidad de Alcalá</div></body></html>`;
+}
+</script>
+
+<footer>
+  <p>Trabajo de Fin de Grado — Plataforma Web Inteligente Para Automatizacion de Procesos Universitarios</p>
+  <p>Ingeniería Telemática — Universidad de Alcalá</p>
+  <p>Autor: David Paluso Corral</p>
+</footer>
+</body>
+</html>

@@ -51,6 +51,15 @@ router.delete("/:id", requireAdmin, (req, res) => {
   });
 });
 
+// GET /:id — datos de un profesor
+router.get("/:id", requireAuth, (req, res) => {
+  db.get("SELECT id, name, department, email, session_type FROM teachers WHERE id=?", [req.params.id], (err, row) => {
+    if (err)  return res.status(500).json({ error: err.message });
+    if (!row) return res.status(404).json({ error: "No encontrado" });
+    res.json(row);
+  });
+});
+
 // GET /:id/sessions — todas las sesiones asignadas a este profesor
 router.get("/:id/sessions", requireAuth, (req, res) => {
   db.all(`

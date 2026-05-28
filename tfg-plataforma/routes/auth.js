@@ -18,7 +18,7 @@ router.post("/login", (req, res) => {
     const match = await bcrypt.compare(password, user.password);
     if (!match) return res.status(401).json({ error: "Credenciales incorrectas" });
 
-    req.session.user = { id: user.id, username: user.username, role: user.role };
+    req.session.user = { id: user.id, username: user.username, role: user.role, teacher_id: user.teacher_id ?? null };
     res.json({ ok: true, user: req.session.user });
   });
 });

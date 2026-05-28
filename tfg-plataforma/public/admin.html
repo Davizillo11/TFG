@@ -205,19 +205,23 @@
     <!-- ── USUARIOS ── -->
     <div class="admin-tab-content" id="tab-usuarios">
       <h3 class="admin-section-title">Usuarios</h3>
-      <div class="gen-form" style="margin-bottom:20px;">
+      <div class="gen-form" style="margin-bottom:20px;flex-wrap:wrap;">
         <input  type="text"     id="u-username" placeholder="Usuario">
         <input  type="password" id="u-password" placeholder="Contraseña">
-        <select id="u-role">
+        <select id="u-role" onchange="onRoleChange()">
           <option value="user">Usuario</option>
           <option value="admin">Admin</option>
           <option value="alumno">Alumno</option>
+          <option value="profesor">Profesor</option>
+        </select>
+        <select id="u-teacher" style="display:none;">
+          <option value="">— Vincular profesor —</option>
         </select>
         <button class="btn-add" onclick="addUsuario()">+ Añadir</button>
       </div>
       <table class="data-table">
-        <thead><tr><th>Usuario</th><th>Rol</th><th>Creado</th><th></th></tr></thead>
-        <tbody id="tbody-usuarios"><tr><td colspan="4" class="empty-msg">Cargando...</td></tr></tbody>
+        <thead><tr><th>Usuario</th><th>Rol</th><th>Profesor vinculado</th><th>Creado</th><th></th></tr></thead>
+        <tbody id="tbody-usuarios"><tr><td colspan="5" class="empty-msg">Cargando...</td></tr></tbody>
       </table>
     </div>
 
@@ -480,10 +484,18 @@
       <h3 id="avail-modal-title">Disponibilidad</h3>
       <button class="modal-close" onclick="closeAvailModal()">✕</button>
     </div>
-    <div style="display:flex;gap:8px;padding:0 0 12px;flex-wrap:wrap;align-items:center;">
-      <button class="btn-add" style="font-size:0.78rem;padding:5px 14px;background:#4caf7d;border:none;" onclick="availAll()">Marcar todo</button>
-      <button class="btn-add" style="font-size:0.78rem;padding:5px 14px;background:#e06c75;border:none;" onclick="availNone()">Limpiar todo</button>
-      <span style="font-size:0.72rem;color:#999;margin-left:4px;">Arrastra · Clic en día o franja para seleccionar columna/fila</span>
+    <!-- Tabs + acciones en una sola fila -->
+    <div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap;padding:0 0 10px;">
+      <button id="avail-tab-null" onclick="switchAvailTab(null)"
+        style="padding:4px 12px;border-radius:5px;border:none;font-size:0.78rem;font-weight:600;cursor:pointer;background:#007bff;color:#fff;">General</button>
+      <button id="avail-tab-1" onclick="switchAvailTab(1)"
+        style="padding:4px 12px;border-radius:5px;border:none;font-size:0.78rem;font-weight:600;cursor:pointer;background:#6c757d;color:#fff;">C1</button>
+      <button id="avail-tab-2" onclick="switchAvailTab(2)"
+        style="padding:4px 12px;border-radius:5px;border:none;font-size:0.78rem;font-weight:600;cursor:pointer;background:#6c757d;color:#fff;">C2</button>
+      <div style="width:1px;background:#e0e0e0;align-self:stretch;margin:0 2px;"></div>
+      <button class="btn-add" style="font-size:0.78rem;padding:4px 12px;background:#4caf7d;border:none;" onclick="availAll()">Marcar todo</button>
+      <button class="btn-add" style="font-size:0.78rem;padding:4px 12px;background:#e06c75;border:none;" onclick="availNone()">Limpiar todo</button>
+      <span id="avail-tab-hint" style="font-size:0.72rem;color:#999;margin-left:2px;"></span>
     </div>
     <div class="avail-grid" id="avail-grid"></div>
     <div class="modal-actions">
@@ -504,6 +516,7 @@
 document.addEventListener("DOMContentLoaded", async () => {
   const user = await Auth.init({ requireAuth: true });
   if (!user) return;
+  if (user.role !== 'admin') { window.location.href = '/generador.html'; return; }
   document.getElementById("contenido-admin").style.display = "flex";
   initAvailListeners();
   loadAll();
@@ -877,15 +890,28 @@ async function deleteAsignatura(id) {
 }
 
 // ── USUARIOS ──────────────────────────────────────
+async function onRoleChange() {
+  const role = document.getElementById("u-role").value;
+  const tSel = document.getElementById("u-teacher");
+  tSel.style.display = role === "profesor" ? "" : "none";
+  if (role === "profesor") {
+    const list = profesores.length ? profesores
+      : await fetch("/api/v1/teachers").then(r => r.json());
+    tSel.innerHTML = `<option value="">— Vincular profesor —</option>` +
+      list.map(p => `<option value="${p.id}">${p.name}</option>`).join("");
+  }
+}
+
 async function loadUsuarios() {
   const res = await fetch("/api/v1/users");
   const users = await res.json();
   const tbody = document.getElementById("tbody-usuarios");
-  if (!users.length) { tbody.innerHTML = `<tr><td colspan="4" class="empty-msg">Sin usuarios</td></tr>`; return; }
+  if (!users.length) { tbody.innerHTML = `<tr><td colspan="5" class="empty-msg">Sin usuarios</td></tr>`; return; }
   tbody.innerHTML = users.map(u => `
     <tr>
       <td>${u.username}</td>
       <td>${u.role}</td>
+      <td style="color:#555;">${u.teacher_name || "—"}</td>
       <td>${new Date(u.created_at).toLocaleDateString("es-ES")}</td>
       <td><button class="btn-remove" onclick="deleteUsuario(${u.id})">✕</button></td>
     </tr>`).join("");
@@ -893,18 +919,22 @@ async function loadUsuarios() {
 }
 
 async function addUsuario() {
-  const username = document.getElementById("u-username").value.trim();
-  const password = document.getElementById("u-password").value;
-  const role     = document.getElementById("u-role").value;
+  const username   = document.getElementById("u-username").value.trim();
+  const password   = document.getElementById("u-password").value;
+  const role       = document.getElementById("u-role").value;
+  const teacher_id = role === "profesor" ? document.getElementById("u-teacher").value : null;
   if (!username || !password) return alert("Usuario y contraseña requeridos");
+  if (role === "profesor" && !teacher_id) return alert("Selecciona un profesor para vincular");
 
   const res = await fetch("/api/v1/users", {
     method: "POST", headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ username, password, role })
+    body: JSON.stringify({ username, password, role, teacher_id })
   });
   if (res.ok) {
     document.getElementById("u-username").value = "";
     document.getElementById("u-password").value = "";
+    document.getElementById("u-role").value = "user";
+    onRoleChange();
     await loadUsuarios();
   } else {
     const d = await res.json(); alert(d.error);
@@ -937,6 +967,42 @@ const SLOTS = [
   ["20:00","21:00"],
 ];
 let currentTeacherId = null;
+let _availTab     = null;   // null=General, 1=C1, 2=C2
+let _availAllRows = [];     // todas las filas del profesor actual
+
+function switchAvailTab(sem) {
+  _availTab = sem;
+  // Actualizar estilos de tabs
+  [null, 1, 2].forEach(s => {
+    const id  = `avail-tab-${s === null ? 'null' : s}`;
+    const btn = document.getElementById(id);
+    if (btn) btn.style.background = s === sem ? '#007bff' : '#6c757d';
+  });
+  // Hint para C1/C2: si está vacío, hereda General
+  const hint = document.getElementById('avail-tab-hint');
+  if (sem !== null) {
+    const hasSpecific = _availAllRows.some(r => r.semester === sem);
+    hint.textContent = hasSpecific ? '' : '(vacío — hereda disponibilidad General)';
+  } else {
+    hint.textContent = '';
+  }
+  // Filtrar filas del tab activo
+  const tabRows     = _availAllRows.filter(r => r.semester === sem);
+  const generalRows = _availAllRows.filter(r => r.semester === null);
+  let marked;
+  if (tabRows.length === 0) {
+    // Sin datos específicos → partir de General (o todo marcado si General también vacío)
+    if (generalRows.length === 0) {
+      marked = new Set();
+      SLOTS.forEach(([s]) => { for (let d = 0; d < 5; d++) marked.add(`${d}-${s}`); });
+    } else {
+      marked = expandSlots(generalRows);
+    }
+  } else {
+    marked = expandSlots(tabRows);
+  }
+  buildAvailGrid(marked);
+}
 
 function buildAvailGrid(markedSet) {
   const grid = document.getElementById("avail-grid");
@@ -945,7 +1011,8 @@ function buildAvailGrid(markedSet) {
     html += `<div class="avail-header avail-day-hdr" data-di="${di}" title="Clic: columna completa">${d}</div>`;
   });
   SLOTS.forEach(([start, end]) => {
-    html += `<div class="avail-hour avail-slot-lbl" data-start="${start}" data-end="${end}" title="Clic: fila completa">${start}</div>`;
+    const lbl = `${parseInt(start)}–${parseInt(end)}`;
+    html += `<div class="avail-hour avail-slot-lbl" data-start="${start}" data-end="${end}" title="Clic: fila completa">${lbl}</div>`;
     DAYS.forEach((_, di) => {
       const on = markedSet.has(`${di}-${start}`) ? "on" : "";
       html += `<div class="avail-cell ${on}" data-day="${di}" data-start="${start}" data-end="${end}"></div>`;
@@ -1023,24 +1090,17 @@ async function openAvailModal(teacherId, teacherName) {
   document.getElementById("avail-modal-title").textContent = `Disponibilidad — ${teacherName}`;
   document.getElementById("avail-modal").classList.add("open");
 
-  const res  = await fetch(`/api/v1/teachers/${teacherId}/availability`);
-  const rows = await res.json();
-  let marked;
-  if (rows.length === 0) {
-    // Sin datos guardados → marcar todo por defecto
-    marked = new Set();
-    SLOTS.forEach(([s]) => { for (let d = 0; d < 5; d++) marked.add(`${d}-${s}`); });
-  } else {
-    marked = expandSlots(rows);
-  }
-  buildAvailGrid(marked);
+  const res    = await fetch(`/api/v1/teachers/${teacherId}/availability`);
+  _availAllRows = await res.json();
+  switchAvailTab(null); // empezar siempre en General
 }
 
 function closeAvailModal() {
   document.getElementById("avail-modal").classList.remove("open");
   currentTeacherId = null;
+  _availAllRows    = [];
+  _availTab        = null;
 }
-
 
 async function saveAvailability() {
   const slots = [];
@@ -1054,11 +1114,15 @@ async function saveAvailability() {
 
   const res = await fetch(`/api/v1/teachers/${currentTeacherId}/availability`, {
     method: "PUT", headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ slots })
+    body: JSON.stringify({ slots, semester: _availTab })
   });
 
   if (res.ok) {
-    closeAvailModal();
+    // Refrescar datos internos y mantener el modal abierto en el mismo tab
+    const r2 = await fetch(`/api/v1/teachers/${currentTeacherId}/availability`);
+    _availAllRows = await r2.json();
+    showToast(`✓ Disponibilidad ${_availTab === null ? 'general' : `C${_availTab}`} guardada`);
+    switchAvailTab(_availTab); // re-renderizar para reflejar cambios
   } else {
     const d = await res.json(); alert(d.error);
   }

@@ -12,19 +12,39 @@ function dbAll(sql, p = []) { return new Promise((ok, ko) => db.all(sql, p, (e, 
 function dbGet(sql, p = []) { return new Promise((ok, ko) => db.get(sql, p, (e, r) => e ? ko(e) : ok(r))); }
 function dbRun(sql, p = []) { return new Promise((ok, ko) => db.run(sql, p, function(e) { e ? ko(e) : ok(this); })); }
 
-const DAY_COLS = ["Lunes", "Martes", "Miércoles", "Jueves", "Viernes"];
+const DAY_COLS    = ["Lunes", "Martes", "Miércoles", "Jueves", "Viernes"];
+const DAY_COLS_C1 = DAY_COLS.map(d => `C1 ${d}`);
+const DAY_COLS_C2 = DAY_COLS.map(d => `C2 ${d}`);
+
+const toMin    = t => t.split(":").reduce((h, m) => h * 60 + +m, 0);
+const minToTime = m => `${String(Math.floor(m/60)).padStart(2,'0')}:${String(m%60).padStart(2,'0')}`;
+
+function mergeIntervals(rows) {
+  // rows: [{slot_start, slot_end}] → ["HH:MM-HH:MM", ...]
+  if (!rows.length) return [];
+  const ivs = rows.map(r => [toMin(r.slot_start), toMin(r.slot_end)]);
+  ivs.sort((a, b) => a[0] - b[0]);
+  const merged = [[...ivs[0]]];
+  for (let i = 1; i < ivs.length; i++) {
+    const last = merged[merged.length - 1];
+    if (ivs[i][0] <= last[1]) last[1] = Math.max(last[1], ivs[i][1]);
+    else merged.push([...ivs[i]]);
+  }
+  return merged.map(([s, e]) => `${minToTime(s)}-${minToTime(e)}`);
+}
 
 function buildRows(teachers, availMap) {
   return teachers.map(t => {
-    const dayMap = availMap[t.id] || {};
-    const entry  = {
-      Nombre:       t.name          || "",
-      Departamento: t.department    || "",
-      Email:        t.email         || "",
-      Asignaturas:  t.subject_codes || "",
+    const bySem = availMap[t.id] || {};
+    const entry = {
+      Nombre:       t.name       || "",
+      Departamento: t.department || "",
+      Email:        t.email      || "",
     };
     DAY_COLS.forEach((col, i) => {
-      entry[col] = (dayMap[i] || []).join(", ");
+      entry[col]         = ((bySem[null] || {})[i] || []).join(", ");
+      entry[`C1 ${col}`] = ((bySem[1]   || {})[i] || []).join(", ");
+      entry[`C2 ${col}`] = ((bySem[2]   || {})[i] || []).join(", ");
     });
     return entry;
   });
@@ -32,10 +52,25 @@ function buildRows(teachers, availMap) {
 
 function buildWorkbook(rows) {
   const ws = xlsx.utils.json_to_sheet(rows);
-  ws["!cols"] = [
-    { wch: 28 }, { wch: 20 }, { wch: 28 }, { wch: 35 },
-    { wch: 16 }, { wch: 16 }, { wch: 16 }, { wch: 16 }, { wch: 16 },
-  ];
+  // Ancho automático: máximo de cabecera y contenido de cada columna
+  const headers = Object.keys(rows[0] || {});
+  ws["!cols"] = headers.map((h, c) => {
+    let max = h.length;
+    for (const row of rows) {
+      const val = String(row[h] ?? "");
+      if (val.length > max) max = val.length;
+    }
+    return { wch: max + 2 };
+  });
+  // Forzar formato texto en columnas de disponibilidad para que Excel
+  // no interprete "08:00-12:00" como fórmula al editar
+  const range = xlsx.utils.decode_range(ws["!ref"] || "A1");
+  for (let R = range.s.r + 1; R <= range.e.r; R++) {
+    for (let C = 3; C <= range.e.c; C++) {
+      const addr = xlsx.utils.encode_cell({ r: R, c: C });
+      if (ws[addr]) { ws[addr].t = "s"; ws[addr].z = "@"; }
+    }
+  }
   const wb = xlsx.utils.book_new();
   xlsx.utils.book_append_sheet(wb, ws, "Profesores");
   return wb;
@@ -46,19 +81,34 @@ async function fetchAvailMap(teacherIds) {
   if (teacherIds.length) {
     const ph = teacherIds.map(() => "?").join(",");
     avail = await dbAll(
-      `SELECT teacher_id, day_of_week, slot_start, slot_end FROM teacher_availability WHERE available=1 AND teacher_id IN (${ph}) ORDER BY teacher_id, day_of_week, slot_start`,
+      `SELECT teacher_id, day_of_week, slot_start, slot_end, semester FROM teacher_availability WHERE available=1 AND teacher_id IN (${ph}) ORDER BY teacher_id, semester, day_of_week, slot_start`,
       teacherIds
     );
   } else {
     avail = await dbAll(
-      "SELECT teacher_id, day_of_week, slot_start, slot_end FROM teacher_availability WHERE available=1 ORDER BY teacher_id, day_of_week, slot_start"
+      "SELECT teacher_id, day_of_week, slot_start, slot_end, semester FROM teacher_availability WHERE available=1 ORDER BY teacher_id, semester, day_of_week, slot_start"
     );
   }
-  const map = {};
+  // raw[teacherId][semester][day] = [{slot_start, slot_end}]
+  const raw = {};
   for (const r of avail) {
-    if (!map[r.teacher_id]) map[r.teacher_id] = {};
-    if (!map[r.teacher_id][r.day_of_week]) map[r.teacher_id][r.day_of_week] = [];
-    map[r.teacher_id][r.day_of_week].push(`${r.slot_start}-${r.slot_end}`);
+    const sem = r.semester ?? null;
+    if (!raw[r.teacher_id]) raw[r.teacher_id] = {};
+    if (!raw[r.teacher_id][sem]) raw[r.teacher_id][sem] = {};
+    if (!raw[r.teacher_id][sem][r.day_of_week]) raw[r.teacher_id][sem][r.day_of_week] = [];
+    raw[r.teacher_id][sem][r.day_of_week].push(r);
+  }
+  // Fusionar intervalos adyacentes por día
+  const map = {};
+  for (const [tid, bySem] of Object.entries(raw)) {
+    map[tid] = {};
+    for (const [sem, byDay] of Object.entries(bySem)) {
+      const semKey = sem === "null" || sem === null ? null : Number(sem);
+      map[tid][semKey] = {};
+      for (const [day, rows] of Object.entries(byDay)) {
+        map[tid][semKey][day] = mergeIntervals(rows);
+      }
+    }
   }
   return map;
 }
@@ -66,14 +116,9 @@ async function fetchAvailMap(teacherIds) {
 // descarga el Excel con todos los profesores y su disponibilidad
 router.get("/professors", requireAuth, async (req, res) => {
   try {
-    const teachers = await dbAll(`
-      SELECT t.id, t.name, t.department, t.email,
-             GROUP_CONCAT(sub.code, '; ') AS subject_codes
-      FROM teachers t
-      LEFT JOIN subject_teachers st ON st.teacher_id = t.id
-      LEFT JOIN subjects sub ON sub.id = st.subject_id
-      GROUP BY t.id ORDER BY t.name
-    `);
+    const teachers = await dbAll(
+      "SELECT id, name, department, email FROM teachers ORDER BY name"
+    );
     const availMap = await fetchAvailMap([]);
     const wb = buildWorkbook(buildRows(teachers, availMap));
     res.setHeader("Content-Disposition", 'attachment; filename="profesores.xlsx"');
@@ -87,15 +132,10 @@ router.get("/professors", requireAuth, async (req, res) => {
 // descarga el Excel de un profesor concreto
 router.get("/professors/:id", requireAuth, async (req, res) => {
   try {
-    const teacher = await dbGet(`
-      SELECT t.id, t.name, t.department, t.email,
-             GROUP_CONCAT(sub.code, '; ') AS subject_codes
-      FROM teachers t
-      LEFT JOIN subject_teachers st ON st.teacher_id = t.id
-      LEFT JOIN subjects sub ON sub.id = st.subject_id
-      WHERE t.id=?
-      GROUP BY t.id
-    `, [req.params.id]);
+    const teacher = await dbGet(
+      "SELECT id, name, department, email FROM teachers WHERE id=?",
+      [req.params.id]
+    );
     if (!teacher) return res.status(404).json({ error: "Profesor no encontrado" });
 
     const availMap = await fetchAvailMap([teacher.id]);
@@ -129,20 +169,34 @@ async function applyRowToTeacher(tid, row) {
     await dbRun(`UPDATE teachers SET ${sets.join(",")} WHERE id=?`, vals);
   }
 
-  for (let i = 0; i < DAY_COLS.length; i++) {
-    await dbRun("DELETE FROM teacher_availability WHERE teacher_id=? AND day_of_week=?", [tid, i]);
-    const cell = (row[DAY_COLS[i]] || "").trim();
-    if (!cell) continue;
-    for (const slot of cell.split(",").map(s => s.trim()).filter(Boolean)) {
-      const dash = slot.lastIndexOf("-");
-      if (dash < 1) continue;
-      const slot_start = slot.slice(0, dash).trim();
-      const slot_end   = slot.slice(dash + 1).trim();
-      if (!slot_start || !slot_end) continue;
-      await dbRun(
-        "INSERT INTO teacher_availability (teacher_id, day_of_week, slot_start, slot_end, available) VALUES (?,?,?,?,1)",
-        [tid, i, slot_start, slot_end]
-      );
+  // Importar disponibilidad: General (semester=NULL), C1 (semester=1), C2 (semester=2)
+  const semConfig = [
+    { cols: DAY_COLS,    semester: null },
+    { cols: DAY_COLS_C1, semester: 1    },
+    { cols: DAY_COLS_C2, semester: 2    },
+  ];
+  for (const { cols, semester } of semConfig) {
+    const delSql    = semester == null
+      ? "DELETE FROM teacher_availability WHERE teacher_id=? AND semester IS NULL"
+      : "DELETE FROM teacher_availability WHERE teacher_id=? AND semester=?";
+    const delParams = semester == null ? [tid] : [tid, semester];
+    await dbRun(delSql, delParams);
+
+    const timeRe = /^\d{1,2}:\d{2}$/;
+    for (let i = 0; i < cols.length; i++) {
+      const cell = String(row[cols[i]] ?? "").trim();
+      if (!cell) continue;
+      for (const slot of cell.split(",").map(s => s.trim()).filter(Boolean)) {
+        const dash = slot.indexOf("-", 3); // saltar el posible guión en HH
+        if (dash < 1) continue;
+        const slot_start = slot.slice(0, dash).trim();
+        const slot_end   = slot.slice(dash + 1).trim();
+        if (!timeRe.test(slot_start) || !timeRe.test(slot_end)) continue;
+        await dbRun(
+          "INSERT INTO teacher_availability (teacher_id, day_of_week, slot_start, slot_end, available, semester) VALUES (?,?,?,?,1,?)",
+          [tid, i, slot_start, slot_end, semester]
+        );
+      }
     }
   }
 

@@ -192,12 +192,10 @@ function getOrderedSlots(startTimes, subject, dur, duracion, partialMins, avoidD
 }
 
 // Selecciona el mejor profesor disponible para un slot dado.
-// Primero respeta la disponibilidad (restricción blanda), luego acepta cualquier
-// profesor que no esté ya ocupado físicamente en ese slot.
+// Solo asigna si el profesor cumple disponibilidad Y no está físicamente ocupado.
 function pickTeacher(teacherIds, dia, startMin, endMin, teacherAvail, occupiedTeachers, preOccTeachers, teacherSessMap) {
   if (teacherIds.length === 0) return null;
 
-  // primera pasada: respetar disponibilidad
   for (const tid of teacherIds) {
     if (!isTeacherAvailable(tid, dia, startMin, endMin, teacherAvail)) continue;
     if (!isSegmentFree([occupiedTeachers, preOccTeachers], `${tid}-${dia}`, startMin, endMin)) continue;
@@ -205,14 +203,7 @@ function pickTeacher(teacherIds, dia, startMin, endMin, teacherAvail, occupiedTe
     return tid;
   }
 
-  // segunda pasada (restricción blanda): cualquier profesor no ocupado físicamente
-  for (const tid of teacherIds) {
-    if (!isSegmentFree([occupiedTeachers, preOccTeachers], `${tid}-${dia}`, startMin, endMin)) continue;
-    if (countConsecBefore(tid, dia, startMin, teacherSessMap) >= MAX_CONSECUTIVE) continue;
-    return tid;
-  }
-
-  return null; // todos los profesores están físicamente ocupados
+  return null; // ningún profesor cumple disponibilidad y horario → dejar sin asignar
 }
 
 // ── Fase 1: asignar (aula, franja) sin restricciones de profesor ──

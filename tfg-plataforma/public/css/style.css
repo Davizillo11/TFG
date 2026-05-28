@@ -1406,10 +1406,10 @@ select:focus {
 .modal-card {
   background: white;
   border-radius: 16px;
-  padding: 30px;
+  padding: 22px 26px;
   width: 100%;
-  max-width: 780px;
-  max-height: 90vh;
+  max-width: 960px;
+  max-height: 94vh;
   overflow-y: auto;
   box-shadow: 0 20px 60px rgba(0,0,0,0.5);
   position: relative;
@@ -1419,7 +1419,7 @@ select:focus {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  margin-bottom: 22px;
+  margin-bottom: 14px;
 }
 
 .modal-header h3 {
@@ -1447,8 +1447,8 @@ select:focus {
 /* ── AVAILABILITY GRID ───────────────────────────── */
 .avail-grid {
   display: grid;
-  grid-template-columns: 64px repeat(5, 1fr);
-  gap: 4px;
+  grid-template-columns: 76px repeat(5, 1fr);
+  gap: 3px;
   font-size: 12px;
   user-select: none;
 }
@@ -1489,8 +1489,8 @@ select:focus {
 
 .avail-cell {
   background: #e8f0f5;
-  border-radius: 5px;
-  height: 36px;
+  border-radius: 4px;
+  height: 26px;
   cursor: pointer;
   transition: background 0.1s;
   border: 1px solid #d0dde8;
