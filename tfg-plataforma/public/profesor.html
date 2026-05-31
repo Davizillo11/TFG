@@ -232,7 +232,6 @@ function prBuildSessionsTable(rows) {
 
   const sem1 = rows.filter(r => r.semester === 1);
   const sem2 = rows.filter(r => r.semester === 2);
-  const mixed = sem1.length > 0 && sem2.length > 0;
 
   function renderBlock(semRows, label, bgColor, textColor, borderColor) {
     const byDay = {};
@@ -241,9 +240,7 @@ function prBuildSessionsTable(rows) {
       byDay[r.day_of_week].push(r);
     });
     let out = "";
-    if (mixed) {
-      out += `<tr><td colspan="5" style="padding:10px 16px;background:${bgColor};border-top:2px solid ${borderColor};border-bottom:2px solid ${borderColor};font-size:12px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:${textColor};">${label}</td></tr>`;
-    }
+    out += `<tr><td colspan="5" style="padding:10px 16px;background:${bgColor};border-top:2px solid ${borderColor};border-bottom:2px solid ${borderColor};font-size:12px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:${textColor};">${label}</td></tr>`;
     [0,1,2,3,4].forEach(d => {
       const dayRows = byDay[d]; if (!dayRows) return;
       dayRows.forEach((r, i) => {

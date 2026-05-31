@@ -13,6 +13,7 @@ db.serialize(() => {
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP
   )`);
   db.run("ALTER TABLE users ADD COLUMN teacher_id INTEGER REFERENCES teachers(id)", () => {});
+  db.run("UPDATE users SET role='profesor' WHERE role='profe'", () => {});
 
   // Classrooms
   db.run(`CREATE TABLE IF NOT EXISTS classrooms (
