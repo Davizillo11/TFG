@@ -39,8 +39,8 @@ function freeSegment(set, key, startMin, endMin) {
   for (let m = startMin; m < endMin; m += SLOT_STEP) set.delete(`${key}-${m}`);
 }
 
-// No entry in teacherAvail → no restrictions (always available).
-// Entry present but day absent → unavailable that day.
+// Si el profesor no aparece en teacherAvail, no tiene restricciones (siempre disponible).
+// Si aparece pero falta ese día, no está disponible ese día.
 function isTeacherAvailable(teacherId, dia, startMin, endMin, teacherAvail) {
   const dayMap = teacherAvail[teacherId];
   if (!dayMap) return true;
@@ -152,7 +152,7 @@ function getOrderedSlots(startTimes, subject, dur, duracion, partialMins, avoidD
     ];
   }
 
-  // Transversal subjects are restricted to Friday (day 4) for year 1 / semester 1.
+  // Las asignaturas transversales se restringen al viernes (día 4) en 1º / 1er cuatrimestre.
   if (subject.transversal) {
     return [...mainPref].sort((a, b) => {
       if (!!a.isExtreme !== !!b.isExtreme) return a.isExtreme ? 1 : -1;
@@ -161,7 +161,7 @@ function getOrderedSlots(startTimes, subject, dur, duracion, partialMins, avoidD
   }
 
   // Solo ordenar pref/late (10:00 antes 12:00, 15:00 antes 17:00) cuando la asignatura tiene horas mixtas
-  // (ej. 3h → [120,60]) — así la sesión larga cae en el anchor y la corta puede ir al fringe adyacente.
+  // (ej. 3h se divide en [120,60]), así la sesión larga cae en el anchor y la corta puede ir al fringe adyacente.
   // Para asignaturas con duraciones uniformes, mantener el orden aleatorio de startTimes.
   const hasMixed     = subject.sessionDurations && subject.sessionDurations.some(d => d < duracion);
   const needsAdjSort = hasMixed && dur >= duracion;
@@ -172,7 +172,7 @@ function getOrderedSlots(startTimes, subject, dur, duracion, partialMins, avoidD
   const late     = mainPref.filter(t => !isPreferredTime(t) && !t.isExtreme && !t.isLate);
   if (needsAdjSort) late.sort((a, b) => a.startMin - b.startMin);
   const veryLate = mainPref.filter(t => t.isLate);
-  // Morning groups: pref (10-14) → late (15:00+) → extreme (8:00, último recurso)
+  // Grupos de mañana: primero franja preferida (10-14), luego tarde (15:00+) y por último el extremo (8:00)
   return [
     ...pref.filter(t => !av(t) && !used(t)),
     ...pref.filter(t => !av(t) &&  used(t)),
@@ -203,10 +203,10 @@ function pickTeacher(teacherIds, dia, startMin, endMin, teacherAvail, occupiedTe
     return tid;
   }
 
-  return null; // ningún profesor cumple disponibilidad y horario → dejar sin asignar
+  return null; // ningún profesor cumple disponibilidad y horario, se deja sin asignar
 }
 
-// ── Fase 1: asignar (aula, franja) sin restricciones de profesor ──
+// Fase 1: asignar (aula, franja) sin restricciones de profesor
 
 function rescueExtremeSlots(result, allSessions, occupied, subjectSessions,
     startTimes, finMin, duracion, partialMins, avoidDays,
@@ -413,13 +413,13 @@ function solveCSP(allSessions, validAulasBySubject, startTimes, finMin, duracion
   return { result: solveGreedy(allSessions, validAulasBySubject, startTimes, finMin, duracion, partialMins, avoidDays, preOccClassrooms, maxParallel), perfect: false };
 }
 
-// ── Fase 2: asignar profesores a sesiones ya colocadas ──
+// Fase 2: asignar profesores a sesiones ya colocadas
 // sessions: array de { subject_id, day, start, end, subgroup, teacherCandidates }
 // teacherCandidates: IDs de profesores candidatos para esa sesión
 // Devuelve: sessions con teacher_id relleno + lista de las que no pudieron asignarse
 function assignTeachers(sessions, teacherAvail, preOccTeachers) {
   const teacherOcc    = new Set();   // ocupación dentro de este horario
-  const teacherSessMap = new Map();  // para consecutive check
+  const teacherSessMap = new Map();  // para comprobar las horas consecutivas
 
   // MRV: asignar primero las sesiones con menos candidatos disponibles
   const idxs = sessions.map((_, i) => i);
@@ -433,7 +433,7 @@ function assignTeachers(sessions, teacherAvail, preOccTeachers) {
     const eMin = timeToMin(sess.end);
     const candidates = sess.teacherCandidates || [];
 
-    if (candidates.length === 0) continue; // asignatura sin profesores → OK
+    if (candidates.length === 0) continue; // asignatura sin profesores, no pasa nada
 
     const tid = pickTeacher(candidates, sess.day, sMin, eMin, teacherAvail,
       teacherOcc, preOccTeachers, teacherSessMap);

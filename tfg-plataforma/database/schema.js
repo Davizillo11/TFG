@@ -3,7 +3,7 @@ const db     = require("./db");
 
 db.serialize(() => {
 
-  // Users
+  // usuarios
   db.run(`CREATE TABLE IF NOT EXISTS users (
     id         INTEGER PRIMARY KEY AUTOINCREMENT,
     username   TEXT    UNIQUE NOT NULL,
@@ -15,7 +15,7 @@ db.serialize(() => {
   db.run("ALTER TABLE users ADD COLUMN teacher_id INTEGER REFERENCES teachers(id)", () => {});
   db.run("UPDATE users SET role='profesor' WHERE role='profe'", () => {});
 
-  // Classrooms
+  // aulas
   db.run(`CREATE TABLE IF NOT EXISTS classrooms (
     id       INTEGER PRIMARY KEY AUTOINCREMENT,
     name     TEXT    NOT NULL,
@@ -26,7 +26,7 @@ db.serialize(() => {
   )`);
   db.run("ALTER TABLE classrooms ADD COLUMN zone TEXT", () => {});
 
-  // Teachers
+  // profesores
   db.run(`CREATE TABLE IF NOT EXISTS teachers (
     id           INTEGER PRIMARY KEY AUTOINCREMENT,
     name         TEXT NOT NULL,
@@ -36,7 +36,7 @@ db.serialize(() => {
   )`);
   db.run("ALTER TABLE teachers ADD COLUMN session_type TEXT DEFAULT 'ambos'", () => {});
 
-  // Subjects
+  // asignaturas
   db.run(`CREATE TABLE IF NOT EXISTS subjects (
     id         INTEGER PRIMARY KEY AUTOINCREMENT,
     name       TEXT    NOT NULL,
@@ -49,14 +49,14 @@ db.serialize(() => {
     room_type  TEXT    DEFAULT NULL
   )`);
 
-  // Subject–Teacher junction
+  // tabla de unión asignatura-profesor
   db.run(`CREATE TABLE IF NOT EXISTS subject_teachers (
     subject_id INTEGER REFERENCES subjects(id)  ON DELETE CASCADE,
     teacher_id INTEGER REFERENCES teachers(id)  ON DELETE CASCADE,
     PRIMARY KEY (subject_id, teacher_id)
   )`);
 
-  // Teacher availability
+  // disponibilidad de los profesores
   db.run(`CREATE TABLE IF NOT EXISTS teacher_availability (
     id          INTEGER PRIMARY KEY AUTOINCREMENT,
     teacher_id  INTEGER REFERENCES teachers(id) ON DELETE CASCADE,
@@ -68,7 +68,7 @@ db.serialize(() => {
   )`);
   db.run("ALTER TABLE teacher_availability ADD COLUMN semester INTEGER DEFAULT NULL", () => {});
 
-  // Generated schedules
+  // horarios generados
   db.run(`CREATE TABLE IF NOT EXISTS schedules (
     id         INTEGER PRIMARY KEY AUTOINCREMENT,
     name       TEXT,
@@ -123,7 +123,7 @@ db.serialize(() => {
     PRIMARY KEY (degree, year, group_letter)
   )`, () => {});
 
-  // Schedule sessions
+  // sesiones de cada horario
   db.run(`CREATE TABLE IF NOT EXISTS schedule_sessions (
     id           INTEGER PRIMARY KEY AUTOINCREMENT,
     schedule_id  INTEGER REFERENCES schedules(id)   ON DELETE CASCADE,
@@ -148,7 +148,7 @@ db.serialize(() => {
     UNIQUE(user_id, subject_id, degree, year, semester, group_letter)
   )`, () => {});
 
-  // Default admin user (bcrypt, cost 12)
+  // usuario admin por defecto (bcrypt, coste 12)
   db.get("SELECT id FROM users WHERE username = 'admin'", async (err, row) => {
     if (!row) {
       const hash = await bcrypt.hash("admin", 12);
@@ -156,7 +156,7 @@ db.serialize(() => {
         "INSERT INTO users (username, password, role) VALUES (?, ?, ?)",
         ["admin", hash, "admin"]
       );
-      console.log("[DB] Admin user created.");
+      console.log("[BD] Usuario admin creado.");
     }
   });
 

@@ -8,7 +8,7 @@ const {
   occupySegment,
 } = require('../lib/solver');
 
-// ── Helpers ───────────────────────────────────────
+// utilidades
 
 function makeSubject(id, overrides = {}) {
   return {
@@ -37,7 +37,7 @@ const startTimes = DIAS.flatMap(d => [
 const partialMins = new Set();
 const teacherAvail = {};
 
-// ── Tests ─────────────────────────────────────────
+// pruebas
 
 test('getSessionDurations splits weekly hours into sessions', () => {
   assert.deepStrictEqual(getSessionDurations(2, 120), [120]);

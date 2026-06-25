@@ -8,7 +8,7 @@ const router = express.Router();
 function dbAll(sql, p=[]) { return new Promise((ok,ko) => db.all(sql,p,(e,r)=>e?ko(e):ok(r))); }
 function dbRun(sql, p=[]) { return new Promise((ok,ko) => db.run(sql,p,function(e){e?ko(e):ok(this)})); }
 
-// GET all
+// listar todas
 router.get("/", requireAuth, async (req, res) => {
   try {
     const rows = await dbAll("SELECT * FROM group_config ORDER BY year, degree, group_letter");
@@ -16,7 +16,7 @@ router.get("/", requireAuth, async (req, res) => {
   } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
-// PUT upsert — crea o actualiza una entrada
+// crear o actualizar una entrada
 router.put("/", requireAdmin, async (req, res) => {
   try {
     const { degree, year, group_letter, afternoon = 0, bilingual = 0 } = req.body;
@@ -32,7 +32,7 @@ router.put("/", requireAdmin, async (req, res) => {
   } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
-// DELETE
+// eliminar
 router.delete("/", requireAdmin, async (req, res) => {
   try {
     const { degree, year, group_letter } = req.body;

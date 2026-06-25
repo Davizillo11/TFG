@@ -16,7 +16,7 @@
       flex: 1; overflow: hidden; min-height: 0;
     }
 
-    /* Sidebar */
+    /* barra lateral */
     .pr-sb {
       width: clamp(180px, 15vw, 230px); min-width: clamp(180px, 15vw, 230px);
       background: rgba(13,27,42,0.55);
@@ -28,10 +28,10 @@
     .pr-sb-dept { font-size: 0.75rem; color: #9aa3b2; margin-top: 2px; }
     .pr-sb-divider { height: 1px; background: rgba(255,255,255,0.08); margin: 12px 0; }
 
-    /* Main */
+    /* zona principal */
     .pr-main { flex: 1; display: flex; flex-direction: column; min-width: 0; overflow: hidden; }
 
-    /* Sidebar PDF buttons */
+    /* botones de PDF de la barra lateral */
     .pr-sb-pdf {
       width: 100%; padding: 7px 12px; border-radius: 6px; border: none;
       background: rgba(0,180,216,0.15); color: #00b4d8; font-size: 0.78rem; font-weight: 600;
@@ -39,7 +39,7 @@
     }
     .pr-sb-pdf:hover { background: rgba(0,180,216,0.28); }
 
-    /* Sidebar nav buttons */
+    /* botones de navegación de la barra lateral */
     .pr-sb-nav {
       width: 100%; padding: 9px 12px; border-radius: 6px; border: none;
       background: transparent; color: #9aa3b2; font-size: 0.82rem; font-weight: 600;
@@ -48,7 +48,7 @@
     .pr-sb-nav:hover   { background: rgba(255,255,255,0.08); color: #e8eaed; }
     .pr-sb-nav.active  { background: rgba(0,180,216,0.18);  color: #00b4d8; }
 
-    /* Body area */
+    /* zona del cuerpo */
     .pr-body { flex: 1; overflow: auto; padding: 24px 28px; background: #f4f6f9; }
 
     /* Disponibilidad: sin scroll, todo en pantalla */
@@ -63,7 +63,7 @@
     #pr-panel-disponibilidad #pr-avail-grid .avail-header { height: unset; padding: 3px 0; }
     #pr-panel-disponibilidad .avail-save-wrap { flex-shrink: 0; padding-bottom: 4px; }
 
-    /* Availability grid */
+    /* rejilla de disponibilidad */
     .avail-tab-bar { display: flex; gap: 6px; align-items: center; flex-wrap: wrap; margin-bottom: 12px; }
     .avail-tab-bar button { padding: 4px 12px; border-radius: 5px; border: none; font-size: 0.78rem; font-weight: 600; cursor: pointer; }
     .avail-save-btn {
@@ -76,7 +76,7 @@
     /* Cards */
     .pr-card { background: #fff; border-radius: 10px; padding: 20px 24px; box-shadow: 0 2px 8px rgba(0,0,0,0.07); }
 
-    /* Session table wrapper — ocupa toda la altura disponible */
+    /* contenedor de la tabla de sesiones: ocupa toda la altura disponible */
     .pr-sessions-wrap { background: #fff; flex: 1; overflow-y: auto; }
   </style>
 </head>
@@ -110,7 +110,7 @@
 
 <div class="horarios-page" id="contenido-profe" style="display:none;">
 
-  <!-- Sidebar -->
+  <!-- barra lateral -->
   <aside class="pr-sb">
     <div class="pr-sb-name" id="pr-name">—</div>
     <div class="pr-sb-dept" id="pr-dept">—</div>
@@ -122,7 +122,7 @@
     <button class="pr-sb-pdf" onclick="printProfesor(2)">⬇ PDF C2</button>
   </aside>
 
-  <!-- Main -->
+  <!-- zona principal -->
   <div class="pr-main">
 
     <!-- Tab: Mi Horario -->
@@ -169,7 +169,7 @@ let _prAvailTab  = null;
 let _prDragging  = false;
 let _prDragVal   = null;
 
-// ── Init ──────────────────────────────────────────────
+// inicialización
 document.addEventListener("DOMContentLoaded", async () => {
   const user = await Auth.init({ requireAuth: true });
   if (!user) return;
@@ -188,7 +188,7 @@ async function prLoadTeacherInfo() {
   document.getElementById("pr-dept").textContent = _prTeacher.department || "—";
 }
 
-// ── Tabs ──────────────────────────────────────────────
+// pestañas
 function prSwitchTab(tab) {
   document.getElementById("pr-panel-horario").style.display        = tab === "horario"        ? "flex" : "none";
   document.getElementById("pr-panel-disponibilidad").style.display = tab === "disponibilidad" ? "flex" : "none";
@@ -197,7 +197,7 @@ function prSwitchTab(tab) {
   if (tab === "disponibilidad" && !_prAvailRows.length) prLoadAvailability();
 }
 
-// ── Mi Horario ────────────────────────────────────────
+// Mi Horario
 async function prLoadSessions() {
   const el  = document.getElementById("pr-sessions");
   const res = await fetch(`/api/v1/teachers/${_prUser.teacher_id}/sessions`);
@@ -269,7 +269,7 @@ function prBuildSessionsTable(rows) {
   return html;
 }
 
-// ── Mi Disponibilidad ─────────────────────────────────
+// Mi Disponibilidad
 async function prLoadAvailability() {
   const res = await fetch(`/api/v1/teachers/${_prUser.teacher_id}/availability`);
   _prAvailRows = await res.json();
@@ -383,7 +383,7 @@ async function prSaveAvailability() {
   }
 }
 
-// ── PDF (mismo formato que alumno/horarios) ───────────
+// PDF (mismo formato que alumno/horarios)
 function buildPrintHTML(sesiones, title, slotMins, duracion, year, semester, groupLetter = '') {
   const DAY_NMS = ["Lunes","Martes","Miércoles","Jueves","Viernes"];
   function tm(t) { const [h,m] = t.split(":").map(Number); return h*60+m; }

@@ -5,7 +5,7 @@ const requireAdmin = require("../middleware/adminOnly");
 
 const router = express.Router();
 
-// GET all
+// listar todas
 router.get("/", requireAuth, (req, res) => {
   db.all(`
     SELECT s.*,
@@ -22,7 +22,7 @@ router.get("/", requireAuth, (req, res) => {
   });
 });
 
-// POST create
+// crear
 router.post("/", requireAdmin, (req, res) => {
   const { name, code, degree, year, semester, students, hours_week, teacher_ids, room_type, session_type, theory_hours, lab_hours } = req.body;
   if (!name) return res.status(400).json({ error: "Nombre requerido" });
@@ -47,7 +47,7 @@ router.post("/", requireAdmin, (req, res) => {
   );
 });
 
-// PUT update
+// actualizar
 router.put("/:id", requireAdmin, (req, res) => {
   const { name, code, degree, year, semester, students, hours_week, teacher_ids, room_type, session_type, theory_hours, lab_hours } = req.body;
   const bilingual = req.body.bilingual ? 1 : 0;
@@ -75,7 +75,7 @@ router.put("/:id", requireAdmin, (req, res) => {
   );
 });
 
-// DELETE
+// eliminar
 router.delete("/:id", requireAdmin, (req, res) => {
   db.run("DELETE FROM subjects WHERE id=?", [req.params.id], function (err) {
     if (err) return res.status(500).json({ error: err.message });

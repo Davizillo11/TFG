@@ -13,7 +13,7 @@ function requireAdminOrOwnTeacher(req, res, next) {
 
 const router = express.Router({ mergeParams: true });
 
-// GET /api/v1/teachers/:id/availability
+// devuelve la disponibilidad de un profesor
 router.get("/", requireAuth, (req, res) => {
   db.all(
     "SELECT * FROM teacher_availability WHERE teacher_id = ? ORDER BY day_of_week, slot_start",
@@ -25,8 +25,8 @@ router.get("/", requireAuth, (req, res) => {
   );
 });
 
-// PUT /api/v1/teachers/:id/availability — reemplaza los slots del cuatrimestre indicado (admin o profe propio)
-// Body: { slots: [{day_of_week, slot_start, slot_end}], semester: null|1|2 }
+// reemplaza los slots del cuatrimestre indicado (admin o el propio profesor)
+// cuerpo: { slots: [{day_of_week, slot_start, slot_end}], semester: null|1|2 }
 router.put("/", requireAdminOrOwnTeacher, (req, res) => {
   const { slots, semester = null } = req.body;
   const tid = req.params.id;

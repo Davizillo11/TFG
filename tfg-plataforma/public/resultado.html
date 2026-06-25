@@ -7,7 +7,7 @@
   <link rel="icon" type="image/png" href="images/icon.png">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <style>
-    /* ── Layout ── */
+    /* disposición general */
     .resultado-page {
       display: flex;
       flex-direction: column;
@@ -25,7 +25,7 @@
     .res-header p  { margin: 4px 0 0; color: rgba(255,255,255,0.6); font-size: 0.88rem; }
     .res-actions   { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
 
-    /* ── Metric cards ── */
+    /* tarjetas de métricas */
     .stats-bar {
       display: flex;
       gap: 10px;
@@ -47,7 +47,7 @@
     .metric-card.warn .metric-val { color: #e5c07b; }
     .metric-card.ok   .metric-val { color: #98c379; }
 
-    /* ── Warning box ── */
+    /* caja de aviso */
     .no-asig-box {
       background: rgba(229,192,123,0.12);
       border: 1px solid rgba(229,192,123,0.4);
@@ -57,7 +57,7 @@
     .no-asig-box h4 { margin: 0 0 8px; color: #e5c07b; font-size: 0.9rem; }
     .no-asig-box ul { margin: 0; padding-left: 18px; color: rgba(255,255,255,0.75); font-size: 0.85rem; }
 
-    /* ── Legend ── */
+    /* leyenda */
     .legend {
       display: flex;
       flex-wrap: wrap;
@@ -76,7 +76,7 @@
       flex-shrink: 0;
     }
 
-    /* ── Tabla de horario ── */
+    /* tabla de horario */
     .schedule-wrapper {
       overflow-x: auto; border-radius: 12px;
       border: 1px solid rgba(255,255,255,0.13);
@@ -113,7 +113,7 @@
     .sc-slot-time .t-start { font-size: 0.8rem; font-weight: 700; color: rgba(255,255,255,0.85); display: block; }
     .sc-slot-time .t-end   { font-size: 0.68rem; color: rgba(255,255,255,0.35); display: block; margin-top: 2px; }
 
-    /* Celda de día — altura controlada por el <tr> vía JS (proporcional a duración) */
+    /* celda de día: la altura la controla el <tr> vía JS (proporcional a la duración) */
     .sc-day-cell {
       padding: 5px; vertical-align: top;
       border-right: 1px solid rgba(255,255,255,0.06);
@@ -185,7 +185,7 @@
       text-transform: uppercase; color: rgba(229,192,123,0.75);
     }
 
-    /* ── Botones de acción ── */
+    /* botones de acción */
     .btn-volver {
       background: rgba(255,255,255,0.08);
       border: 1px solid rgba(255,255,255,0.15);
@@ -221,7 +221,7 @@
     }
     .btn-save:hover { background: rgba(152,195,121,0.25); }
 
-    /* ── Loading ── */
+    /* carga */
     .loading-box {
       display: flex;
       flex-direction: column;
@@ -240,7 +240,7 @@
     }
     @keyframes spin { to { transform: rotate(360deg); } }
 
-    /* ── Error ── */
+    /* error */
     .error-box {
       display: flex;
       flex-direction: column;
@@ -254,7 +254,7 @@
     .error-box h2 { margin: 0; font-size: 1.2rem; }
     .error-box p  { margin: 0; font-size: 0.88rem; color: rgba(255,255,255,0.6); }
 
-    /* ── Print ── */
+    /* impresión */
     @media print {
       nav, footer, .res-actions, .stats-bar, .legend, .no-asig-box,
       #greedy-box, #no-asig-box, #btn-save-changes, #btn-print { display: none !important; }
@@ -285,7 +285,7 @@
 </head>
 <body class="horarios-body">
 
-<!-- NAVBAR -->
+<!-- barra de navegación -->
 <nav>
   <div class="logo">
     <a href="index.html" class="no-hover">
@@ -345,7 +345,7 @@
     <!-- Métricas -->
     <div class="stats-bar" id="stats-bar"></div>
 
-    <!-- Popup acción drag & drop -->
+    <!-- ventana de acción al arrastrar y soltar -->
     <div id="drop-menu">
       <button id="drop-menu-add"  onclick="dropMenuAction('add')">Añadir al slot</button>
       <button id="drop-menu-swap" onclick="dropMenuAction('swap')">Intercambiar</button>
@@ -407,7 +407,7 @@ function minToTime(min) {
   return `${String(Math.floor(min / 60)).padStart(2, "0")}:${String(min % 60).padStart(2, "0")}`;
 }
 
-// ── PDF Export ────────────────────────────────────
+// exportar a PDF
 function buildPrintHTML(sesiones, title, year, semester, groupLetter = '') {
   const DAY_NMS = ["Lunes","Martes","Miércoles","Jueves","Viernes"];
   function tm(t) { const [h,m] = t.split(":").map(Number); return h*60+m; }
@@ -417,7 +417,7 @@ function buildPrintHTML(sesiones, title, year, semester, groupLetter = '') {
   const dias = [...new Set(sesiones.map(s => s.day))].sort();
   const ROW_PX = 50;
 
-  // 1-hour grid augmented with session boundaries
+  // rejilla de 1 hora ampliada con los límites de cada sesión
   const base = [];
   for (let h = 8; h <= 21; h++) base.push(h * 60);
   const sessBounds = sesiones.flatMap(s => [tm(s.start), tm(s.end)]);
@@ -517,7 +517,7 @@ function exportPDF() {
   win.document.close();
   win.addEventListener("load", () => {
     const body = win.document.body;
-    // A4 landscape @ 96 CSS px/in, minus 6 mm top+bottom margins (2 × 22.7 px ≈ 45 px)
+    // A4 horizontal a 96 px CSS/pulgada, menos 6 mm de margen arriba+abajo (2 x 22.7 px = 45 px aprox.)
     const usableH = Math.round(210 * 3.7795) - 45;  // ≈ 749 px
     const usableW = Math.round(297 * 3.7795) - 45;  // ≈ 1077 px
     const scaleH = usableH / body.scrollHeight;
@@ -529,7 +529,7 @@ function exportPDF() {
   });
 }
 
-// ── State ─────────────────────────────────────────
+// estado
 let currentSessions = [];
 let currentScheduleId = null;
 let currentMeta = null;
@@ -541,7 +541,7 @@ let pendingDrag     = null;
 let hasUnsaved      = false;
 let currentMaxParallel = 2;
 
-// ── Color map ─────────────────────────────────────
+// mapa de colores
 function buildColorMap(sesiones) {
   const colorMap = {};
   let idx = 0;
@@ -561,7 +561,7 @@ function renderLegend(colorMap) {
   ).join("");
 }
 
-// ── Metrics ───────────────────────────────────────
+// métricas
 function renderStats(sesiones, noAsig, payload, totalNeeded) {
   const theory  = sesiones.filter(s => s.subgroup == null).length;
   const lab     = sesiones.filter(s => s.subgroup != null).length;
@@ -588,7 +588,7 @@ function renderStats(sesiones, noAsig, payload, totalNeeded) {
   ).join("");
 }
 
-// ── Render table ──────────────────────────────────
+// renderizado de la tabla
 function renderTable(sesiones, franjas, colorMap, breaks = [], slotMins = []) {
   const { dias, duracion, horaFin } = franjas;
   const endMin0 = timeToMin(horaFin);
@@ -598,32 +598,32 @@ function renderTable(sesiones, franjas, colorMap, breaks = [], slotMins = []) {
     return;
   }
 
-  // Index: day → array of {s, idx} (allows sessions offset within display rows)
+  // Índice: día -> array de {s, idx} (permite desplazar sesiones dentro de las filas mostradas)
   const byDay = {};
   sesiones.forEach((s, idx) => {
     if (!byDay[s.day]) byDay[s.day] = [];
     byDay[s.day].push({ s, idx });
   });
 
-  // Merge display slots (from backend slotMins) with any session start times not covered.
-  // Exclude session mins that fall strictly inside an existing slotMins row — those are
-  // positioned via topPx offset within their parent row, not as separate rows.
+  // Combina los slots a mostrar (slotMins del backend) con los inicios de sesión no cubiertos.
+  // Se excluyen los minutos de sesión que caen dentro de una fila de slotMins existente: esos
+  // se colocan con un desplazamiento topPx dentro de su fila, no como filas separadas.
   const sessionMins  = [...new Set(sesiones.map(s => timeToMin(s.start)))];
   const filteredSessionMins = sessionMins.filter(sm =>
     !slotMins.some(rowStart => sm > rowStart && sm < rowStart + duracion)
   );
   const allStartMins = [...new Set([...slotMins, ...filteredSessionMins])].sort((a,b) => a-b);
 
-  // Compute end time for each display slot.
-  // For slotMins rows: always use the next slotMin / +duracion boundary so the row
-  // keeps its full height even when a short session sits inside it at topPx offset.
-  // For session-only rows (not in slotMins): use the session end as the row height.
+  // Calcula la hora de fin de cada slot mostrado.
+  // Para las filas de slotMins: usar siempre el siguiente slotMin (o +duracion) para que la
+  // fila mantenga su altura completa aunque dentro haya una sesión corta con desplazamiento topPx.
+  // Para las filas que solo tienen sesión (no están en slotMins): usar el fin de la sesión como altura.
   const slots = allStartMins.map((sm, i) => {
     const nextSm  = allStartMins[i + 1];
     const slotDur = Math.min(duracion, endMin0 - sm);
     const endSm   = nextSm && nextSm - sm <= duracion ? nextSm : sm + slotDur;
     if (!slotMins.includes(sm)) {
-      // Session-only row: use session end to determine row height
+      // Fila de solo sesión: usar el fin de la sesión para determinar la altura de la fila
       const sessEnd = sesiones
         .filter(s => timeToMin(s.start) === sm)
         .reduce((mx, s) => Math.max(mx, timeToMin(s.end)), -1);
@@ -666,7 +666,7 @@ function renderTable(sesiones, franjas, colorMap, breaks = [], slotMins = []) {
       : Math.max(durMin * 0.75, maxSessInRow * 50);
 
     const cells = dias.map(d => {
-      // Find sessions for this day whose start falls within [rowStart, rowEnd)
+      // Busca las sesiones de este día cuyo inicio cae dentro de [rowStart, rowEnd)
       const entries = (byDay[d] || []).filter(({ s }) => {
         const sm = timeToMin(s.start);
         return sm >= rowStartMin && sm < rowEndMin;
@@ -705,22 +705,22 @@ function renderTable(sesiones, franjas, colorMap, breaks = [], slotMins = []) {
       const sessDur  = timeToMin(s.end) - sessMin;
       const topPx    = Math.round(((sessMin - rowStartMin) / durMin) * rowH);
       const ch       = Math.max(32, Math.round((sessDur / durMin) * rowH) - 8);
-      // For full-slot sessions: cap height to session duration so inflated rows (many lab subgroups)
-      // don't make theory cards enormous. Center the capped card vertically in the cell.
+      // Para sesiones de slot completo: limitar la altura a la duración de la sesión para que las filas
+      // infladas (muchos subgrupos de lab) no agranden demasiado las tarjetas de teoría. Se centra en vertical.
       const cardH    = Math.min(rowH, Math.round(durMin * 0.82)) - 8;
 
-      // Toggle button appears for any short session inside a full-size row.
+      // El botón de alternar aparece en cualquier sesión corta dentro de una fila de tamaño completo.
       const isOffsetable = sessDur < durMin;
       const maxTopPx     = isOffsetable ? Math.round(((durMin - sessDur) / durMin) * rowH) : 0;
       const fringeStart  = isOffsetable ? minToTime(rowStartMin + durMin - sessDur) : s.start;
       const fringeEnd    = isOffsetable ? minToTime(rowEndMin)                       : s.end;
       const topStartTime = minToTime(rowStartMin);
       const topEndTime   = minToTime(rowStartMin + sessDur);
-      // Afternoon fringe: prefer top of block (adjacent to preceding sessions).
-      // Morning fringe:   prefer bottom of block (adjacent to following sessions).
+      // Fringe de tarde: se prefiere arriba del bloque (junto a las sesiones anteriores).
+      // Fringe de mañana: se prefiere abajo del bloque (junto a las sesiones siguientes).
       const afternoonFringe = isOffsetable && sessMin >= 15 * 60 && topPx > 0 && s.forceTopHalf !== false;
       const renderTopPx     = afternoonFringe ? 0 : topPx;
-      // flipped=1 → card at top; flipped=0 → card at bottom
+      // flipped=1: tarjeta arriba; flipped=0: tarjeta abajo
       const flippedNow      = isOffsetable && renderTopPx === 0 ? "1" : "0";
       return `<td class="sc-day-cell" data-day="${d}" data-start="${s.start}" style="padding:0;vertical-align:top${isOffsetable ? '' : ';position:relative;'}">
         ${renderTopPx > 0 ? `<div class="sc-offset-spacer" style="height:${renderTopPx}px"></div>` : ""}
@@ -760,7 +760,7 @@ function renderTable(sesiones, franjas, colorMap, breaks = [], slotMins = []) {
   attachDragDrop();
 }
 
-// ── Drag & Drop ───────────────────────────────────
+// arrastrar y soltar
 function toggleOffsetCard(btn, e) {
   e.stopPropagation();
   const card    = btn.closest(".sc-card");
@@ -769,7 +769,7 @@ function toggleOffsetCard(btn, e) {
   const idx     = parseInt(card.dataset.idx);
   const offset  = parseInt(card.dataset.offset);
 
-  // Spacer may not exist if the card was rendered at the top (topPx=0)
+  // El espaciador puede no existir si la tarjeta se renderizó arriba (topPx=0)
   let spacer = td.querySelector(".sc-offset-spacer");
   if (!spacer) {
     spacer = document.createElement("div");
@@ -798,7 +798,7 @@ function attachDragDrop() {
     card.addEventListener("dragstart", e => {
       dragIdx = parseInt(card.dataset.idx);
       e.dataTransfer.effectAllowed = "move";
-      // Small delay so the drag image captures before opacity change
+      // Pequeño retardo para que la imagen de arrastre se capture antes del cambio de opacidad
       requestAnimationFrame(() => card.classList.add("dragging"));
     });
     card.addEventListener("dragend", () => {
@@ -832,42 +832,42 @@ function attachDragDrop() {
       const duracion = savedFranjas ? savedFranjas.duracion : dur;
       const endMin0  = timeToMin(savedFranjas ? savedFranjas.horaFin : "22:00");
 
-      // Returns true if a session of `d` minutes starting at `startMin` spills
-      // into the next display row or past the end of the day.
+      // Devuelve true si una sesión de `d` minutos que empieza en `startMin` se sale
+      // a la siguiente fila o más allá del final del día.
       const overflows = (startMin, d) => {
         if (startMin + d > endMin0) return true;
         return currentSlotMins.some(sm => sm > startMin && startMin + d > sm);
       };
 
-      // Was the dragged short session at the top of its source row (flipped up)?
+      // ¿La sesión corta arrastrada estaba arriba de su fila de origen (volteada hacia arriba)?
       const srcMin      = timeToMin(src.start);
       const srcRowStart = [...currentSlotMins].reverse().find(sm => sm <= srcMin) ?? srcMin;
       const srcAtTop    = dur < duracion && srcMin === srcRowStart;
 
-      // Snap a session to the correct position within its destination row:
-      // - Full-size (2h): always use the row start
-      // - Short (1h): fringe (bottom) by default; top if the source was at the top
+      // Ajusta una sesión a la posición correcta dentro de su fila de destino:
+      // - Tamaño completo (2h): usar siempre el inicio de la fila
+      // - Corta (1h): fringe (abajo) por defecto; arriba si el origen estaba arriba
       const snapToRow = (startMin, d, atTop = false) => {
         const rowStart = [...currentSlotMins].reverse().find(sm => sm <= startMin) ?? startMin;
         const rowIdx   = currentSlotMins.indexOf(rowStart);
         const nextRow  = currentSlotMins[rowIdx + 1];
-        // Cap by endMin0 so 1h fringe rows at day-end aren't mistaken for 2h rows
+        // Limitar con endMin0 para que las filas fringe de 1h al final del día no se confundan con filas de 2h
         const rowEnd   = nextRow ? Math.min(nextRow, rowStart + duracion) : Math.min(rowStart + duracion, endMin0);
         const rowDur   = rowEnd - rowStart;
         if (d >= duracion) return rowStart;
         if (rowDur >= duracion) return atTop ? rowStart : rowStart + rowDur - d;
-        return rowStart; // 1h-only row: place at row start
+        return rowStart; // fila de solo 1h: colocar al inicio de la fila
       };
 
       const actualStartMin = snapToRow(timeToMin(targetStart), dur, srcAtTop);
       const actualStart    = minToTime(actualStartMin);
 
-      // Block if the dragged session would overflow its destination row.
+      // Bloquear si la sesión arrastrada se saldría de su fila de destino.
       if (overflows(actualStartMin, dur)) { dragIdx = null; return; }
 
       const newEnd = minToTime(actualStartMin + dur);
 
-      // Resolve which card the drop landed on (ignoring the card being dragged)
+      // Determina sobre qué tarjeta se ha soltado (ignorando la que se está arrastrando)
       const droppedOnCard = e.target.closest('.sc-card[data-idx]');
       const droppedOnIdx  = (droppedOnCard && parseInt(droppedOnCard.dataset.idx) !== dragIdx)
         ? parseInt(droppedOnCard.dataset.idx) : -1;
@@ -879,7 +879,7 @@ function attachDragDrop() {
         ? Math.min(targetNextSl, targetRowStart + duracion)
         : Math.min(targetRowStart + duracion, endMin0);
 
-      // Sessions in destination slot (excluding the dragged one)
+      // Sesiones en el slot de destino (sin contar la que se arrastra)
       const targetSlotSessions = currentSessions.filter((s, i) => {
         if (i === dragIdx) return false;
         const sm = timeToMin(s.start);
@@ -968,7 +968,7 @@ document.addEventListener("click", e => {
   }
 });
 
-// ── Save manual changes ───────────────────────────
+// guardar los cambios manuales
 async function saveChanges() {
   if (!currentScheduleId) return;
   const btn = document.getElementById("btn-save-changes");
@@ -1004,7 +1004,7 @@ function showError(msg) {
   document.getElementById("error-msg").textContent         = msg;
 }
 
-// ── Init ──────────────────────────────────────────
+// inicialización
 document.addEventListener("DOMContentLoaded", async () => {
   const user = await Auth.init({ requireAuth: true });
   if (!user) return;

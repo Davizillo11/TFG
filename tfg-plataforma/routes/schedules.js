@@ -5,7 +5,7 @@ const requireAdmin = require("../middleware/adminOnly");
 
 const router = express.Router();
 
-// helpers para usar la BD con async/await
+// funciones auxiliares para usar la BD con async/await
 function dbAll(sql, params = []) {
   return new Promise((res, rej) =>
     db.all(sql, params, (err, rows) => err ? rej(err) : res(rows))
@@ -42,10 +42,10 @@ function solveLabSessions({ subjects, classroomRows, classroomType, classroomCap
   const labSessions = [];
   const noAsig = [];
   const roomOcc = new Set();
-  // branchOcc: slotKey → Set<branch> — impide que dos labs de la misma rama coincidan
+  // branchOcc: slotKey -> Set<rama>, impide que dos labs de la misma rama coincidan
   const branchOcc = new Map();
 
-  // Ocupación de teoría → bloquea labs en esos huecos
+  // Ocupación de teoría: bloquea labs en esos huecos
   // theoryTimeOcc: global (para maxParallel<=2 grupos compartidos)
   // subjectTheoryTimeOcc: per-asignatura (para maxParallel>2 ramas/especialización)
   const theoryTimeOcc = new Set();
@@ -85,7 +85,7 @@ function solveLabSessions({ subjects, classroomRows, classroomType, classroomCap
       for (const d of effectiveDias) candidateSlots.push({ dia: d, startMin: m });
     }
   } else {
-    // Grupos de tarde: solo tarde — nunca mañana para labs de grupo de tarde
+    // Grupos de tarde: solo tarde, nunca mañana para labs de grupo de tarde
     for (let m = AFT_START; m + LAB_DUR <= LATE_THRESH; m += LAB_DUR)
       for (const d of effectiveDias) candidateSlots.push({ dia: d, startMin: m });
     for (let m = LATE_THRESH; m + LAB_DUR <= finMin; m += LAB_DUR)
@@ -150,13 +150,13 @@ function solveLabSessions({ subjects, classroomRows, classroomType, classroomCap
     const key = `${ts.day}-${timeToMin(ts.start)}`;
     slotLabCount.set(key, (slotLabCount.get(key) || 0) + 1);
   }
-  // Por asignatura: slots ya ocupados → evita que dos subgrupos de la misma asignatura coincidan
+  // Por asignatura: slots ya ocupados, evita que dos subgrupos de la misma asignatura coincidan
   const subjectSlotOcc = new Map();
-  // Por número de subgrupo: slots ocupados → prefiere que sg1 de distintas asignaturas no coincidan
+  // Por número de subgrupo: slots ocupados, prefiere que sg1 de distintas asignaturas no coincidan
   const subgroupSlotOcc = new Map();
 
-  // Shuffle days within each time band → each task tries days in a different order
-  // so subjects don't all compete for the same first-choice slot.
+  // Baraja los días dentro de cada franja horaria para que cada tarea pruebe los días en
+  // distinto orden y las asignaturas no compitan todas por el mismo primer slot.
   const shuffleDays = (slots) => {
     const byTime = new Map();
     const timeOrder = [];
@@ -264,7 +264,7 @@ function solveLabSessions({ subjects, classroomRows, classroomType, classroomCap
     }
   }
 
-  // ── Pase de rescate: mover sesiones de lab en slots tardíos (≥19:00) a slots anteriores ──
+  // Pase de rescate: mover sesiones de lab en slots tardíos (>=19:00) a slots anteriores
   const LATE_START = 19 * 60;
   for (const sess of labSessions) {
     const sessStartMin = timeToMin(sess.start);
@@ -335,7 +335,7 @@ function solveLabSessions({ subjects, classroomRows, classroomType, classroomCap
     }
   }
 
-  // ── Pase de mejora: mover labs de slots extremos (<10:00) a preferidos (10-14h) ──
+  // Pase de mejora: mover labs de slots extremos (<10:00) a preferidos (10-14h)
   const PREF_LAB_MIN = 10 * 60;
   const PREF_LAB_MAX = 14 * 60;
   let labAnyMoved = true;
@@ -362,7 +362,7 @@ function solveLabSessions({ subjects, classroomRows, classroomType, classroomCap
     let moved = false;
     for (const slot of candidateSlots) {
       if (slot.startMin < PREF_LAB_MIN || slot.startMin >= PREF_LAB_MAX) continue;
-      // No bloqueamos el día de teoría entero — solo comprobamos solapamiento horario
+      // No bloqueamos el día de teoría entero, solo comprobamos solapamiento horario
       const theoryOcc = maxParallel > 2
         ? (subjectTheoryTimeOcc.get(sess.subject_id) || new Set())
         : theoryTimeOcc;
@@ -456,7 +456,7 @@ router.post("/generate", requireAuth, async (req, res) => {
           if (intervals[i][0] <= last[1]) last[1] = Math.max(last[1], intervals[i][1]);
           else merged.push(intervals[i].slice());
         }
-        teacherAvail[tid][+day] = merged; // +day: string key → number
+        teacherAvail[tid][+day] = merged; // +day: convierte la clave de texto a número
       }
     }
     const subjectMeta        = Object.fromEntries(subjectRows.map(r => [r.id, r]));
@@ -481,9 +481,9 @@ router.post("/generate", requireAuth, async (req, res) => {
 
     // Para grados multi-rama (maxParallel > 2): detectar la rama de cada asignatura
     // comparando su nombre con asignaturas de los grados componentes (GIT, GIEC, GIST)
-    // del mismo año y cuatrimestre. Sin match → asignatura común (null).
+    // del mismo año y cuatrimestre. Si no hay coincidencia, es asignatura común (null).
     const BRANCH_DEGREES = ['GIT', 'GIEC', 'GIST'];
-    const subjectBranchMap = {}; // subjectId → 'git'|'giec'|'gist'|null
+    const subjectBranchMap = {}; // subjectId -> 'git'|'giec'|'gist'|null
     if (maxParallel > 2) {
       const branchSubjects = subjectRows.filter(s =>
         BRANCH_DEGREES.includes(s.degree) && s.year === meta.year && s.semester === meta.semester
@@ -568,8 +568,8 @@ router.post("/generate", requireAuth, async (req, res) => {
       ? effectiveDias.map(d => ({ dia: d, startMin: 19 * 60, isLate: true }))
       : [];
 
-    // orden de prioridad: mañana → tarde → extremo → fringe
-    // Con duracion=60 todos los slots son de 1h — los fringe/extreme antes de las 10:00 no son necesarios
+    // orden de prioridad: mañana, luego tarde, después extremo y por último fringe
+    // Con duracion=60 todos los slots son de 1h, los fringe/extreme antes de las 10:00 no son necesarios
     const useFringe     = duracion > 60;
     const morningMain   = shuffle(mainSlots.filter(t => t.startMin < LUNCH_START));
     const afternoonMain = shuffle(mainSlots.filter(t => t.startMin >= LUNCH_END));
@@ -701,7 +701,7 @@ router.post("/generate", requireAuth, async (req, res) => {
       }
     }
 
-    // MRV: contar slots por asignatura (restricción de aula, no de profesor — profesor es soft)
+    // MRV: contar slots por asignatura (restricción de aula, no de profesor; el profesor es restricción blanda)
     const validSlots = {};
     for (const s of subjects) {
       const checkDur = Math.max(...s.sessionDurations, duracion);
@@ -841,7 +841,7 @@ router.post("/generate", requireAuth, async (req, res) => {
       }
     }
 
-    // ── Pase de mejora: mover sesiones de teoría de slots extremos (<10:00) a preferidos (10-14h) ──
+    // Pase de mejora: mover sesiones de teoría de slots extremos (<10:00) a preferidos (10-14h)
     {
       const PREF_MIN = 10 * 60;
       const prefMins = [...new Set(morningMain.map(t => t.startMin))]
@@ -889,7 +889,7 @@ router.post("/generate", requireAuth, async (req, res) => {
             if (sMin >= PREF_MIN) continue; // ya en rango preferido o tarde
 
             const dur     = timeToMin(sess.end) - sMin;
-            // 1h en slot fringe (9:00) ya está en su posición óptima — no mover
+            // 1h en slot fringe (9:00) ya está en su posición óptima, no se mueve
             if (dur < duracion && partialMins.has(sMin)) continue;
             const sid     = sess.subject_id;
             const usedays = subjDays[sid] || new Set();
@@ -944,7 +944,7 @@ router.post("/generate", requireAuth, async (req, res) => {
           }
         }
 
-        // ── Sub-pase de adyacencia: mover sesión corta (1h) al fringe justo antes de la sesión larga ──
+        // Sub-pase de adyacencia: mover sesión corta (1h) al fringe justo antes de la sesión larga
         if (morningFringeOK || aftnGroupFringeOK) {
           const bySubj = {};
           for (let i = 0; i < sesiones.length; i++) {
@@ -1026,7 +1026,7 @@ router.post("/generate", requireAuth, async (req, res) => {
       ? subjects.filter(s => s.transversal)
       : [];
 
-    // Mapa de minutos ocupados por teoría ya colocada → las transversales no pueden solaparse
+    // Mapa de minutos ocupados por teoría ya colocada para que las transversales no se solapen
     const theorySlotOcc = new Set();
     for (const s of sesiones) {
       const s0 = timeToMin(s.start), e0 = timeToMin(s.end);
@@ -1090,7 +1090,7 @@ router.post("/generate", requireAuth, async (req, res) => {
       }
     }
 
-    // ── Pase de dispersión de teoría (incluye transversales) ──
+    // Pase de dispersión de teoría (incluye transversales)
     // Redistribuye sesiones que coinciden en el mismo slot a slots vacíos.
     // Grupos de mañana: solo dispersión horizontal (mismo horario, distinto día).
     // Grupos de tarde: dispersión libre en cualquier slot vacío.
@@ -1129,7 +1129,7 @@ router.post("/generate", requireAuth, async (req, res) => {
           .sort((a, b) => b[1].length - a[1].length);
         for (const [crowdKey, idxs] of overcrowded) {
           // Para maxParallel>2: si el slot tiene sesiones de distintas ramas (o common+rama),
-          // la concurrencia es intencional → no dispersar este slot
+          // la concurrencia es intencional, no se dispersa este slot
           if (maxParallel > 2) {
             const slotBranches = idxs.map(idx => subjectBranchMap[sesiones[idx].subject_id] || 'common');
             const uniqueBranches = new Set(slotBranches);
@@ -1188,7 +1188,7 @@ router.post("/generate", requireAuth, async (req, res) => {
       }
     }
 
-    // sesiones de prácticas (subgrupos) — hasta 5 intentos para minimizar labs fuera de franja preferida
+    // sesiones de prácticas (subgrupos): hasta 5 intentos para minimizar labs fuera de franja preferida
     const labArgs = {
       subjects, classroomRows, classroomType, classroomCapacity, classroomMeta,
       preOccClassrooms, theoryDayBySubject, effectiveDias,
@@ -1269,7 +1269,7 @@ router.post("/generate", requireAuth, async (req, res) => {
     const displayMinsSet = new Set(uniqueMainMins);
     if (morningFringeOK && duracion > 60) displayMinsSet.add(Math.max(startMin0, firstMain - duracion));
     if (afternoonFringeOK && !isAfternoonGroup) {
-      // Para grupos de tarde no añadir fringeBMin=20:00 — crea un gap 19:00-20:00 en el display.
+      // Para grupos de tarde no añadir fringeBMin=20:00, crea un hueco 19:00-20:00 en el display.
       // El slot 19:00 se añade más abajo como eveningExtremeSlot.
       const fringeWithinMain = mainSlots.some(t => t.startMin <= fringeBMin && t.startMin + duracion > fringeBMin);
       if (!fringeWithinMain) displayMinsSet.add(fringeBMin);
@@ -1384,7 +1384,7 @@ router.get("/conflicts", requireAuth, async (req, res) => {
   }
 });
 
-// función interna reutilizable — asigna profesores a un horario concreto
+// función interna reutilizable: asigna profesores a un horario concreto
 async function assignTeachersForSchedule(schedId) {
   const schedRows = await dbAll("SELECT * FROM schedules WHERE id=?", [schedId]);
   if (!schedRows.length) throw new Error("Horario no encontrado");
@@ -1624,7 +1624,7 @@ router.get("/validate", requireAuth, async (req, res) => {
   }
 });
 
-// guarda los cambios manuales del drag & drop
+// guarda los cambios manuales de arrastrar y soltar
 router.put("/:id/sessions", requireAuth, async (req, res) => {
   try {
     const { id } = req.params;

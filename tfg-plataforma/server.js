@@ -5,7 +5,7 @@ const path    = require("path");
 const app  = express();
 const PORT = 3000;
 
-// ── Middleware ────────────────────────────────────
+// middleware
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 app.use(express.static("public"));
@@ -17,10 +17,10 @@ app.use(session({
   cookie: { secure: false, maxAge: 24 * 60 * 60 * 1000 } // 24h
 }));
 
-// ── Database & Schema ─────────────────────────────
+// base de datos y esquema
 require("./database/schema");
 
-// ── Routes ────────────────────────────────────────
+// rutas
 app.use("/api/v1/auth",                        require("./routes/auth"));
 app.use("/api/v1/classrooms",                  require("./routes/classrooms"));
 app.use("/api/v1/teachers",                    require("./routes/teachers"));
@@ -36,7 +36,7 @@ app.use("/api/v1/slot-limits",                 require("./routes/slotlimits"));
 app.use("/api/v1/degree-groups",              require("./routes/degreegroups"));
 app.use("/api/v1/student",                   require("./routes/student"));
 
-// ── Serve app ─────────────────────────────────────
+// servir la app
 app.get("/", (req, res) => {
   res.sendFile(path.join(__dirname, "public", "index.html"));
 });

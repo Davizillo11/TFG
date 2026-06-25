@@ -1,6 +1,6 @@
 /**
- * Auth helper compartido — incluir en todas las páginas.
- * Comprueba la sesión en el servidor y actualiza el navbar.
+ * Módulo de autenticación compartido: se incluye en todas las páginas.
+ * Comprueba la sesión en el servidor y actualiza la barra de navegación.
  */
 const Auth = (() => {
 

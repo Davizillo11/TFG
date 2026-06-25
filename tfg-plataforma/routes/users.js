@@ -5,7 +5,7 @@ const requireAdmin = require("../middleware/adminOnly");
 
 const router = express.Router();
 
-// GET all (never return password)
+// listar todos (sin devolver la contraseña)
 router.get("/", requireAdmin, (req, res) => {
   db.all(`
     SELECT u.id, u.username, u.role, u.teacher_id, u.created_at, t.name AS teacher_name
@@ -18,7 +18,7 @@ router.get("/", requireAdmin, (req, res) => {
   });
 });
 
-// POST create
+// crear
 router.post("/", requireAdmin, async (req, res) => {
   const { username, password, role, teacher_id } = req.body;
   if (!username || !password) return res.status(400).json({ error: "Usuario y contraseña requeridos" });
@@ -35,7 +35,7 @@ router.post("/", requireAdmin, async (req, res) => {
   );
 });
 
-// DELETE
+// eliminar
 router.delete("/:id", requireAdmin, (req, res) => {
   if (parseInt(req.params.id) === req.session.user.id)
     return res.status(400).json({ error: "No puedes eliminarte a ti mismo" });

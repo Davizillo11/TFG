@@ -9,7 +9,7 @@
   <style>
     body.horarios-body { overflow: hidden; }
 
-    /* Forzar layout horizontal sobre horarios-page (que usa flex-direction:column) */
+    /* forzar disposición horizontal sobre horarios-page (que usa flex-direction:column) */
     #contenido-alumno {
       flex-direction: row !important;
       align-items:    stretch !important;
@@ -20,7 +20,7 @@
       min-height:     0;
     }
 
-    /* ── Sidebar ─────────────────────────────────────── */
+    /* barra lateral */
     .al-sb {
       width: clamp(200px, 17vw, 255px); min-width: clamp(200px, 17vw, 255px);
       background: rgba(0,0,0,0.62);
@@ -60,7 +60,7 @@
 
     .al-divider { height: 1px; background: rgba(255,255,255,0.07); margin: 14px 0; }
 
-    /* ── Chips ───────────────────────────────────────── */
+    /* etiquetas */
     .chip {
       display: flex; justify-content: space-between; align-items: center;
       border-left: 3px solid #61afef; border-radius: 5px;
@@ -73,10 +73,10 @@
     .chip-del:hover { color: #e06c75; }
     .no-items  { font-size: 0.75rem; color: #9aa3b2; font-style: italic; }
 
-    /* ── Main ────────────────────────────────────────── */
+    /* zona principal */
     .al-main { flex: 1; display: flex; flex-direction: column; min-width: 0; overflow: hidden; }
 
-    /* ── Tab bar ─────────────────────────────────────── */
+    /* Tab bar */
     .al-tabbar {
       display: flex; align-items: center; gap: 6px;
       padding: 12px 18px 0;
@@ -96,10 +96,10 @@
     }
     .btn-pdf:hover { background: rgba(152,195,121,0.22); }
 
-    /* ── Timetable area ──────────────────────────────── */
+    /* zona del horario */
     .al-body { flex: 1; overflow: auto; padding: 16px 20px; background: rgba(18,22,30,0.55); }
 
-    /* ── Conflict ────────────────────────────────────── */
+    /* conflicto */
     .al-conflict {
       background: rgba(229,192,123,0.12); border: 1px solid rgba(229,192,123,0.35);
       border-radius: 6px; padding: 9px 13px; color: #e5c07b; font-size: 0.78rem; margin-bottom: 14px;
@@ -107,7 +107,7 @@
     .al-conflict ul { margin: 4px 0 0 16px; padding: 0; }
     .al-conflict li { margin-bottom: 2px; }
 
-    /* ── Timetable ───────────────────────────────────── */
+    /* horario */
     .al-table {
       width: 100%; border-collapse: collapse; min-width: 500px;
       font-size: 0.75rem; table-layout: fixed;
@@ -126,14 +126,14 @@
     .al-table td.td-s  { padding: 3px; background: rgba(18,24,36,0.75); }
     .al-table td.td-mt { height: 3rem; background: rgba(18,24,36,0.75); }
 
-    /* ── Session block ───────────────────────────────── */
+    /* bloque de sesión */
     .s-block { border-radius: 4px; padding: 7px 9px; margin: 2px; border-left-width: 3px; border-left-style: solid; }
     .s-name  { display: block; font-size: 0.78rem; font-weight: 700; line-height: 1.3; }
     .s-meta  { display: block; font-size: 0.68rem; margin-top: 3px; color: #9aa3b2; }
     .s-time  { display: block; font-size: 0.65rem; margin-top: 2px; color: #6b7280; }
     .al-empty { color: #5c6370; font-style: italic; font-size: 0.8125rem; padding: 40px 0; text-align: center; }
 
-    /* Session colors — tarjetas oscuras con acento de color */
+    /* colores de sesión: tarjetas oscuras con acento de color */
     .sc-0 { background: rgba(28,50,74,0.97);  border-left-color:#61afef; }  .sc-0 .s-name { color:#91caff; }
     .sc-1 { background: rgba(28,52,32,0.97);  border-left-color:#98c379; }  .sc-1 .s-name { color:#b4e08a; }
     .sc-2 { background: rgba(64,52,24,0.97);  border-left-color:#e5c07b; }  .sc-2 .s-name { color:#f2d090; }
@@ -145,7 +145,7 @@
 
     @media print { body { display: none !important; } }
 
-    /* ── Smart Generator button ─────────────────────── */
+    /* botón del generador inteligente */
     .btn-smart-gen {
       padding: 6px 14px; border-radius: 5px; cursor: pointer; font-size: 0.75rem; font-weight: 600;
       background: rgba(198,120,221,0.13); border: 1px solid rgba(198,120,221,0.4); color: #c678dd;
@@ -153,7 +153,7 @@
     }
     .btn-smart-gen:hover { background: rgba(198,120,221,0.24); }
 
-    /* ── Smart Generator modal ───────────────────────── */
+    /* modal del generador inteligente */
     #sg-overlay {
       position: fixed; inset: 0; background: rgba(0,0,0,0.78);
       z-index: 1000; display: none; align-items: center; justify-content: center;
@@ -307,7 +307,7 @@
 
 <div class="horarios-page" id="contenido-alumno" style="display:none;">
 
-  <!-- Sidebar -->
+  <!-- barra lateral -->
   <aside class="al-sb">
     <div class="al-sb-title">Añadir asignatura</div>
 
@@ -328,7 +328,7 @@
     <button class="al-btn al-btn-clear" onclick="clearSemester()" style="margin-top:10px;">Limpiar cuatrimestre</button>
   </aside>
 
-  <!-- Main -->
+  <!-- zona principal -->
   <div class="al-main">
     <div class="al-tabbar">
       <button class="al-tab active" id="tab-c1" onclick="switchSem(1)">1er Cuatrimestre</button>
@@ -344,7 +344,7 @@
   </div>
 </div>
 
-<!-- ── Smart Generator Modal ─────────────────────────────── -->
+<!-- modal del generador inteligente -->
 <div id="sg-overlay" onclick="sgOverlayClick(event)">
   <div id="sg-card">
     <div id="sg-header">
@@ -401,10 +401,10 @@ const DAYS = ['Lunes','Martes','Miércoles','Jueves','Viernes'];
 let allItems     = [];
 let allSchedules = [];
 let currentSem   = 1;
-let colorIdx     = {};   // item.id → 0..7
+let colorIdx     = {};   // item.id -> 0..7
 let cachedSes    = [];   // sesiones del schedule actualmente elegido en el selector
 
-// ── Init ────────────────────────────────────────────
+// inicialización
 document.addEventListener("DOMContentLoaded", async () => {
   const user = await Auth.init({ requireAuth: true });
   if (!user) return;
@@ -416,10 +416,10 @@ document.addEventListener("DOMContentLoaded", async () => {
   await refreshItems();
 });
 
-// ── Helpers ─────────────────────────────────────────
+// utilidades
 const active = () => allSchedules.filter(s => s.status === 'active');
 
-// ── Dropdowns ───────────────────────────────────────
+// desplegables
 function sortDegreesTelocoFirst(degrees) {
   return [...degrees].sort((a, b) => {
     if (a === 'Teleco') return -1;
@@ -446,7 +446,7 @@ function populateAnios() {
   resetFrom('asig');
 }
 
-// Año cambia → carga asignaturas de todos los grupos activos del grado+año+cuatrimestre
+// Al cambiar el año: carga las asignaturas de todos los grupos activos del grado+año+cuatrimestre
 async function populateAsignaturas() {
   const deg  = document.getElementById('sel-grado').value;
   const year = parseInt(document.getElementById('sel-anio').value);
@@ -479,7 +479,7 @@ async function populateAsignaturas() {
   sel.disabled = false;
 }
 
-// Asignatura cambia → carga los grupos que tienen esa asignatura
+// Al cambiar la asignatura: carga los grupos que tienen esa asignatura
 function populateGrupos() {
   const subjectId = parseInt(document.getElementById('sel-asig').value);
   const sel = document.getElementById('sel-grupo');
@@ -495,7 +495,7 @@ function populateGrupos() {
   resetFrom('subg');
 }
 
-// Grupo cambia → carga subgrupos de esa asignatura en ese grupo
+// Al cambiar el grupo: carga los subgrupos de esa asignatura en ese grupo
 function populateSubgrupos() {
   const subjectId = parseInt(document.getElementById('sel-asig').value);
   const group = document.getElementById('sel-grupo').value;
@@ -533,7 +533,7 @@ document.getElementById('sel-anio' ).addEventListener('change', populateAsignatu
 document.getElementById('sel-asig' ).addEventListener('change', populateGrupos);
 document.getElementById('sel-grupo').addEventListener('change', populateSubgrupos);
 
-// ── Add ─────────────────────────────────────────────
+// añadir
 async function addItem() {
   const deg       = document.getElementById('sel-grado').value;
   const year      = parseInt(document.getElementById('sel-anio').value);
@@ -555,7 +555,7 @@ async function addItem() {
   else { const d = await res.json(); alert(d.error || 'Error'); }
 }
 
-// ── Delete / Clear ───────────────────────────────────
+// borrar y limpiar
 async function deleteItem(id) {
   await fetch(`/api/v1/student/items/${id}`, { method: 'DELETE' });
   await refreshItems();
@@ -568,7 +568,7 @@ async function clearSemester() {
   await refreshItems();
 }
 
-// ── Tab switch ───────────────────────────────────────
+// cambio de pestaña
 function switchSem(sem) {
   currentSem = sem;
   document.getElementById('tab-c1').classList.toggle('active', sem === 1);
@@ -580,7 +580,7 @@ function switchSem(sem) {
   renderCurrentSem();
 }
 
-// ── Data refresh ─────────────────────────────────────
+// recarga de datos
 async function refreshItems() {
   allItems = await fetch('/api/v1/student/items').then(r => r.json());
   colorIdx = {};
@@ -589,7 +589,7 @@ async function refreshItems() {
   renderCurrentSem();
 }
 
-// ── Render ───────────────────────────────────────────
+// renderizado
 function renderCurrentSem() {
   const items = allItems.filter(it => it.semester === currentSem);
 
@@ -618,7 +618,7 @@ function renderCurrentSem() {
   renderConflicts(items);
 }
 
-// ── Timetable ────────────────────────────────────────
+// horario
 function buildTimetable(items) {
   const sessions = [];
   items.forEach(it => {
@@ -662,7 +662,7 @@ function buildTimetable(items) {
   return html;
 }
 
-// ── Conflicts ────────────────────────────────────────
+// conflictos
 function toMins(t) { const [h,m]=t.split(':').map(Number); return h*60+m; }
 
 function renderConflicts(items) {
@@ -687,11 +687,11 @@ function renderConflicts(items) {
   if (out.length) el.innerHTML = `Solapamientos detectados:<ul>${out.map(c=>`<li>${c}</li>`).join('')}</ul>`;
 }
 
-// ── Color helpers ────────────────────────────────────
+// utilidades de color
 const BORDERS = ['#61afef','#98c379','#e5c07b','#c678dd','#e06c75','#56b6c2','#d19a66','#abb2bf'];
 function borderColor(ci) { return BORDERS[ci % NPAL]; }
 
-// ── PDF (mismo formato que admin/horarios) ────────────
+// PDF (mismo formato que admin/horarios)
 function buildPrintHTML(sesiones, title, slotMins, duracion, year, semester, groupLetter = '') {
   const DAY_NMS = ["Lunes","Martes","Miércoles","Jueves","Viernes"];
   function tm(t) { const [h,m] = t.split(":").map(Number); return h*60+m; }
@@ -779,7 +779,7 @@ body{font-family:Arial,Helvetica,sans-serif;background:#fff;color:#000;padding:1
 }
 
 // ══════════════════════════════════════════════════════════
-// ── GENERADOR INTELIGENTE ─────────────────────────────────
+// GENERADOR INTELIGENTE
 // ══════════════════════════════════════════════════════════
 
 const SG_DAYS  = ['L','M','X','J','V'];
@@ -814,7 +814,7 @@ function sgPhase(n) {
 
 function sgBack() { sgPhase(1); }
 
-// ── Dropdowns del modal ───────────────────────────────────
+// desplegables del modal
 function sgOnGrado() {
   const deg = document.getElementById('sg-grado').value;
   const anioSel = document.getElementById('sg-anio');
@@ -918,7 +918,7 @@ function sgRenderChips() {
     </div>`).join('');
 }
 
-// ── Algoritmo ─────────────────────────────────────────────
+// Algoritmo
 function sgToMins(t) { const [h,m]=t.split(':').map(Number); return h*60+m; }
 
 function sgScoreCombo(assignments) {
@@ -1024,7 +1024,7 @@ function sgFindBest(subjectOptions, maxResults = 5) {
   return unique;
 }
 
-// ── Calcular ──────────────────────────────────────────────
+// Calcular
 let _sgHtmlBySem = {};
 
 async function sgCalcular() {
@@ -1174,7 +1174,7 @@ function sgBuildMiniGrid(combo) {
   return html;
 }
 
-// ── Aplicar combinación ───────────────────────────────────
+// Aplicar combinación
 async function sgApply(comboJson, btn) {
   let combo;
   try { combo = JSON.parse(comboJson.replace(/&quot;/g,'"')); }
@@ -1218,7 +1218,7 @@ async function sgApply(comboJson, btn) {
   }
 }
 
-// ─────────────────────────────────────────────────────────
+// PDF del alumno
 function printAlumno() {
   const items = allItems.filter(it => it.semester === currentSem);
   if (!items.length) { alert('No hay asignaturas en este cuatrimestre'); return; }

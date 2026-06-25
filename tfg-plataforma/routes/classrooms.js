@@ -35,7 +35,7 @@ router.get("/free", requireAuth, (req, res) => {
   });
 });
 
-// GET all
+// listar todas
 router.get("/", requireAuth, (req, res) => {
   db.all("SELECT * FROM classrooms ORDER BY name", (err, rows) => {
     if (err) return res.status(500).json({ error: err.message });
@@ -43,7 +43,7 @@ router.get("/", requireAuth, (req, res) => {
   });
 });
 
-// POST create
+// crear
 router.post("/", requireAdmin, (req, res) => {
   const { name, capacity, type, building, zone } = req.body;
   if (!name || !capacity) return res.status(400).json({ error: "Nombre y capacidad requeridos" });
@@ -58,7 +58,7 @@ router.post("/", requireAdmin, (req, res) => {
   );
 });
 
-// PUT update
+// actualizar
 router.put("/:id", requireAdmin, (req, res) => {
   const { name, capacity, type, building, zone } = req.body;
   db.run(
@@ -72,7 +72,7 @@ router.put("/:id", requireAdmin, (req, res) => {
   );
 });
 
-// DELETE
+// eliminar
 router.delete("/:id", requireAdmin, (req, res) => {
   db.run("DELETE FROM classrooms WHERE id=?", [req.params.id], function (err) {
     if (err) return res.status(500).json({ error: err.message });
@@ -81,7 +81,7 @@ router.delete("/:id", requireAdmin, (req, res) => {
   });
 });
 
-// GET /:id/sessions — todas las sesiones asignadas a esta aula
+// GET /:id/sessions: todas las sesiones asignadas a esta aula
 router.get("/:id/sessions", requireAuth, (req, res) => {
   db.all(`
     SELECT ss.day_of_week, ss.slot_start, ss.slot_end,

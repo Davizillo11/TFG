@@ -7,13 +7,13 @@
   <link rel="icon" type="image/png" href="images/icon.png">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <style>
-    /* ── Preferencias card ── */
+    /* tarjeta de preferencias */
     .gen-section {
       background: linear-gradient(145deg, #ffffff 0%, #e8f9fd 100%);
       border-top: 3px solid #00b4d8;
     }
 
-    /* ── Choice cards ── */
+    /* tarjetas de elección */
     .choice-card:nth-child(1) {
       background: linear-gradient(145deg, #ffffff 0%, #fffbf0 100%);
       border-top: 3px solid #f59e0b;
@@ -40,7 +40,7 @@
       border-color: rgba(124,92,232,0.22);
     }
 
-    /* ── Icono con círculo ── */
+    /* icono con círculo */
     .choice-icon {
       display: flex;
       align-items: center;
@@ -56,16 +56,16 @@
       transform: scale(1.1);
     }
 
-    /* ── Reducir espacio título → card ── */
+    /* reducir el espacio entre el título y la tarjeta */
     .gen-title { margin-bottom: 0; }
     #vista-eleccion { gap: 14px; }
 
-    /* ── Placeholder gris en selects del panel ── */
+    /* placeholder gris en los selects del panel */
     #tit-degree:required:invalid,
     #tit-year:required:invalid,
     #tit-sem:required:invalid { color: #9ca3af; }
 
-    /* ── Botones panel titulación ── */
+    /* botones del panel de titulación */
     .tit-btn-cancel {
       padding: 7px 18px; font-size: 0.875rem; font-weight: 500;
       border-radius: 7px; border: 1.5px solid #ef4444;
@@ -87,7 +87,7 @@
 </head>
 <body class="horarios-body">
 
-<!-- NAVBAR -->
+<!-- barra de navegación -->
 <nav>
   <div class="logo">
     <a href="index.html" class="no-hover">
@@ -302,7 +302,7 @@ function addTodoLog(container, label, type, detail) {
   container.scrollTop = container.scrollHeight;
 }
 
-// Cuenta solo las sesiones de duración completa (2h) — las de 1h van a fringe, no a main slots.
+// Cuenta solo las sesiones de duración completa (2h); las de 1h van a fringe, no a main slots.
 function countMainSessions(asigs, dur) {
   return asigs.reduce((sum, s) => {
     let rem = (s.hours_week || 4) * 60, n = 0;
@@ -312,7 +312,7 @@ function countMainSessions(asigs, dur) {
 }
 
 // Elige el mínimo horaFin tal que los main slots de la semana cubran las sesiones necesarias.
-// Orden de extensión: 14 → 17 → 19 → 21.
+// Orden de extensión: 14, 17, 19 y 21.
 function pickHoraFin(needed, dur) {
   const LUNCH_S = 14 * 60, LUNCH_E = 15 * 60;
   function mainSlots(endMin) {
@@ -324,8 +324,8 @@ function pickHoraFin(needed, dur) {
       }
     return c * 5; // 5 días
   }
-  // Start at "17:00" so afternoon slots (15:00) are always available as fallback
-  // when morning teachers are blocked by other groups' sessions.
+  // Empezar en "17:00" para que los slots de tarde (15:00) siempre estén disponibles como
+  // alternativa cuando los profesores de mañana están ocupados por sesiones de otros grupos.
   for (const fin of ["17:00", "19:00", "21:00"])
     if (needed <= mainSlots(parseInt(fin) * 60)) return fin;
   return "21:00";
@@ -452,10 +452,10 @@ async function generarTodo() {
   `;
 }
 
-// ── Load from DB ──────────────────────────────────
+// carga de datos
 let aulasData        = [];
 let asigData         = [];
-let groupCfgMap      = {}; // "degree|year|letter" → { afternoon, bilingual }
+let groupCfgMap      = {}; // "degree|year|letter" -> { afternoon, bilingual }
 let degreeGroupsData = []; // [{degree, year, group_letter}, ...]
 
 async function loadAulas() {
@@ -480,8 +480,8 @@ async function loadDegreeGroups() {
   degreeGroupsData = await res.json();
 }
 
-// ── Por titulación/curso ──────────────────────────
-// Teleco → años 1-2  |  GIT/GITT/GIEC/GIST → años 3-4
+// Por titulación/curso
+// Teleco: años 1-2  |  GIT/GITT/GIEC/GIST: años 3-4
 const DEGREE_YEARS = {
   "Teleco": [1, 2],
   "GIT":    [3, 4],
@@ -683,7 +683,7 @@ function generarPorTitulacion() {
   window.location.href = "resultado.html";
 }
 
-// ── Custom time picker ────────────────────────────
+// selector de hora personalizado
 function ctpToggle(id) {
   const ctp = document.getElementById(id);
   const isOpen = ctp.classList.contains("ctp-open");

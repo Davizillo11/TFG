@@ -20,7 +20,7 @@ const toMin    = t => t.split(":").reduce((h, m) => h * 60 + +m, 0);
 const minToTime = m => `${String(Math.floor(m/60)).padStart(2,'0')}:${String(m%60).padStart(2,'0')}`;
 
 function mergeIntervals(rows) {
-  // rows: [{slot_start, slot_end}] → ["HH:MM-HH:MM", ...]
+  // convierte [{slot_start, slot_end}] en ["HH:MM-HH:MM", ...]
   if (!rows.length) return [];
   const ivs = rows.map(r => [toMin(r.slot_start), toMin(r.slot_end)]);
   ivs.sort((a, b) => a[0] - b[0]);

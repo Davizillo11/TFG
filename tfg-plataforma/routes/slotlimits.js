@@ -8,7 +8,7 @@ const router = express.Router();
 function dbAll(sql, p=[]) { return new Promise((ok,ko) => db.all(sql,p,(e,r)=>e?ko(e):ok(r))); }
 function dbRun(sql, p=[]) { return new Promise((ok,ko) => db.run(sql,p,function(e){e?ko(e):ok(this)})); }
 
-// GET all
+// listar todos
 router.get("/", requireAuth, async (req, res) => {
   try {
     const rows = await dbAll("SELECT * FROM slot_limits ORDER BY degree, year, semester");
@@ -16,7 +16,7 @@ router.get("/", requireAuth, async (req, res) => {
   } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
-// PUT upsert
+// crear o actualizar
 router.put("/", requireAdmin, async (req, res) => {
   try {
     const { degree, year, semester, max_parallel } = req.body;
@@ -35,7 +35,7 @@ router.put("/", requireAdmin, async (req, res) => {
   } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
-// DELETE
+// eliminar
 router.delete("/", requireAdmin, async (req, res) => {
   try {
     const { degree, year, semester } = req.body;

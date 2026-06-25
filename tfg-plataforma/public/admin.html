@@ -54,7 +54,7 @@
     <p>Gestiona los recursos del sistema.</p>
   </div>
 
-  <!-- STATS -->
+  <!-- ESTADÍSTICAS -->
   <div class="stats-grid">
     <div class="stat-card"><span class="stat-num" id="stat-aulas">—</span><span class="stat-lbl">Aulas</span></div>
     <div class="stat-card"><span class="stat-num" id="stat-profesores">—</span><span class="stat-lbl">Profesores</span></div>
@@ -76,7 +76,7 @@
       <button class="admin-tab-btn"        onclick="switchTab('usuarios');loadUsuarios()">Usuarios</button>
     </div>
 
-    <!-- ── AULAS ── -->
+    <!-- AULAS -->
     <div class="admin-tab-content active" id="tab-aulas">
       <h3 class="admin-section-title">Aulas</h3>
       <div class="gen-form" style="margin-bottom:10px;">
@@ -116,7 +116,7 @@
 
     </div>
 
-    <!-- ── PROFESORES ── -->
+    <!-- PROFESORES -->
     <div class="admin-tab-content" id="tab-profesores">
       <h3 class="admin-section-title">Profesores</h3>
       <div class="gen-form" style="margin-bottom:10px;">
@@ -144,7 +144,7 @@
       </table>
     </div>
 
-    <!-- ── ASIGNATURAS ── -->
+    <!-- ASIGNATURAS -->
     <div class="admin-tab-content" id="tab-asignaturas">
       <h3 class="admin-section-title">Asignaturas</h3>
       <div class="gen-form" style="margin-bottom:10px;flex-wrap:wrap;">
@@ -202,7 +202,7 @@
       </table>
     </div>
 
-    <!-- ── USUARIOS ── -->
+    <!-- USUARIOS -->
     <div class="admin-tab-content" id="tab-usuarios">
       <h3 class="admin-section-title">Usuarios</h3>
       <div class="gen-form" style="margin-bottom:20px;flex-wrap:wrap;">
@@ -225,13 +225,13 @@
       </table>
     </div>
 
-    <!-- ── VISTAS ── -->
+    <!-- VISTAS -->
     <div class="admin-tab-content" id="tab-vistas">
       <h3 class="admin-section-title">Vistas de horario</h3>
 
       <!-- Controles -->
       <div style="display:flex;align-items:center;gap:16px;margin-bottom:18px;flex-wrap:wrap;">
-        <!-- Toggle -->
+        <!-- interruptor -->
         <div style="display:flex;border:2px solid #00b4d8;border-radius:8px;overflow:hidden;flex-shrink:0;">
           <button id="vista-toggle-classroom" onclick="setVistaMode('classroom')"
             style="padding:9px 22px;font-size:13px;font-weight:600;border:none;cursor:pointer;transition:0.15s;">
@@ -304,7 +304,7 @@
       </div>
     </div>
 
-    <!-- ── HORARIOS ── -->
+    <!-- HORARIOS -->
     <div class="admin-tab-content" id="tab-horarios">
       <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;flex-wrap:wrap;gap:10px;">
         <h3 class="admin-section-title" style="margin:0">Horarios Generados</h3>
@@ -354,10 +354,10 @@
 
     </div>
 
-    <!-- ── PREFERENCIAS ── -->
+    <!-- PREFERENCIAS -->
     <div class="admin-tab-content" id="tab-preferencias">
 
-      <!-- ── Barra de secciones ── -->
+      <!-- Barra de secciones -->
       <div class="pref-nav">
         <button class="pref-nav-btn active" onclick="switchPrefSection('sec-zonas', this)">Zonas de aulas</button>
         <button class="pref-nav-btn"        onclick="switchPrefSection('sec-grupos',this)">Configuración de grupos</button>
@@ -365,7 +365,7 @@
         <button class="pref-nav-btn"        onclick="switchPrefSection('sec-dg',    this)">Grupos existentes</button>
       </div>
 
-      <!-- ── Zonas de aulas ── -->
+      <!-- Zonas de aulas -->
       <div class="pref-section" id="sec-zonas">
         <div class="gen-form" style="margin-bottom:14px;flex-wrap:wrap;">
           <select id="z-degree" style="min-width:140px;flex:1" onchange="onZDegreeChange()">
@@ -389,7 +389,7 @@
         </table>
       </div>
 
-      <!-- ── Grupos existentes ── -->
+      <!-- Grupos existentes -->
       <div class="pref-section" id="sec-dg" style="display:none;">
         <div class="gen-form" style="margin-bottom:14px;flex-wrap:nowrap;align-items:center;">
           <select id="dg-degree" style="flex:2;min-width:120px;" onchange="onDGDegreeChange()">
@@ -407,7 +407,7 @@
         </table>
       </div>
 
-      <!-- ── Configuración de grupos ── -->
+      <!-- Configuración de grupos -->
       <div class="pref-section" id="sec-grupos" style="display:none;">
         <div class="gen-form" style="margin-bottom:14px;flex-wrap:nowrap;align-items:center;">
           <select id="g-degree"  style="flex:2;min-width:120px;" onchange="onGDegreeChange()">
@@ -433,7 +433,7 @@
         </table>
       </div>
 
-      <!-- ── Límite por franja ── -->
+      <!-- Límite por franja -->
       <div class="pref-section" id="sec-sl" style="display:none;">
         <div class="gen-form" style="margin-bottom:14px;flex-wrap:nowrap;align-items:center;">
           <select id="sl-degree"   style="flex:2;min-width:120px;" onchange="onSLDegreeChange()">
@@ -460,7 +460,7 @@
   </div>
 </div>
 
-<!-- ── MODAL VISOR HORARIO ── -->
+<!-- MODAL VISOR HORARIO -->
 <div class="modal-overlay" id="sched-view-modal">
   <div class="modal-card" style="max-width:clamp(600px,80vw,980px);width:95%;background:#f5f7fa;border:1px solid #d0d5dd;color:#1a1a2e;padding:0;box-shadow:0 8px 40px rgba(0,0,0,0.35);">
     <div class="modal-header" style="background:#1a1a2e;border-bottom:none;padding:14px 20px;border-radius:16px 16px 0 0;">
@@ -477,14 +477,14 @@
   </div>
 </div>
 
-<!-- ── MODAL DISPONIBILIDAD ── -->
+<!-- MODAL DISPONIBILIDAD -->
 <div class="modal-overlay" id="avail-modal">
   <div class="modal-card">
     <div class="modal-header">
       <h3 id="avail-modal-title">Disponibilidad</h3>
       <button class="modal-close" onclick="closeAvailModal()">✕</button>
     </div>
-    <!-- Tabs + acciones en una sola fila -->
+    <!-- pestañas + acciones en una sola fila -->
     <div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap;padding:0 0 10px;">
       <button id="avail-tab-null" onclick="switchAvailTab(null)"
         style="padding:4px 12px;border-radius:5px;border:none;font-size:0.78rem;font-weight:600;cursor:pointer;background:#007bff;color:#fff;">General</button>
@@ -523,7 +523,7 @@ document.addEventListener("DOMContentLoaded", async () => {
   loadStats();
 });
 
-// ── Tabs ──────────────────────────────────────────
+// pestañas
 function switchTab(name) {
   document.querySelectorAll(".admin-tab-content").forEach(el => el.classList.remove("active"));
   document.querySelectorAll(".admin-tab-btn").forEach(el => el.classList.remove("active"));
@@ -531,7 +531,7 @@ function switchTab(name) {
   event.target.classList.add("active");
 }
 
-// ── Stats ─────────────────────────────────────────
+// estadísticas
 async function loadStats() {
   const res = await fetch("/api/v1/stats");
   if (!res.ok) return;
@@ -543,24 +543,24 @@ async function loadStats() {
   document.getElementById("stat-horarios").textContent    = s.schedules;
 }
 
-// ── Load all data ─────────────────────────────────
+// cargar todos los datos
 async function loadAll() {
   await Promise.all([loadAulas(), loadProfesores(), loadAsignaturas(), loadUsuarios()]);
 }
 
-// ── AULAS ─────────────────────────────────────────
+// AULAS
 let aulas = [];
 let aulaEditId = null;
 
 async function loadAulas() {
   const res = await fetch("/api/v1/classrooms");
   aulas = await res.json();
-  // Datalists (form inputs)
+  // datalists (campos del formulario)
   const zones     = [...new Set(aulas.map(a => a.zone).filter(Boolean))].sort();
   const buildings = [...new Set(aulas.map(a => a.building).filter(Boolean))].sort();
   document.getElementById("zone-suggestions").innerHTML     = zones.map(z => `<option value="${z}">`).join("");
   document.getElementById("building-suggestions").innerHTML = buildings.map(b => `<option value="${b}">`).join("");
-  // Filter dropdowns
+  // desplegables de filtro
   const zoneSel = document.getElementById("filter-aula-zone");
   const prevZ   = zoneSel.value;
   zoneSel.innerHTML = `<option value="">Todas las zonas</option>` +
@@ -647,7 +647,7 @@ async function deleteAula(id) {
   await loadAulas();
 }
 
-// ── PROFESORES ────────────────────────────────────
+// PROFESORES
 let profesores = [];
 let profesorEditId = null;
 
@@ -768,7 +768,7 @@ async function deleteProfesor(id) {
   await loadProfesores();
 }
 
-// ── ASIGNATURAS ───────────────────────────────────
+// ASIGNATURAS
 let asignaturas = [];
 let asigEditId = null;
 
@@ -778,7 +778,7 @@ async function loadAsignaturas() {
   // Datalist titulaciones (form input)
   const degrees = [...new Set(asignaturas.map(s => s.degree).filter(Boolean))].sort();
   document.getElementById("degree-suggestions").innerHTML = degrees.map(d => `<option value="${d}">`).join("");
-  // Filter dropdown titulaciones
+  // desplegable de filtro de titulaciones
   const filterDeg = document.getElementById("filter-asig-degree");
   const prev = filterDeg.value;
   filterDeg.innerHTML = `<option value="">Todas las titulaciones</option>` +
@@ -889,7 +889,7 @@ async function deleteAsignatura(id) {
   await loadAsignaturas();
 }
 
-// ── USUARIOS ──────────────────────────────────────
+// USUARIOS
 async function onRoleChange() {
   const role = document.getElementById("u-role").value;
   const tSel = document.getElementById("u-teacher");
@@ -948,7 +948,7 @@ async function deleteUsuario(id) {
   else { const d = await res.json(); alert(d.error); }
 }
 
-// ── DISPONIBILIDAD MODAL ──────────────────────────
+// DISPONIBILIDAD MODAL
 const DAYS  = ["Lun", "Mar", "Mié", "Jue", "Vie"];
 // Franjas horarias de 1h (8:00–21:00)
 const SLOTS = [
@@ -972,7 +972,7 @@ let _availAllRows = [];     // todas las filas del profesor actual
 
 function switchAvailTab(sem) {
   _availTab = sem;
-  // Actualizar estilos de tabs
+  // Actualizar estilos de las pestañas
   [null, 1, 2].forEach(s => {
     const id  = `avail-tab-${s === null ? 'null' : s}`;
     const btn = document.getElementById(id);
@@ -991,7 +991,7 @@ function switchAvailTab(sem) {
   const generalRows = _availAllRows.filter(r => r.semester === null);
   let marked;
   if (tabRows.length === 0) {
-    // Sin datos específicos → partir de General (o todo marcado si General también vacío)
+    // Sin datos específicos: partir de General (o todo marcado si General también está vacío)
     if (generalRows.length === 0) {
       marked = new Set();
       SLOTS.forEach(([s]) => { for (let d = 0; d < 5; d++) marked.add(`${d}-${s}`); });
@@ -1028,7 +1028,7 @@ function initAvailListeners() {
   let dragging = false;
   let dragValue = null;
 
-  // ── Arrastrar ─────────────────────────────────
+  // Arrastrar
   grid.addEventListener("mousedown", e => {
     const cell = e.target.closest(".avail-cell");
     if (!cell) return;
@@ -1044,7 +1044,7 @@ function initAvailListeners() {
   });
   document.addEventListener("mouseup", () => { dragging = false; });
 
-  // ── Clic en cabecera de día (columna) ─────────
+  // Clic en cabecera de día (columna)
   grid.addEventListener("click", e => {
     const hdr = e.target.closest(".avail-day-hdr");
     if (hdr) {
@@ -1053,7 +1053,7 @@ function initAvailListeners() {
       cells.forEach(c => c.classList.toggle("on", !allOn));
       return;
     }
-    // ── Clic en etiqueta de franja (fila) ─────────
+    // Clic en etiqueta de franja (fila)
     const lbl = e.target.closest(".avail-slot-lbl");
     if (lbl) {
       const cells = [...grid.querySelectorAll(`.avail-cell[data-start="${lbl.dataset.start}"]`)];
@@ -1137,7 +1137,7 @@ document.getElementById("sched-view-modal").addEventListener("click", e => {
 });
 
 
-// ── HORARIOS TAB ──────────────────────────────────
+// pestaña HORARIOS
 const ADM_DAY_NAMES = ["Lunes","Martes","Miércoles","Jueves","Viernes"];
 function admTimeToMin(t) { const [h,m] = t.split(":").map(Number); return h*60+m; }
 function cap(s) { return s ? s.charAt(0).toUpperCase() + s.slice(1) : s; }
@@ -1324,7 +1324,7 @@ async function assignScheduleTeachers(id, btn) {
   setTimeout(() => { btn.textContent = orig; }, 4000);
 }
 
-// ── Asignación batch por semestre ────────────────────────────────────────────
+// Asignación batch por semestre
 async function assignSemester(sem) {
   const btnId = `btn-assign-c${sem}`;
   const btn   = document.getElementById(btnId);
@@ -1362,7 +1362,7 @@ function showToast(msg) {
   t._timer = setTimeout(() => { t.style.opacity = "0"; }, 3500);
 }
 
-// ── Panel de edición de profesores por horario ────────────────────────────────
+// Panel de edición de profesores por horario
 let _tpSchedId = null;
 
 async function openTeacherPanel(schedId) {
@@ -1538,7 +1538,7 @@ async function deleteAllHorarios() {
 function buildPrintHTML(sesiones, title, slotMins, duracion, year, semester, groupLetter = '') {
   const DAY_NMS = ["Lunes","Martes","Miércoles","Jueves","Viernes"];
   function tm(t) { const [h,m] = t.split(":").map(Number); return h*60+m; }
-  // Always show all 5 days; 2h base grid + session boundaries so 1h fringe slots fit exactly
+  // Mostrar siempre los 5 días; rejilla base de 2h más los límites de cada sesión para que los slots fringe de 1h encajen exactos
   const dias = [0, 1, 2, 3, 4];
   const FIXED_BOUNDS = [8*60, 10*60, 12*60, 14*60, 15*60, 17*60, 19*60, 21*60];
   const sessBounds = sesiones.flatMap(s => [tm(s.start), tm(s.end)]);
@@ -1674,7 +1674,7 @@ async function uploadProfesorExcelInd(id, input) {
   }
 }
 
-// ── VISTAS ────────────────────────────────────────
+// VISTAS
 let _vistasReady = false;
 let _vistaMode   = 'classroom'; // 'teacher' | 'classroom'
 
@@ -1704,7 +1704,7 @@ function setVistaMode(mode) {
   document.getElementById("vista-result-table").innerHTML = "";
 }
 
-// ── AULAS LIBRES ─────────────────────────────────
+// AULAS LIBRES
 async function buscarAulasLibres() {
   const day   = document.getElementById("fl-day").value;
   const start = document.getElementById("fl-start").value;
@@ -1738,7 +1738,7 @@ async function buscarAulasLibres() {
   </table>`;
 }
 
-// ── PREFERENCIAS DE ZONA ──────────────────────────
+// PREFERENCIAS DE ZONA
 let zonas = [];
 
 async function loadZonas() {
@@ -1811,7 +1811,7 @@ async function loadPreferencias() {
   await Promise.all([loadZonas(), loadGrupos(), loadSlotLimits()]);
 }
 
-// ── Grupos existentes (degree_groups) ───────────────
+// Grupos existentes (degree_groups)
 let degreeGroupsAdmin = [];
 
 async function loadDegreeGroupsAdmin() {
@@ -1916,7 +1916,7 @@ function onGYearChange() {
     groups.map(g => `<option value="${g}">${g}</option>`).join("");
 }
 
-// ── Grupos ──────────────────────────────────────────
+// Grupos
 let grupos = [];
 
 async function loadGrupos() {
@@ -1973,7 +1973,7 @@ async function deleteGrupo(degree, year, group_letter) {
   await loadGrupos();
 }
 
-// ── Slot Limits ─────────────────────────────────────
+// límites por franja
 let slotLimits = [];
 
 async function loadSlotLimits() {
@@ -2142,7 +2142,7 @@ function buildSessionsTable(rows, type) {
 
 </script>
 
-<!-- ── Modal panel de edición de profesores ──────────────────────────────── -->
+<!-- Modal panel de edición de profesores -->
 <style>
 #tp-body::-webkit-scrollbar { width: 10px; }
 #tp-body::-webkit-scrollbar-track { background: transparent; }

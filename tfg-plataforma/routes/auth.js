@@ -4,7 +4,7 @@ const db      = require("../database/db");
 
 const router = express.Router();
 
-// POST /api/v1/auth/login
+// iniciar sesión
 router.post("/login", (req, res) => {
   const { username, password } = req.body;
 
@@ -23,18 +23,18 @@ router.post("/login", (req, res) => {
   });
 });
 
-// POST /api/v1/auth/logout
+// cerrar sesión
 router.post("/logout", (req, res) => {
   req.session.destroy(() => res.json({ ok: true }));
 });
 
-// GET /api/v1/auth/me
+// datos del usuario autenticado
 router.get("/me", (req, res) => {
   if (!req.session.user) return res.status(401).json({ error: "No autenticado" });
   res.json({ user: req.session.user });
 });
 
-// POST /api/v1/auth/change-password
+// cambiar la contraseña
 router.post("/change-password", async (req, res) => {
   if (!req.session.user) return res.status(401).json({ error: "No autenticado" });
 

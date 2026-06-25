@@ -15,7 +15,7 @@ function dbRun(sql, params = []) {
   );
 }
 
-// GET /api/v1/student/items
+// devuelve los items guardados del alumno (asignaturas elegidas)
 router.get("/items", requireAuth, async (req, res) => {
   try {
     const userId = req.session.user.id;
@@ -80,7 +80,7 @@ router.get("/items", requireAuth, async (req, res) => {
   }
 });
 
-// POST /api/v1/student/items
+// añade una asignatura al horario del alumno
 router.post("/items", requireAuth, async (req, res) => {
   try {
     const userId = req.session.user.id;
@@ -90,7 +90,7 @@ router.post("/items", requireAuth, async (req, res) => {
 
     const sg = (subgroup != null && subgroup !== '') ? parseInt(subgroup) : null;
 
-    // INSERT OR REPLACE so re-adding the same subject with a different subgroup updates it
+    // INSERT OR REPLACE: si se vuelve a añadir la misma asignatura con otro subgrupo, se actualiza
     await dbRun(
       `INSERT OR REPLACE INTO student_schedule_items
          (user_id, subject_id, degree, year, semester, group_letter, subgroup)
@@ -103,7 +103,7 @@ router.post("/items", requireAuth, async (req, res) => {
   }
 });
 
-// DELETE /api/v1/student/items?semester=X
+// elimina todos los items del alumno de un cuatrimestre
 router.delete("/items", requireAuth, async (req, res) => {
   try {
     const userId = req.session.user.id;
@@ -119,7 +119,7 @@ router.delete("/items", requireAuth, async (req, res) => {
   }
 });
 
-// DELETE /api/v1/student/items/:id
+// elimina un item concreto del alumno
 router.delete("/items/:id", requireAuth, async (req, res) => {
   try {
     const userId = req.session.user.id;
@@ -133,8 +133,7 @@ router.delete("/items/:id", requireAuth, async (req, res) => {
   }
 });
 
-// GET /api/v1/student/smart-options?subject_ids=1,2,3
-// Devuelve teoría Y subgrupos de lab por grupo (solo horarios activos)
+// devuelve la teoría y los subgrupos de laboratorio por grupo (solo horarios activos)
 router.get("/smart-options", requireAuth, async (req, res) => {
   try {
     const ids = (req.query.subject_ids || '').split(',').map(Number).filter(Boolean);

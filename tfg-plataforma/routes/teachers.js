@@ -5,7 +5,7 @@ const requireAdmin = require("../middleware/adminOnly");
 
 const router = express.Router();
 
-// GET all
+// listar todos
 router.get("/", requireAuth, (req, res) => {
   db.all("SELECT * FROM teachers ORDER BY name", (err, rows) => {
     if (err) return res.status(500).json({ error: err.message });
@@ -13,7 +13,7 @@ router.get("/", requireAuth, (req, res) => {
   });
 });
 
-// POST create
+// crear
 router.post("/", requireAdmin, (req, res) => {
   const { name, department, email, session_type } = req.body;
   if (!name) return res.status(400).json({ error: "Nombre requerido" });
@@ -28,7 +28,7 @@ router.post("/", requireAdmin, (req, res) => {
   );
 });
 
-// PUT update
+// actualizar
 router.put("/:id", requireAdmin, (req, res) => {
   const { name, department, email, session_type } = req.body;
   db.run(
@@ -42,7 +42,7 @@ router.put("/:id", requireAdmin, (req, res) => {
   );
 });
 
-// DELETE
+// eliminar
 router.delete("/:id", requireAdmin, (req, res) => {
   db.run("DELETE FROM teachers WHERE id=?", [req.params.id], function (err) {
     if (err) return res.status(500).json({ error: err.message });
@@ -51,7 +51,7 @@ router.delete("/:id", requireAdmin, (req, res) => {
   });
 });
 
-// GET /:id — datos de un profesor
+// GET /:id: datos de un profesor
 router.get("/:id", requireAuth, (req, res) => {
   db.get("SELECT id, name, department, email, session_type FROM teachers WHERE id=?", [req.params.id], (err, row) => {
     if (err)  return res.status(500).json({ error: err.message });
@@ -60,7 +60,7 @@ router.get("/:id", requireAuth, (req, res) => {
   });
 });
 
-// GET /:id/sessions — todas las sesiones asignadas a este profesor
+// GET /:id/sessions: todas las sesiones asignadas a este profesor
 router.get("/:id/sessions", requireAuth, (req, res) => {
   db.all(`
     SELECT ss.day_of_week, ss.slot_start, ss.slot_end,
