@@ -3,3 +3,9 @@ package-lock.json
 *.db
 *.db-shm
 *.db-wal
+
+# Archivos sensibles / no deben subirse
+*.7z
+tokken.txt
+.env
+*.env
